@@ -93,7 +93,6 @@ export default function EssayReview() {
   };
 
   const splitIntoSentences = (text: string) => {
-    console.log("text", text);
     return text.match(/[^.!?]+[.!?]?[”’"']*/g) || [];
   };
 
@@ -116,7 +115,7 @@ export default function EssayReview() {
           onClick={() => setIsEssayExpanded(!isEssayExpanded)}
           className="w-full p-4 flex justify-between items-center hover:bg-gray-50 transition-colors"
         >
-          <span className="font-semibold text-gray-700">Full Essay</span>
+          <span className="font-semibold text-gray-700">{`Essay ${currentEssay.essay_id}`}</span>
           <span className="text-2xl text-gray-500">
             {isEssayExpanded ? "−" : "+"}
           </span>
