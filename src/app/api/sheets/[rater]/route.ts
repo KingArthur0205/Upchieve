@@ -31,7 +31,7 @@ export async function GET(
     };
 
     const spreadsheetId = spreadsheetMap[rater];
-    console.log("spreadsheetId", spreadsheetId);
+
     if (!spreadsheetId) {
       return NextResponse.json(
         {
@@ -44,10 +44,8 @@ export async function GET(
 
     // Get metadata to determine the available sheet names
     const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-    console.log("spreadsheet", spreadsheet.data);
     // Use the first available sheet name
     const sheetName = spreadsheet.data.sheets?.[0].properties?.title;
-    console.log("sheetName", sheetName);
     if (!sheetName) {
       return NextResponse.json(
         { error: "No sheet found", details: "Could not retrieve sheet name." },
@@ -60,8 +58,6 @@ export async function GET(
       spreadsheetId,
       range: `${sheetName}!A:Z`, // Ensure this range exists in your sheet
     });
-
-    console.log("response", response.data.values);
 
     return NextResponse.json(response.data.values);
   } catch (error) {
