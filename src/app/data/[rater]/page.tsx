@@ -5,10 +5,20 @@ import { useParams } from "next/navigation";
 
 interface Essay {
   essay_id: string;
+  grade: string;
+  instructions: string;
   essay: string;
   excerpt: string;
   comment: string;
-  [key: string]: any;
+  tid: string;
+  isRepresentative: string;
+  comment_id: string;
+  ideas: "0" | "1";
+  organization: "0" | "1";
+  voice: "0" | "1";
+  word_choice: "0" | "1";
+  sentence_fluency: "0" | "1";
+  conventions: "0" | "1";
 }
 
 const TRAITS = [
@@ -24,27 +34,36 @@ export default function EssayReview() {
   const { rater } = useParams();
 
   const [essays, setEssays] = useState<Essay[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [essayIds, setEssayIds] = useState<string[]>([]);
+  const [currentEssayId, setCurrentEssayId] = useState("");
   const [isEssayExpanded, setIsEssayExpanded] = useState(false);
-  const [sentenceSelections, setSentenceSelections] = useState<string[]>([]);
-
-  useEffect(() => {
-    fetchEssays();
-  }, []);
+  const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
 
   const fetchEssays = async () => {
     const response = await fetch(`/api/sheets/${rater}`);
     const data = await response.json();
-    const headers = data[0];
-    const essays = data.slice(1).map((row: any[]) => {
-      const essay: any = {};
-      headers.forEach((header: string, index: number) => {
+    console.log("data: ", data);
+    const headers = data[0] as Array<keyof Essay>;
+
+    const essays = data.slice(1).map((row: string[] & "0" & "1") => {
+      const essay = {} as Essay;
+      console.log("row: ", row);
+
+      headers.forEach((header: keyof Essay, index: number) => {
         essay[header] = row[index];
       });
+
       return essay;
     });
+
+    setEssayIds(essays.map((essay: Essay) => essay.essay_id));
+    setCurrentEssayId(essays[0].essay_id);
     setEssays(essays);
   };
+
+  useEffect(() => {
+    fetchEssays();
+  }, []);
 
   const highlightExcerpt = (essay: string, excerpt: string) => {
     if (!excerpt.trim()) return essay;
@@ -62,7 +81,7 @@ export default function EssayReview() {
   };
 
   const handleTraitChange = (index: number, trait: string) => {
-    setSentenceSelections((prev) => {
+    setSelectedTraits((prev) => {
       const newSelections = [...prev];
       newSelections[index] = trait;
       return newSelections;
@@ -71,22 +90,24 @@ export default function EssayReview() {
 
   const handleSubmit = async () => {
     try {
-      const rowNumber = currentIndex + 2;
-      const values = [sentenceSelections];
-
-      await fetch("/api/sheets", {
+      await fetch(`/api/sheets/${rater}/annotate`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          range: `Sheet1!J${rowNumber}:O${rowNumber}`,
-          values,
+          currentEssay,
+          selectedTraits,
         }),
       });
 
-      setCurrentIndex((prev) => Math.min(prev + 1, essays.length - 1));
-      setSentenceSelections([]);
+      const essayIdsUpdate = essayIds.filter(
+        (essayId) => essayId !== currentEssayId
+      );
+
+      setEssayIds(essayIdsUpdate);
+      setCurrentEssayId(essayIdsUpdate[0]);
+      setSelectedTraits([]);
     } catch (error) {
       console.error("Error updating sheet:", error);
     }
@@ -95,8 +116,11 @@ export default function EssayReview() {
   const splitIntoSentences = (text: string) => {
     return text.match(/[^.!?]+[.!?]?[”’"']*/g) || [];
   };
-
-  const currentEssay = essays[currentIndex];
+  console.log("currentEssayId: ", currentEssayId);
+  const currentEssay = essays?.find(
+    (essay) => essay.essay_id === currentEssayId
+  );
+  console.log("currentEssay: ", currentEssay);
   if (!currentEssay) return <div>Loading...</div>;
 
   const sentences = splitIntoSentences(currentEssay.comment);
@@ -105,7 +129,7 @@ export default function EssayReview() {
     <div className="mx-auto p-6 bg-gray-50 min-h-screen">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800 text-right">
-          {currentIndex + 1} of {essays.length}
+          {currentEssayId + 1} of {essays.length}
         </h1>
       </div>
 
@@ -144,7 +168,7 @@ export default function EssayReview() {
               <p className="text-gray-600 w-3/4">{sentence.trim()}</p>
               <select
                 className="border border-gray-300 p-2 rounded-lg text-gray-700"
-                value={sentenceSelections[index] || ""}
+                value={selectedTraits[index] || ""}
                 onChange={(e) => handleTraitChange(index, e.target.value)}
               >
                 <option value="">Select Trait</option>
@@ -162,10 +186,10 @@ export default function EssayReview() {
       {/* Navigation Buttons */}
       <div className="flex justify-between pt-4 border-t border-gray-100">
         <button
-          onClick={() => setCurrentIndex((prev) => Math.max(prev - 1, 0))}
-          disabled={currentIndex === 0}
+          onClick={() => setCurrentEssayId((prev) => Math.max(prev - 1, 0))}
+          disabled={currentEssayId === 0}
           className={`px-6 py-2 rounded-lg transition-colors ${
-            currentIndex === 0
+            currentEssayId === 0
               ? "bg-gray-100 text-gray-400 cursor-not-allowed"
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
