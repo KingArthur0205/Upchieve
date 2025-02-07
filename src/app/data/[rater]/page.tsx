@@ -38,7 +38,8 @@ const TRAITS = [
 ];
 
 export default function EssayReview() {
-  const { rater } = useParams();
+  const params = useParams<{ rater: string }>();
+  const rater = params?.rater;
 
   const [allEssays, setAllEssays] = useState<Essay[]>([]);
   const [essayIds, setEssayIds] = useState<string[]>([]);

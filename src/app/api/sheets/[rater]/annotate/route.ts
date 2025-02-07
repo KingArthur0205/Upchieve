@@ -1,5 +1,5 @@
 import { google } from "googleapis";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 interface LabeledComment {
   sentences: string[];
@@ -14,13 +14,13 @@ interface RequestBody {
 }
 
 export async function PUT(
-  req: Request,
-  { params }: { params: { rater: string } }
+  req: NextRequest,
+  { params }: { params: Promise<{ rater: string }> }
 ) {
   try {
     const body: RequestBody = await req.json();
     const { labeledComments } = body;
-    const { rater } = params;
+    const { rater } = await params;
 
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
@@ -180,7 +180,7 @@ export async function PUT(
   } catch (error) {
     console.error("Error updating sheet:", error);
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      { error: "Internal server error", details: (error as Error).message },
       { status: 500 }
     );
   }
