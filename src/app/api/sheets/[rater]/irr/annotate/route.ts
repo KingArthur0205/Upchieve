@@ -24,6 +24,7 @@ export async function PUT(
 
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
+      "0": process.env.IRR_SPREADSHEET_ID,
       "1": process.env.RATER_1_IRR_SPREADSHEET_ID,
       "2": process.env.RATER_2_IRR_SPREADSHEET_ID,
       "3": process.env.RATER_3_IRR_SPREADSHEET_ID,

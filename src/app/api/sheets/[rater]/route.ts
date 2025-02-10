@@ -23,6 +23,7 @@ export async function GET(
 
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
+      "0": process.env.REMAINING_SPREADSHEET_ID,
       "1": process.env.RATER_1_SPREADSHEET_ID,
       "2": process.env.RATER_2_SPREADSHEET_ID,
       "3": process.env.RATER_3_SPREADSHEET_ID,
