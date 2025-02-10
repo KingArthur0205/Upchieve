@@ -92,12 +92,6 @@ export default function IRREssayReview() {
     fetchEssays();
   }, []);
 
-  useEffect(() => {
-    if (essayIds?.length === 0) {
-      router.push(`/data/${rater}`);
-    }
-  }, [essayIds]);
-
   const highlightExcerpt = (essay: string, excerpt: string) => {
     if (!excerpt.trim()) return essay;
     const escapedExcerpt = excerpt.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
@@ -227,6 +221,12 @@ export default function IRREssayReview() {
         setLabeledComments([]);
         setSelectedTraits([]);
         setError(null);
+
+        if (essayIdsUpdate.length === 0) {
+          alert(
+            "You are done with Part 1! Please email Alexa to let her know! Email: absparks@stanford.edu"
+          );
+        }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to submit labels";
