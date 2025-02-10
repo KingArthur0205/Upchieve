@@ -15,7 +15,7 @@ export default function Home() {
     const normalizedCode = code.toLowerCase().trim();
 
     // Check if the code matches the pattern "rater" followed by a number 1-5
-    const match = normalizedCode.match(/^rater([1-5])$/);
+    const match = normalizedCode.match(/^rater([0-5])$/);
 
     if (match) {
       const raterNumber = match[1];
