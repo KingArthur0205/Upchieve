@@ -59,7 +59,33 @@ export async function GET(
       range: `${sheetName}!A:Z`, // Ensure this range exists in your sheet
     });
 
-    return NextResponse.json(response.data.values);
+    // filter rows that have been processed
+    // const processedRows = new Set<string>();
+
+    const rows = response.data.values;
+
+    const processedRows = rows?.filter((row, index) => {
+      if (index === 0) {
+        return true;
+      }
+
+      if (!row) {
+        return false;
+      }
+
+      // The row has already been processed if there is a matching comment_id with an appended "_"
+      if (
+        !!rows.find((r) => {
+          return r[8]?.includes(`${row[8]}_`) || row[8]?.includes("_");
+        })
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return NextResponse.json(processedRows);
   } catch (error) {
     console.error("Detailed error:", error);
     return NextResponse.json(

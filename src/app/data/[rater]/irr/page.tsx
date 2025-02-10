@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 interface Essay {
   essay_id: string;
@@ -40,6 +40,7 @@ const TRAITS = [
 export default function IRREssayReview() {
   const params = useParams<{ rater: string }>();
   const rater = params?.rater;
+  const router = useRouter();
 
   const [allEssays, setAllEssays] = useState<Essay[]>([]);
   const [essayIds, setEssayIds] = useState<string[]>([]);
@@ -71,9 +72,9 @@ export default function IRREssayReview() {
       });
 
       setEssayIds(essays.map((essay: Essay) => essay.essay_id));
-      setCurrentEssayId(essays[0].essay_id);
+      setCurrentEssayId(essays[0]?.essay_id);
       setCurrentEssays(
-        essays.filter((essay) => essay.essay_id === essays[0].essay_id)
+        essays.filter((essay) => essay.essay_id === essays[0]?.essay_id)
       );
       setAllEssays(essays);
       setError(null);
@@ -90,6 +91,12 @@ export default function IRREssayReview() {
   useEffect(() => {
     fetchEssays();
   }, []);
+
+  useEffect(() => {
+    if (essayIds?.length === 0) {
+      router.push(`/data/${rater}`);
+    }
+  }, [essayIds]);
 
   const highlightExcerpt = (essay: string, excerpt: string) => {
     if (!excerpt.trim()) return essay;
@@ -132,7 +139,9 @@ export default function IRREssayReview() {
   };
 
   const splitIntoSentences = (text: string) => {
-    return text.match(/[^.!?]+[.!?]?["'"']*/g) || [];
+    return (text.match(/[^.!?]+[.!?]?["'"']*/g) || [])
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
   };
 
   const isCurrentCommentFullyLabeled = () => {
@@ -251,6 +260,13 @@ export default function IRREssayReview() {
   const isSubmitEnabled = isCurrentCommentFullyLabeled() && !isSubmitting;
   const isLastComment = currentCommentIndex === currentEssays.length - 1;
 
+  const totalEssayCount = new Set(allEssays.map((essay) => essay.essay_id))
+    .size;
+  const remainingEssayCount = new Set(essayIds).size;
+  const completedEssays = totalEssayCount - remainingEssayCount;
+
+  const progressPercentage = (completedEssays / totalEssayCount) * 100;
+
   return (
     <div className="mx-auto p-6 bg-gray-50 min-h-screen">
       {error && (
@@ -263,8 +279,25 @@ export default function IRREssayReview() {
       )}
 
       <div className="mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-gray-600">
+            Essays completed: {completedEssays} of {totalEssayCount}
+          </span>
+          <span className="text-sm text-gray-600">
+            {progressPercentage.toFixed(0)}%
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div
+            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+            style={{ width: `${progressPercentage}%` }}
+          ></div>
+        </div>
+      </div>
+
+      <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800 text-right">
-          Essay {currentEssayId} - Comment {currentCommentIndex + 1} of{" "}
+          Essay #{currentEssayId} - Comment {currentCommentIndex + 1} of{" "}
           {currentEssays.length}
         </h1>
       </div>
@@ -274,7 +307,7 @@ export default function IRREssayReview() {
           onClick={() => setIsEssayExpanded(!isEssayExpanded)}
           className="w-full p-4 flex justify-between items-center hover:bg-gray-50 transition-colors"
         >
-          <span className="font-semibold text-gray-700">{`Essay ${currentEssay.essay_id}`}</span>
+          <span className="font-semibold text-gray-700">{`Essay #${currentEssay.essay_id}`}</span>
           <span className="text-2xl text-gray-500">
             {isEssayExpanded ? "−" : "+"}
           </span>
@@ -289,8 +322,8 @@ export default function IRREssayReview() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <p className="text-gray-600 mb-4 italic">
-          Excerpt: {currentEssay.excerpt}
+        <p className="text-gray-600 mb-4 italic border-b pb-6">
+          <span className="not-italic">Excerpt:</span> {currentEssay.excerpt}
         </p>
 
         <div className="space-y-4 pt-4">
@@ -317,7 +350,7 @@ export default function IRREssayReview() {
           <button
             onClick={handleSubmit}
             disabled={!isSubmitEnabled}
-            className={`px-6 py-2 rounded-lg transition-colors flex items-center ${
+            className={`px-6 py-2 mt-10 rounded-lg transition-colors flex items-center ${
               isSubmitEnabled
                 ? "bg-blue-500 text-white hover:bg-blue-600"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
@@ -344,7 +377,7 @@ export default function IRREssayReview() {
             <div key={comment.comment_id} className="py-4 last:mb-0 border-t">
               <div className="flex justify-between items-center mb-2">
                 <div className="text-sm text-gray-500 italic">
-                  Excerpt: {comment.excerpt}
+                  <span className="not-italic">Excerpt:</span> {comment.excerpt}
                 </div>
                 <button
                   onClick={() => toggleEditComment(comment.comment_id)}

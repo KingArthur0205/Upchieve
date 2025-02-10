@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 interface Essay {
   essay_id: string;
@@ -40,6 +40,7 @@ const TRAITS = [
 export default function EssayReview() {
   const params = useParams<{ rater: string }>();
   const rater = params?.rater;
+  const router = useRouter();
 
   const [allEssays, setAllEssays] = useState<Essay[]>([]);
   const [essayIds, setEssayIds] = useState<string[]>([]);
@@ -57,10 +58,13 @@ export default function EssayReview() {
   const fetchEssays = async () => {
     try {
       const response = await fetch(`/api/sheets/${rater}`);
-      if (!response.ok) {
+      const irrResponse = await fetch(`/api/sheets/${rater}/irr`);
+      if (!response.ok || !irrResponse.ok) {
         throw new Error(`Failed to fetch essays: ${response.statusText}`);
       }
       const data = await response.json();
+      const irrData = await irrResponse.json();
+
       const headers = data[0] as Array<keyof Essay>;
       const essays: Essay[] = data.slice(1).map((row: string[] & "0" & "1") => {
         const essay = {} as Essay;
@@ -69,6 +73,24 @@ export default function EssayReview() {
         });
         return essay;
       });
+
+      // check if there are any irr essays
+      if (irrData.length > 0) {
+        const irrHeaders = irrData[0] as Array<keyof Essay>;
+        const irrEssays: Essay[] = irrData
+          .slice(1)
+          .map((row: string[] & "0" & "1") => {
+            const essay = {} as Essay;
+            irrHeaders.forEach((header: keyof Essay, index: number) => {
+              essay[header] = row[index];
+            });
+            return essay;
+          });
+
+        if (irrEssays.length > 0) {
+          router.push(`/data/${rater}/irr`);
+        }
+      }
 
       setEssayIds(essays.map((essay: Essay) => essay.essay_id));
       setCurrentEssayId(essays[0].essay_id);
@@ -132,7 +154,9 @@ export default function EssayReview() {
   };
 
   const splitIntoSentences = (text: string) => {
-    return text.match(/[^.!?]+[.!?]?["'"']*/g) || [];
+    return (text.match(/[^.!?]+[.!?]?["'"']*/g) || [])
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
   };
 
   const isCurrentCommentFullyLabeled = () => {
@@ -269,7 +293,7 @@ export default function EssayReview() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+      <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm text-gray-600">
             Essays completed: {completedEssays} of {totalEssayCount}
@@ -313,7 +337,7 @@ export default function EssayReview() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <p className="text-gray-600 mb-4 italic">
+        <p className="text-gray-600 mb-4 italic border-b pb-6">
           <span className="not-italic">Excerpt:</span> {currentEssay.excerpt}
         </p>
 
