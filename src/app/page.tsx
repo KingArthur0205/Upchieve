@@ -28,7 +28,7 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Welcome!</h1>
       <p className="text-lg text-gray-700 mb-6">
         Please enter your rater code to view essays:
@@ -44,7 +44,7 @@ export default function Home() {
               setError(""); // Clear error when user types
             }}
             placeholder="Enter code (e.g., rater1)"
-            className="px-4 py-3 text-lg border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-3 text-lg border border-gray-300 text-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
 
           {error && <div className="text-red-600 text-sm">{error}</div>}

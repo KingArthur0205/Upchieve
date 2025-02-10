@@ -23,11 +23,11 @@ export async function GET(
 
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
-      "1": process.env.RATER_1_SPREADSHEET_ID,
-      "2": process.env.RATER_2_SPREADSHEET_ID,
-      "3": process.env.RATER_3_SPREADSHEET_ID,
-      "4": process.env.RATER_4_SPREADSHEET_ID,
-      "5": process.env.RATER_5_SPREADSHEET_ID,
+      "1": process.env.RATER_1_IRR_SPREADSHEET_ID,
+      "2": process.env.RATER_2_IRR_SPREADSHEET_ID,
+      "3": process.env.RATER_3_IRR_SPREADSHEET_ID,
+      "4": process.env.RATER_4_IRR_SPREADSHEET_ID,
+      "5": process.env.RATER_5_IRR_SPREADSHEET_ID,
     };
 
     const spreadsheetId = spreadsheetMap[rater];
@@ -59,25 +59,7 @@ export async function GET(
       range: `${sheetName}!A:Z`, // Ensure this range exists in your sheet
     });
 
-    // filter rows that have been processed
-    // const processedRows = new Set<string>();
-
-    const rows = response.data.values;
-
-    const processedRows = rows?.filter((row) => {
-      if (!row) {
-        return false;
-      }
-
-      // The row has already been processed if there is a matching comment_id with an appended "_"
-      if (rows.find((r) => r[8] && r[8].includes(`${row[8]}_`))) {
-        return false;
-      }
-
-      return true;
-    });
-
-    return NextResponse.json(processedRows);
+    return NextResponse.json(response.data.values);
   } catch (error) {
     console.error("Detailed error:", error);
     return NextResponse.json(

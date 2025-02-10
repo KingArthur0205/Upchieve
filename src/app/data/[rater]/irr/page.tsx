@@ -37,7 +37,7 @@ const TRAITS = [
   "Sentence Fluency",
 ];
 
-export default function EssayReview() {
+export default function IRREssayReview() {
   const params = useParams<{ rater: string }>();
   const rater = params?.rater;
 
@@ -56,7 +56,7 @@ export default function EssayReview() {
 
   const fetchEssays = async () => {
     try {
-      const response = await fetch(`/api/sheets/${rater}`);
+      const response = await fetch(`/api/sheets/${rater}/irr`);
       if (!response.ok) {
         throw new Error(`Failed to fetch essays: ${response.statusText}`);
       }
@@ -178,7 +178,7 @@ export default function EssayReview() {
       setError(null);
 
       try {
-        const response = await fetch(`/api/sheets/${rater}/annotate`, {
+        const response = await fetch(`/api/sheets/${rater}/irr/annotate`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -290,7 +290,7 @@ export default function EssayReview() {
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         <p className="text-gray-600 mb-4 italic">
-          <span className="not-italic">Excerpt:</span> {currentEssay.excerpt}
+          Excerpt: {currentEssay.excerpt}
         </p>
 
         <div className="space-y-4 pt-4">
@@ -317,7 +317,7 @@ export default function EssayReview() {
           <button
             onClick={handleSubmit}
             disabled={!isSubmitEnabled}
-            className={`px-6 py-2 mt-10 rounded-lg transition-colors flex items-center ${
+            className={`px-6 py-2 rounded-lg transition-colors flex items-center ${
               isSubmitEnabled
                 ? "bg-blue-500 text-white hover:bg-blue-600"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
@@ -344,7 +344,7 @@ export default function EssayReview() {
             <div key={comment.comment_id} className="py-4 last:mb-0 border-t">
               <div className="flex justify-between items-center mb-2">
                 <div className="text-sm text-gray-500 italic">
-                  <span className="not-italic">Excerpt:</span> {comment.excerpt}
+                  Excerpt: {comment.excerpt}
                 </div>
                 <button
                   onClick={() => toggleEditComment(comment.comment_id)}
