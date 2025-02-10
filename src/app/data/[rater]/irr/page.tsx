@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
 interface Essay {
   essay_id: string;
@@ -40,7 +40,6 @@ const TRAITS = [
 export default function IRREssayReview() {
   const params = useParams<{ rater: string }>();
   const rater = params?.rater;
-  const router = useRouter();
 
   const [allEssays, setAllEssays] = useState<Essay[]>([]);
   const [essayIds, setEssayIds] = useState<string[]>([]);
