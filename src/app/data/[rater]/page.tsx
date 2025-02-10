@@ -250,6 +250,13 @@ export default function EssayReview() {
   const currentSentences = splitIntoSentences(currentEssay.comment);
   const isSubmitEnabled = isCurrentCommentFullyLabeled() && !isSubmitting;
   const isLastComment = currentCommentIndex === currentEssays.length - 1;
+  const totalEssayCount = new Set(allEssays.map((essay) => essay.essay_id))
+    .size;
+
+  const remainingEssayCount = new Set(essayIds).size;
+  const completedEssays = totalEssayCount - remainingEssayCount;
+
+  const progressPercentage = (completedEssays / totalEssayCount) * 100;
 
   return (
     <div className="mx-auto p-6 bg-gray-50 min-h-screen">
@@ -261,6 +268,23 @@ export default function EssayReview() {
           <p>{error}</p>
         </div>
       )}
+
+      <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm text-gray-600">
+            Essays completed: {completedEssays} of {totalEssayCount}
+          </span>
+          <span className="text-sm text-gray-600">
+            {progressPercentage.toFixed(0)}%
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div
+            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+            style={{ width: `${progressPercentage}%` }}
+          ></div>
+        </div>
+      </div>
 
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800 text-right">

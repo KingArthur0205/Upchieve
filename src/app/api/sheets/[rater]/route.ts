@@ -64,13 +64,21 @@ export async function GET(
 
     const rows = response.data.values;
 
-    const processedRows = rows?.filter((row) => {
+    const processedRows = rows?.filter((row, index) => {
+      if (index === 0) {
+        return true;
+      }
+
       if (!row) {
         return false;
       }
 
       // The row has already been processed if there is a matching comment_id with an appended "_"
-      if (rows.find((r) => r[8] && r[8].includes(`${row[8]}_`))) {
+      if (
+        !!rows.find((r) => {
+          return r[8]?.includes(`${row[8]}_`) || row[8]?.includes("_");
+        })
+      ) {
         return false;
       }
 
