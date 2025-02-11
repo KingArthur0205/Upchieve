@@ -274,10 +274,10 @@ export default function IRREssayReview() {
 
       <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-600">
+          <span className="text-m text-gray-600">
             Essays completed: {completedEssays} of {totalEssayCount}
           </span>
-          <span className="text-sm text-gray-600">
+          <span className="text-m text-gray-600">
             {progressPercentage.toFixed(0)}%
           </span>
         </div>
@@ -316,14 +316,14 @@ export default function IRREssayReview() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <p className="text-gray-600 mb-4 italic border-b pb-6">
+        <p className="text-gray-700 text-lg mb-4 italic border-b pb-6">
           <span className="not-italic">Excerpt:</span> {currentEssay.excerpt}
         </p>
 
         <div className="space-y-4 pt-4">
           {currentSentences.map((sentence, index) => (
             <div key={index} className="flex items-center justify-between">
-              <p className="text-gray-600 w-3/4">{sentence.trim()}</p>
+              <p className="text-gray-700 text-lg w-3/4">{sentence.trim()}</p>
               <select
                 className="border border-gray-300 p-2 rounded-lg text-gray-700"
                 value={selectedTraits[index] || ""}

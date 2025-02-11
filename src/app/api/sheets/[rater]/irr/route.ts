@@ -37,7 +37,7 @@ export async function GET(
       return NextResponse.json(
         {
           error: "Invalid rater",
-          details: "Rater must be a number between 1 and 5",
+          details: "Rater must be a number between 0 and 5",
         },
         { status: 400 }
       );
