@@ -132,12 +132,6 @@ export default function IRREssayReview() {
     );
   };
 
-  // const splitIntoSentences = (text: string) => {
-  //   return (text.match(/[^.!?]+[.!?]?["'"']*/g) || [])
-  //     .map((sentence) => sentence.trim())
-  //     .filter(Boolean);
-  // };
-
   const isCurrentCommentFullyLabeled = () => {
     const currentSentences = splitIntoSentences(
       currentEssays[currentCommentIndex]?.comment || ""
