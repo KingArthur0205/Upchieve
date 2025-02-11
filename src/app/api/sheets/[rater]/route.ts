@@ -1,5 +1,10 @@
 import { google } from "googleapis";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
+import { splitIntoSentences } from "@/app/_helpers/splitIntoSentences";
+
+interface RequestBody {
+  text: string;
+}
 
 export async function GET(
   req: Request,
@@ -87,6 +92,24 @@ export async function GET(
     });
 
     return NextResponse.json(processedRows);
+  } catch (error) {
+    console.error("Detailed error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch data", details: (error as Error).message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body: RequestBody = await req.json();
+
+    const { text } = body;
+
+    const split = splitIntoSentences(text);
+
+    return NextResponse.json({ text: split });
   } catch (error) {
     console.error("Detailed error:", error);
     return NextResponse.json(

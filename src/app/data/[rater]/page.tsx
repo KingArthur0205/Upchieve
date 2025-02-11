@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { splitIntoSentences } from "@/app/_helpers/splitIntoSentences";
 
 interface Essay {
   essay_id: string;
@@ -152,12 +153,6 @@ export default function EssayReview() {
         return comment;
       })
     );
-  };
-
-  const splitIntoSentences = (text: string) => {
-    return (text.match(/[^.!?]+[.!?]?["'"']*/g) || [])
-      .map((sentence) => sentence.trim())
-      .filter(Boolean);
   };
 
   const isCurrentCommentFullyLabeled = () => {
