@@ -12,7 +12,6 @@ export async function GET(
 ) {
   try {
     const { rater } = await params;
-    console.log("First flag inside route")
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,

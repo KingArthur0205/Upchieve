@@ -1,6 +1,6 @@
 "use client";
-
 import { splitIntoSentences } from "@/app/_helpers/splitIntoSentences";
+import Image from 'next/image';
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -378,6 +378,30 @@ export default function EssayReview() {
     );
   }
 
+  if (currentEssays.length == 0) {
+    return(
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="flex flex-col items-center">
+        <div className="flex justify-center mb-4"> {/* Center the image */}
+          <div className="w-full max-w-xs"> {/* Adjust max-width as needed */}
+            <Image
+              src={"/stanford-gse.png"}
+              layout="responsive"
+              width={4}
+              height={3}
+              className="max-w-full h-auto"
+              alt="Stanford Graduate School of Education Logo"
+            />
+          </div>
+        </div>
+        <h1 className='text-3xl mb-4 p-4 text-gray-900 text-center'>All done!</h1>
+        <p className="mb-4 text-gray-700 text-lg text-center">Thank you for participating in our study -- we'll be in touch soon either with a next step or with your gift card.</p>
+        <p className="mb-4 text-gray-700 text-lg text-center">Please don't hesitate to reach out to mxtan@stanford.edu with any questions!</p>
+      </div>
+      </div>
+    );
+  }
+
   const currentEssay = currentEssays[currentCommentIndex];
   if (!currentEssay) return <div>Loading...</div>;
 
@@ -414,7 +438,7 @@ export default function EssayReview() {
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
-            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+            className="bg-[#009AB4] h-2 rounded-full transition-all duration-300"
             style={{ width: `${progressPercentage}%` }}
           ></div>
         </div>
@@ -447,14 +471,19 @@ export default function EssayReview() {
       </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <p className="text-gray-700 text-lg mb-4 italic border-b pb-6">
-          <span className="not-italic">Excerpt:</span> {currentEssay.excerpt}
+        <p className="text-gray-700 text-lg mb-4 border-b pb-6">
+          <span className="not-italic">Excerpt:</span> <span className="bg-yellow-200 px-1 font-bold rounded">{currentEssay.excerpt}</span>
         </p>
 
         <div className="space-y-4 pt-4">
           {currentSentences.map((sentence, index) => (
-            <div key={index} className="flex items-start justify-between">
-              <p className="text-gray-700 text-lg w-1/2"><span className="not-italic">Comment:</span> {sentence.trim()}</p>
+            <div key={index} className="flex items-start justify-between border-b pb-6">
+              {currentSentences.length > 1 &&
+                <p className="text-gray-700 text-lg w-1/2"><span className="not-italic">Comment Part {index + 1}:</span> <span className="bg-[#e6f5f8] px-1 rounded">{sentence.trim()}</span></p>
+              }
+              {currentSentences.length == 1 &&
+                <p className="text-gray-700 text-lg w-1/2"><span className="not-italic">Comment:</span> <span className="bg-[#e6f5f8] px-1 rounded">{sentence.trim()}</span></p>
+              }
               <div className="flex flex-col space-y-2 items-start w-1/3">
                 <p className="pt-4">Is a revision requested?</p>
                 <div><input type="radio" name={`revision-${index}`} value="YES" 
@@ -587,7 +616,7 @@ export default function EssayReview() {
             disabled={!isSubmitEnabled}
             className={`px-6 py-2 mt-10 rounded-lg transition-colors flex items-center ${
               isSubmitEnabled
-                ? "bg-blue-500 text-white hover:bg-blue-600"
+                ? "bg-[#009AB4] text-white hover:bg-[#006c7e]"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             }`}
           >
