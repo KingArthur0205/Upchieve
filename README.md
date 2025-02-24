@@ -20,17 +20,15 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
+## Google Sheets Integration
 
-To learn more about Next.js, take a look at the following resources:
+This project reads and writes data to Google Sheets. To allow this integration:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> Go to https://console.cloud.google.com/
+> Select IAM & Admin, then select Service Accounts
+> Create a new Service Account.
+> The service account comes with an email address that ends in @cosmic-anthem-412619.iam.gserviceaccount.com -- share the Google sheet to access with this account.
+> Download the service account details as JSON -- this should include a private key and client email.
+> Save the private key and client email as local environment variables -- you can use these in GooglAuth in route.ts files.
+> The first time you access the spreadsheets, you'll get an error message prompting you to enable Google Sheets API -- follow the instructions in the error message to do so.
+> The spreadsheets IDs you would like to access can also be saved as local environment variables.
