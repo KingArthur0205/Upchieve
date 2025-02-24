@@ -3,9 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 
 interface LabeledComment {
   sentences: string[];
-  labels: string[];
   comment_id: string;
   excerpt: string;
+  traits: string[];
+  isrevisionrequested: string[];
+  isrevisionclear: string[];
+  ispraise: string[];
+  isbad: string[];
+  levelofinformation: string[];
+  revisiontype: string[];
+  sentencetype: string[];
+  whoseideas: string[];
 }
 
 interface RequestBody {
@@ -24,7 +32,7 @@ export async function PUT(
 
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
-      "0": process.env.REMAINING_SPREADSHEET_ID,
+      "tester": process.env.TEST_SPREADSHEET_ID,
       "1": process.env.RATER_1_SPREADSHEET_ID,
       "2": process.env.RATER_2_SPREADSHEET_ID,
       "3": process.env.RATER_3_SPREADSHEET_ID,
@@ -87,6 +95,16 @@ export async function PUT(
     const commentCol = headers.indexOf("comment");
     const commentIdCol = headers.indexOf("comment_id");
 
+    const isRevisionRequestedCol = headers.indexOf("isRevisionRequested");
+    const isRevisionClearCol = headers.indexOf("isRevisionClear");
+    const isPraiseCol = headers.indexOf("isPraise");
+    const isBadCol = headers.indexOf("isBad");
+
+    const revisionTypeCol = headers.indexOf("revisionType");
+    const sentenceTypeCol = headers.indexOf("sentenceType");
+    const levelOfInformationCol = headers.indexOf("levelOfInformation");
+    const whoseIdeasCol = headers.indexOf("whoseIdeas");
+
     // Store all new sentence rows to append at the end
     const newSentenceRows: string[][] = [];
     const updatedOriginalRows: { row: string[]; index: number }[] = [];
@@ -100,24 +118,9 @@ export async function PUT(
 
       const originalRow = [...rows[originalRowIndex]];
 
-      // Update the original row with all applicable traits
-      const uniqueTraits = new Set(comment.labels);
-      Object.keys(traitColumns).forEach((traitName) => {
-        const colIndex = traitColumns[traitName as keyof typeof traitColumns];
-        if (colIndex !== -1) {
-          originalRow[colIndex] = uniqueTraits.has(traitName) ? "1" : "0";
-        }
-      });
-
-      // Store the updated original row and its index for batch update
-      updatedOriginalRows.push({
-        row: originalRow,
-        index: originalRowIndex,
-      });
-
       // Create new rows for each sentence
       comment.sentences.forEach((sentence, idx) => {
-        const trait = comment.labels[idx];
+        const trait = comment.traits[idx];
         const sentenceRow = [...originalRow]; // Copy all data from original row
 
         // Update the sentence-specific fields
@@ -138,25 +141,17 @@ export async function PUT(
           sentenceRow[selectedTraitCol] = "1";
         }
 
+        sentenceRow[isRevisionRequestedCol] = comment.isrevisionrequested[idx]
+        sentenceRow[isRevisionClearCol] = comment.isrevisionclear[idx]
+        sentenceRow[isPraiseCol] = comment.ispraise[idx]
+        sentenceRow[isBadCol] = comment.isbad[idx]
+
+        sentenceRow[revisionTypeCol] = comment.revisiontype[idx]
+        sentenceRow[sentenceTypeCol] = comment.sentencetype[idx]
+        sentenceRow[levelOfInformationCol] = comment.levelofinformation[idx]
+        sentenceRow[whoseIdeasCol] = comment.whoseideas[idx]
+
         newSentenceRows.push(sentenceRow);
-      });
-    }
-
-    // Update all original rows in batch
-    if (updatedOriginalRows.length > 0) {
-      const updateRequests = updatedOriginalRows.map(({ row, index }) => ({
-        range: `${sheetName}!A${index + 1}:${String.fromCharCode(
-          65 + headers.length - 1
-        )}${index + 1}`,
-        values: [row],
-      }));
-
-      await sheets.spreadsheets.values.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-          valueInputOption: "RAW",
-          data: updateRequests,
-        },
       });
     }
 

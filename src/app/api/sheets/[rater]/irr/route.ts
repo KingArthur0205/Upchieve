@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { rater } = await params;
-
+    
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
@@ -23,7 +23,7 @@ export async function GET(
 
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
-      "0": process.env.IRR_SPREADSHEET_ID,
+      "tester": process.env.IRR_SPREADSHEET_ID,
       "1": process.env.RATER_1_IRR_SPREADSHEET_ID,
       "2": process.env.RATER_2_IRR_SPREADSHEET_ID,
       "3": process.env.RATER_3_IRR_SPREADSHEET_ID,
@@ -32,8 +32,11 @@ export async function GET(
     };
 
     const spreadsheetId = spreadsheetMap[rater];
+    console.log("Inside route")
+    console.log(spreadsheetId)
 
     if (!spreadsheetId) {
+      console.log("Couldn't match spreadsheetid in irr route")
       return NextResponse.json(
         {
           error: "Invalid rater",

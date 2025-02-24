@@ -1,6 +1,6 @@
-import { google } from "googleapis";
-import { NextResponse, NextRequest } from "next/server";
 import { splitIntoSentences } from "@/app/_helpers/splitIntoSentences";
+import { google } from "googleapis";
+import { NextRequest, NextResponse } from "next/server";
 
 interface RequestBody {
   text: string;
@@ -12,7 +12,7 @@ export async function GET(
 ) {
   try {
     const { rater } = await params;
-
+    console.log("First flag inside route")
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
@@ -28,7 +28,7 @@ export async function GET(
 
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
-      "0": process.env.REMAINING_SPREADSHEET_ID,
+      "tester": process.env.TEST_SPREADSHEET_ID,
       "1": process.env.RATER_1_SPREADSHEET_ID,
       "2": process.env.RATER_2_SPREADSHEET_ID,
       "3": process.env.RATER_3_SPREADSHEET_ID,

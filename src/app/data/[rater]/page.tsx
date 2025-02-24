@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
 import { splitIntoSentences } from "@/app/_helpers/splitIntoSentences";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface Essay {
   essay_id: string;
@@ -14,6 +14,14 @@ interface Essay {
   tid: string;
   isRepresentative: string;
   comment_id: string;
+  isRevisionRequested: "0" | "1";
+  isRevisionClear: "0" | "1";
+  isPraise: "0" | "1";
+  isBad: "0" | "1";
+  levelOfInformation: string;
+  revisionType: string;
+  sentenceType: string;
+  whoseIdeas: string;
   ideas: "0" | "1";
   organization: "0" | "1";
   voice: "0" | "1";
@@ -24,9 +32,17 @@ interface Essay {
 
 interface LabeledComment {
   sentences: string[];
-  labels: string[];
   comment_id: string;
   excerpt: string;
+  traits: string[];
+  isrevisionrequested: string[];
+  isrevisionclear: string[];
+  ispraise: string[];
+  isbad: string[];
+  levelofinformation: string[];
+  revisiontype: string[];
+  sentencetype: string[];
+  whoseideas: string[];
 }
 
 const TRAITS = [
@@ -41,7 +57,7 @@ const TRAITS = [
 export default function EssayReview() {
   const params = useParams<{ rater: string }>();
   const rater = params?.rater;
-  const router = useRouter();
+  //const router = useRouter();
 
   const [allEssays, setAllEssays] = useState<Essay[]>([]);
   const [essayIds, setEssayIds] = useState<string[]>([]);
@@ -50,22 +66,29 @@ export default function EssayReview() {
   const [isEssayExpanded, setIsEssayExpanded] = useState(false);
   const [currentCommentIndex, setCurrentCommentIndex] = useState(0);
   const [labeledComments, setLabeledComments] = useState<LabeledComment[]>([]);
-  const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
+  const [isRevisionRequested, setIsRevisionRequested] = useState<string[]>([]);
+  const [isRevisionClear, setIsRevisionClear] = useState<string[]>([]);
+  const [revisionType, setRevisionType] = useState<string[]>([]);
+  const [isPraise, setIsPraise] = useState<string[]>([]);
+  const [levelOfInfo, setLevelOfInfo] = useState<string[]>([]);
+  const [whoseIdeas, setWhoseIdeas] = useState<string[]>([]);
+  const [sentenceType, setSentenceType] = useState<string[]>([]);
+  const [isBad, setIsBad] = useState<string[]>([]);
+
+
+
   const fetchEssays = async () => {
     try {
       const response = await fetch(`/api/sheets/${rater}`);
-      const irrResponse = await fetch(`/api/sheets/${rater}/irr`);
-      if (!response.ok || !irrResponse.ok) {
+      if (!response.ok) {
         throw new Error(`Failed to fetch essays: ${response.statusText}`);
       }
       const data = await response.json();
-      const irrData = await irrResponse.json();
-
       const headers = data[0] as Array<keyof Essay>;
       const essays: Essay[] = data.slice(1).map((row: string[] & "0" & "1") => {
         const essay = {} as Essay;
@@ -74,25 +97,6 @@ export default function EssayReview() {
         });
         return essay;
       });
-
-      // check if there are any irr essays
-      if (irrData.length > 0) {
-        const irrHeaders = irrData[0] as Array<keyof Essay>;
-        const irrEssays: Essay[] = irrData
-          .slice(1)
-          .map((row: string[] & "0" & "1") => {
-            const essay = {} as Essay;
-            irrHeaders.forEach((header: keyof Essay, index: number) => {
-              essay[header] = row[index];
-            });
-            return essay;
-          });
-
-        if (irrEssays.length > 0) {
-          router.push(`/data/${rater}/irr`);
-        }
-      }
-
       setEssayIds(essays.map((essay: Essay) => essay.essay_id));
       setCurrentEssayId(essays[0].essay_id);
       setCurrentEssays(
@@ -137,31 +141,114 @@ export default function EssayReview() {
     });
   };
 
-  const handlePreviousCommentTraitChange = (
-    commentId: string,
-    sentenceIndex: number,
-    newTrait: string
-  ) => {
-    setLabeledComments((prev) =>
-      prev.map((comment) => {
-        if (comment.comment_id === commentId) {
-          const newLabels = [...comment.labels];
-          newLabels[sentenceIndex] = newTrait;
-          return { ...comment, labels: newLabels };
-        }
-        return comment;
-      })
-    );
+  const handleIsRevisionRequestedChange = (index: number, response: string) => {
+    setIsRevisionRequested((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
+  };
+
+  const handleIsRevisionClearChange = (index: number, response: string) => {
+    setIsRevisionClear((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
+  };
+
+  const handleRevisionTypeChange = (index: number, response: string) => {
+    setRevisionType((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
+  };
+
+  const handleLevelOfInformationChange = (index: number, response: string) => {
+    setLevelOfInfo((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
+  };
+
+  const handleSentenceTypeChange = (index: number, response: string) => {
+    setSentenceType((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
+  };
+
+  const handleWhoseIdeasChange = (index: number, response: string) => {
+    setWhoseIdeas((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
+  };
+
+  const handleIsPraiseChange = (index: number, response: string) => {
+    setIsPraise((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
+  };
+
+  const handleIsBadChange = (index: number, response: string) => {
+    setIsBad((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
   };
 
   const isCurrentCommentFullyLabeled = () => {
     const currentSentences = splitIntoSentences(
       currentEssays[currentCommentIndex]?.comment || ""
     );
-    return (
-      selectedTraits.length === currentSentences.length &&
-      selectedTraits.every((trait) => trait !== "")
-    );
+    for (let index = 0; index < currentSentences.length; index++) {
+      if (isRevisionRequested[index] == "" || isRevisionRequested[index] == null) {
+        return(false)
+      }
+      if (isRevisionRequested[index] == "YES") {
+        if (isRevisionClear[index] == "" || isRevisionClear[index] == null) {
+          return(false);
+        }
+        if (isRevisionClear[index] == "YES") {
+          if(revisionType[index] == "" || revisionType[index] == null) {
+            return(false);
+          }
+          if(selectedTraits[index] == "" || selectedTraits[index] == null) {
+            return(false);
+          }
+        }
+        if (levelOfInfo[index] == "" || levelOfInfo[index] == null) {
+          return(false);
+        }
+        if (whoseIdeas[index] == "" || whoseIdeas[index] == null) {
+          return(false);
+        }
+      } else if(isRevisionRequested[index] == "NO") {
+        if (isPraise[index] == "" || isPraise[index] == null) {
+          return(false);
+        }
+        if (isPraise[index] == "YES") {
+          if (levelOfInfo[index] == "" || levelOfInfo[index] == null) {
+            return(false);
+          }
+        }
+      }
+      if(sentenceType[index] == "" || sentenceType[index] == null) {
+        return(false);
+      }
+      if(isBad[index] == "" || isBad[index] == null) {
+        return(false);
+      }
+    }
+    return(true);
   };
 
   const handleSubmit = async () => {
@@ -177,13 +264,29 @@ export default function EssayReview() {
         ...prev,
         {
           sentences,
-          labels: [...selectedTraits],
+          traits: [...selectedTraits],
+          isrevisionrequested: [...isRevisionRequested],
+          isrevisionclear: [...isRevisionClear],
+          ispraise: [...isPraise],
+          isbad: [...isBad],
+          revisiontype: [...revisionType],
+          sentencetype: [...sentenceType],
+          levelofinformation: [...levelOfInfo],
+          whoseideas: [...whoseIdeas],
           comment_id: currentComment.comment_id,
           excerpt: currentComment.excerpt,
         },
       ]);
-      setCurrentCommentIndex((prev) => prev + 1);
+      setIsRevisionRequested([]);
+      setIsRevisionClear([]);
+      setRevisionType([]);
       setSelectedTraits([]);
+      setIsPraise([]);
+      setLevelOfInfo([]);
+      setWhoseIdeas([]);
+      setSentenceType([]);
+      setIsBad([]);
+      setCurrentCommentIndex((prev) => prev + 1);
       return;
     }
 
@@ -208,7 +311,15 @@ export default function EssayReview() {
               ...labeledComments,
               {
                 sentences,
-                labels: [...selectedTraits],
+                traits: [...selectedTraits],
+                isrevisionrequested: [...isRevisionRequested],
+                isrevisionclear: [...isRevisionClear],
+                ispraise: [...isPraise],
+                isbad: [...isBad],
+                revisiontype: [...revisionType],
+                sentencetype: [...sentenceType],
+                levelofinformation: [...levelOfInfo],
+                whoseideas: [...whoseIdeas],
                 comment_id: currentComment.comment_id,
                 excerpt: currentComment.excerpt,
                 comment: currentComment.comment,
@@ -235,7 +346,15 @@ export default function EssayReview() {
         );
         setCurrentCommentIndex(0);
         setLabeledComments([]);
+        setIsRevisionRequested([]);
+        setIsRevisionClear([]);
+        setRevisionType([]);
         setSelectedTraits([]);
+        setIsPraise([]);
+        setLevelOfInfo([]);
+        setWhoseIdeas([]);
+        setSentenceType([]);
+        setIsBad([]);
         setError(null);
       } catch (error) {
         const errorMessage =
@@ -248,16 +367,12 @@ export default function EssayReview() {
     }
   };
 
-  const toggleEditComment = (commentId: string) => {
-    setEditingCommentId(editingCommentId === commentId ? null : commentId);
-  };
-
   if (isInitialLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading essays...</p>
+      <div className="flex justify-center items-center h-screen bg-white">
+        <div className="flex flex-col items-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-teal-400"></div>
+        <p className="mb-4 mt-8 text-gray-700 text-left">Loading... If this takes longer than a minute, try going back or refreshing.</p>
         </div>
       </div>
     );
@@ -338,21 +453,131 @@ export default function EssayReview() {
 
         <div className="space-y-4 pt-4">
           {currentSentences.map((sentence, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <p className="text-gray-700 text-lg w-3/4">{sentence.trim()}</p>
-              <select
-                className="border border-gray-300 p-2 rounded-lg text-gray-700"
-                value={selectedTraits[index] || ""}
-                onChange={(e) => handleTraitChange(index, e.target.value)}
-                disabled={isSubmitting}
-              >
-                <option value="">Select Trait</option>
-                {TRAITS.map((trait) => (
-                  <option key={trait} value={trait}>
-                    {trait}
-                  </option>
-                ))}
-              </select>
+            <div key={index} className="flex items-start justify-between">
+              <p className="text-gray-700 text-lg w-1/2"><span className="not-italic">Comment:</span> {sentence.trim()}</p>
+              <div className="flex flex-col space-y-2 items-start w-1/3">
+                <p className="pt-4">Is a revision requested?</p>
+                <div><input type="radio" name={`revision-${index}`} value="YES" 
+                  style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                  onChange={() => handleIsRevisionRequestedChange(index, "YES")}
+                  checked={isRevisionRequested[index] === "YES"}/> <span>YES</span></div>
+                <div><input type="radio" name={`revision-${index}`} value="NO" 
+                  style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                  onChange={() => handleIsRevisionRequestedChange(index, "NO")}
+                  checked={isRevisionRequested[index] === "NO"}/> <span>NO</span></div>
+                {isRevisionRequested[index] == "YES" &&
+                  <div className="flex flex-col space-y-2 items-start">
+                    <p className="pt-4">Is it clear / apparent what kind of revision is requested?</p>
+                    <div><input type="radio" name={`actionable-${index}`} value="YES" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleIsRevisionClearChange(index, "YES")}/> <span>YES</span></div>
+                    <div><input type="radio" name={`actionable-${index}`} value="NO" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleIsRevisionClearChange(index, "NO")}/> <span>NO</span></div>
+                    {isRevisionClear[index] == "YES" &&
+                      <div className="flex flex-col space-y-2 items-start">
+                        <p className="pt-4">What kind of revision is requested?</p>
+                        <div><input type="radio" name={`revtype-${index}`} value="Problem" 
+                          style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                          onChange={() => handleRevisionTypeChange(index, "Add")}/> <span>Add</span></div>
+                        <div><input type="radio" name={`revtype-${index}`} value="Problem" 
+                          style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                          onChange={() => handleRevisionTypeChange(index, "Modify")}/> <span>Modify</span></div>
+                        <div><input type="radio" name={`revtype-${index}`} value="Problem" 
+                          style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                          onChange={() => handleRevisionTypeChange(index, "Delete")}/> <span>Delete</span></div>
+                        <p className="pt-4">What trait does the revision target?</p>
+                        <select
+                          className="border border-gray-300 p-2 rounded-lg text-gray-700"
+                          value={selectedTraits[index] || ""}
+                          onChange={(e) => handleTraitChange(index, e.target.value)}
+                          disabled={isSubmitting}
+                        >
+                          <option value="">Select Trait</option>
+                          {TRAITS.map((trait) => (
+                            <option key={trait} value={trait}>
+                              {trait}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    }
+                    <p className="pt-4">What level of information is given?</p>
+                    <div><input type="radio" name={`loi-${index}`} value="Problem" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleLevelOfInformationChange(index, "Problem")}/> <span>Problem</span></div>
+                    <div><input type="radio" name={`loi-${index}`} value="Elaboration of Problem" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleLevelOfInformationChange(index, "Elaboration of Problem")}/> <span>Elaboration of Problem</span></div>
+                    <div><input type="radio" name={`loi-${index}`} value="Scaffolding towards Solution" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleLevelOfInformationChange(index, "Scaffolding towards Solution")}/> <span>Scaffolding towards Solution</span></div>
+                    <div><input type="radio" name={`loi-${index}`} value="Solution" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleLevelOfInformationChange(index, "Solution")}/> <span>Solution</span></div>
+                    <div><input type="radio" name={`loi-${index}`} value="Elaboration of Solution" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleLevelOfInformationChange(index, "Elaboration of Solution")}/> <span>Elaboration of Solution</span></div>
+                    <p className="pt-4">Whose ideas / perspectives are centered?</p>
+                    <div><input type="radio" name={`ideas-${index}`} value="Student" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleWhoseIdeasChange(index, "Student")}/> <span>Student</span></div>
+                    <div><input type="radio" name={`ideas-${index}`} value="Teacher" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleWhoseIdeasChange(index, "Teacher")}/> <span>Teacher</span></div>
+                    <div><input type="radio" name={`ideas-${index}`} value="Norm" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleWhoseIdeasChange(index, "Norm")}/> <span>Norm</span></div>
+                  </div>
+                }
+                {isRevisionRequested[index] == "NO" &&
+                  <div className="flex flex-col space-y-2 items-start">
+                    <p className="pt-4">Is the feedback praise?</p>
+                    <div><input type="radio" name={`praise-${index}`} value="YES" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleIsPraiseChange(index, "YES")}/> <span>YES</span></div>
+                    <div><input type="radio" name={`praise-${index}`} value="NO" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleIsPraiseChange(index, "NO")}/> <span>NO</span></div>
+                    {isPraise[index] == "YES" &&
+                      <div className="flex flex-col space-y-2 items-start">
+                        <p className="pt-4">What level of information is given?</p>
+                          <div><input type="radio" name={`loi-${index}`} value="Praise" 
+                            style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                            onChange={() => handleLevelOfInformationChange(index, "Praise")}/> <span>Praise</span></div>
+                          <div><input type="radio" name={`loi-${index}`} value="Elaboration of Praise" 
+                            style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                            onChange={() => handleLevelOfInformationChange(index, "Elaboration of Praise")}/> <span>Elaboration of Praise</span></div>
+                      </div>
+                    }
+                  </div>
+                }
+                {isRevisionRequested[index] != null &&
+                  <div className="flex flex-col space-y-2 items-start">
+                    <p className="pt-4">What is the form of the feedback?</p>
+                    <div><input type="radio" name={`form-${index}`} value="Problem" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleSentenceTypeChange(index, "EStatement")}/> <span>Evaluative Statement</span></div>
+                    <div><input type="radio" name={`form-${index}`} value="Problem" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleSentenceTypeChange(index, "NEStatement")}/> <span>Non-Evaluative Statement</span></div>
+                    <div><input type="radio" name={`form-${index}`} value="Problem" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleSentenceTypeChange(index, "Question")}/> <span>Question</span></div>
+                    <div><input type="radio" name={`form-${index}`} value="Problem" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleSentenceTypeChange(index, "Command")}/> <span>Command / Directive</span></div>
+                    <p className="pt-4">Is it bad feedback?</p>
+                    <div><input type="radio" name={`bad-${index}`} value="YES" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleIsBadChange(index, "YES")}/> <span>YES</span></div>
+                    <div><input type="radio" name={`bad-${index}`} value="NO" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleIsBadChange(index, "NO")}/> <span>NO</span></div>
+                  </div>
+                }
+              </div>
+  
             </div>
           ))}
         </div>
@@ -389,13 +614,6 @@ export default function EssayReview() {
                 <div className="text-sm text-gray-500 italic">
                   <span className="not-italic">Excerpt:</span> {comment.excerpt}
                 </div>
-                <button
-                  onClick={() => toggleEditComment(comment.comment_id)}
-                  className="text-blue-500 hover:text-blue-600 text-sm"
-                  disabled={isSubmitting}
-                >
-                  {editingCommentId === comment.comment_id ? "Done" : "Edit"}
-                </button>
               </div>
               {comment.sentences.map((sentence, index) => (
                 <div
@@ -405,30 +623,6 @@ export default function EssayReview() {
                   <p className="text-sm text-gray-600 w-3/4">
                     {sentence.trim()}
                   </p>
-                  {editingCommentId === comment.comment_id ? (
-                    <select
-                      className="border border-gray-300 p-1 rounded text-sm text-gray-600"
-                      value={comment.labels[index]}
-                      onChange={(e) =>
-                        handlePreviousCommentTraitChange(
-                          comment.comment_id,
-                          index,
-                          e.target.value
-                        )
-                      }
-                      disabled={isSubmitting}
-                    >
-                      {TRAITS.map((trait) => (
-                        <option key={trait} value={trait}>
-                          {trait}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="text-sm px-2 py-1 bg-gray-100 rounded text-gray-600">
-                      {comment.labels[index]}
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

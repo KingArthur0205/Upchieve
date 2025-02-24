@@ -24,7 +24,7 @@ export async function PUT(
 
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
-      "0": process.env.IRR_SPREADSHEET_ID,
+      "tester": process.env.IRR_SPREADSHEET_ID,
       "1": process.env.RATER_1_IRR_SPREADSHEET_ID,
       "2": process.env.RATER_2_IRR_SPREADSHEET_ID,
       "3": process.env.RATER_3_IRR_SPREADSHEET_ID,
@@ -33,8 +33,8 @@ export async function PUT(
     };
 
     const spreadsheetId = spreadsheetMap[rater];
-
     if (!spreadsheetId) {
+      console.log("couldn't match spreadsheet id in main route")
       return NextResponse.json(
         { error: `Invalid rater ID: ${rater}` },
         { status: 400 }
@@ -54,7 +54,7 @@ export async function PUT(
     });
 
     const sheets = google.sheets({ version: "v4", auth });
-
+    console.log(spreadsheetId)
     // Get the spreadsheet metadata to find the sheet name
     const spreadsheet = await sheets.spreadsheets.get({
       spreadsheetId,
