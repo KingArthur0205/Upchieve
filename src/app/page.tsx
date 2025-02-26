@@ -9,7 +9,23 @@ export default function Home() {
   const [error, setError] = useState("");
   const router = useRouter();
   const valid_rater_codes = [
-    "tester"
+    "tester",
+    "RATERTEST",
+    "RATER0",
+    "RATER1",
+    "RATER2",
+    "RATER3",
+    "RATER4",
+    "RATER5",
+    "RATER6",
+    "RATER7",
+    "RATER8",
+    "RATER9",
+    "RATER10",
+    "RATER11",
+    "RATER12",
+    "RATER13",
+    "RATER14",
   ]
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {

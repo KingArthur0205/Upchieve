@@ -33,11 +33,22 @@ export async function PUT(
     // Map rater to the corresponding spreadsheet ID
     const spreadsheetMap: Record<string, string | undefined> = {
       "tester": process.env.TEST_SPREADSHEET_ID,
-      "1": process.env.RATER_1_SPREADSHEET_ID,
-      "2": process.env.RATER_2_SPREADSHEET_ID,
-      "3": process.env.RATER_3_SPREADSHEET_ID,
-      "4": process.env.RATER_4_SPREADSHEET_ID,
-      "5": process.env.RATER_5_SPREADSHEET_ID,
+      "RATERTEST": process.env.TESTER_IRR_SPREADSHEET,
+      "RATER0": process.env.RATER0_IRR_SPREADSHEET,
+      "RATER1": process.env.RATER1_IRR_SPREADSHEET,
+      "RATER2": process.env.RATER2_IRR_SPREADSHEET,
+      "RATER3": process.env.RATER3_IRR_SPREADSHEET,
+      "RATER4": process.env.RATER4_IRR_SPREADSHEET,
+      "RATER5": process.env.RATER5_IRR_SPREADSHEET,
+      "RATER6": process.env.RATER6_IRR_SPREADSHEET,
+      "RATER7": process.env.RATER7_IRR_SPREADSHEET,
+      "RATER8": process.env.RATER8_IRR_SPREADSHEET,
+      "RATER9": process.env.RATER9_IRR_SPREADSHEET,
+      "RATER10": process.env.RATER10_IRR_SPREADSHEET,
+      "RATER11": process.env.RATER11_IRR_SPREADSHEET,
+      "RATER12": process.env.RATER12_IRR_SPREADSHEET,
+      "RATER13": process.env.RATER13_IRR_SPREADSHEET,
+      "RATER14": process.env.RATER14_IRR_SPREADSHEET,
     };
 
     const spreadsheetId = spreadsheetMap[rater];
