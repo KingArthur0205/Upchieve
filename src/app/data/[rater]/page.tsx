@@ -463,6 +463,10 @@ export default function EssayReview() {
         </button>
         {isEssayExpanded && (
           <div className="p-4 border-t border-gray-100">
+            <p className="whitespace-pre-wrap text-gray-500 italic">
+              Writing Prompt: {currentEssay.instructions}
+            </p>
+            <div className="border-t border-gray-200 my-4"></div>
             <p className="whitespace-pre-wrap text-gray-600">
               {highlightExcerpt(currentEssay.essay, currentEssay.excerpt)}
             </p>
@@ -484,7 +488,7 @@ export default function EssayReview() {
               {currentSentences.length == 1 &&
                 <p className="text-gray-700 text-lg w-1/2"><span className="not-italic">Comment:</span> <span className="bg-[#e6f5f8] px-1 rounded">{sentence.trim()}</span></p>
               }
-              <div className="flex flex-col space-y-2 items-start w-1/3">
+              <div className="flex flex-col space-y-2 items-start w-1/3 text-gray-700">
                 <p className="pt-4">Is a revision requested?</p>
                 <div><input type="radio" name={`revision-${index}`} value="YES" 
                   style={{ marginLeft: '5px', accentColor: '#009AB4' }}
