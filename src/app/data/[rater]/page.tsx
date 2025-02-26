@@ -80,43 +80,40 @@ export default function EssayReview() {
   const [sentenceType, setSentenceType] = useState<string[]>([]);
   const [isBad, setIsBad] = useState<string[]>([]);
 
-
-
-  const fetchEssays = async () => {
-    try {
-      const response = await fetch(`/api/sheets/${rater}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch essays: ${response.statusText}`);
-      }
-      const data = await response.json();
-      const headers = data[0] as Array<keyof Essay>;
-      const essays: Essay[] = data.slice(1).map((row: string[] & "0" & "1") => {
-        const essay = {} as Essay;
-        headers.forEach((header: keyof Essay, index: number) => {
-          essay[header] = row[index];
-        });
-        return essay;
-      });
-      setEssayIds(essays.map((essay: Essay) => essay.essay_id));
-      setCurrentEssayId(essays[0].essay_id);
-      setCurrentEssays(
-        essays.filter((essay) => essay.essay_id === essays[0].essay_id)
-      );
-      setAllEssays(essays);
-      setError(null);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to load essays";
-      setError(errorMessage);
-      console.error("Error fetching essays:", error);
-    } finally {
-      setIsInitialLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchEssays = async () => {
+      try {
+        const response = await fetch(`/api/sheets/${rater}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch essays: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const headers = data[0] as Array<keyof Essay>;
+        const essays: Essay[] = data.slice(1).map((row: string[] & "0" & "1") => {
+          const essay = {} as Essay;
+          headers.forEach((header: keyof Essay, index: number) => {
+            essay[header] = row[index];
+          });
+          return essay;
+        });
+        setEssayIds(essays.map((essay: Essay) => essay.essay_id));
+        setCurrentEssayId(essays[0].essay_id);
+        setCurrentEssays(
+          essays.filter((essay) => essay.essay_id === essays[0].essay_id)
+        );
+        setAllEssays(essays);
+        setError(null);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to load essays";
+        setError(errorMessage);
+        console.error("Error fetching essays:", error);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
     fetchEssays();
-  }, []);
+  }, [rater])
 
   const highlightExcerpt = (essay: string, excerpt: string) => {
     if (!excerpt.trim()) return essay;

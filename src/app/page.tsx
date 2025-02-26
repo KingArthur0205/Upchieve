@@ -57,7 +57,7 @@ export default function Home() {
           </div>
         </div>
         <h1 className='text-3xl mb-4 p-4 text-gray-900 text-center'>Feedback Research Study</h1>
-        <p className="mb-4 text-gray-700 text-lg text-center">Thank you for your interest in our study! We are researching how ELA teachers give feedback on students' essays, and we're grateful for your support. :)</p>
+        <p className="mb-4 text-gray-700 text-lg text-center">Thank you for your interest in our study! We are researching how ELA teachers give feedback on students&apos; essays, and we&apos;re grateful for your support. :)</p>
         <p className="text-lg text-gray-700 mb-4 text-center">
           Please enter your rater code to get started:
         </p>

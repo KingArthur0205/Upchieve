@@ -1,3 +1,5 @@
-export default () => {
-  <div>Hello World</div>;
+const IndexPage = () => {
+  return <div>Hello World</div>;
 };
+
+export default IndexPage;
