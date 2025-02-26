@@ -395,8 +395,8 @@ export default function EssayReview() {
           </div>
         </div>
         <h1 className='text-3xl mb-4 p-4 text-gray-900 text-center'>All done!</h1>
-        <p className="mb-4 text-gray-700 text-lg text-center">Thank you for participating in our study -- we'll be in touch soon either with a next step or with your gift card.</p>
-        <p className="mb-4 text-gray-700 text-lg text-center">Please don't hesitate to reach out to mxtan@stanford.edu with any questions!</p>
+        <p className="mb-4 text-gray-700 text-lg text-center">Thank you for participating in our study -- we will be in touch soon either with a next step or with your gift card.</p>
+        <p className="mb-4 text-gray-700 text-lg text-center">Please reach out to mxtan@stanford.edu with any questions!</p>
       </div>
       </div>
     );
