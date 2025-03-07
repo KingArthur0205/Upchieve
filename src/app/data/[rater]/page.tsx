@@ -15,6 +15,7 @@ interface Essay {
   isRepresentative: string;
   comment_id: string;
   isRevisionRequested: "0" | "1";
+  isCriticism: "0" | "1";
   isRevisionClear: "0" | "1";
   isPraise: "0" | "1";
   isBad: "0" | "1";
@@ -36,6 +37,7 @@ interface LabeledComment {
   excerpt: string;
   traits: string[];
   isrevisionrequested: string[];
+  iscriticism: string[];
   isrevisionclear: string[];
   ispraise: string[];
   isbad: string[];
@@ -73,6 +75,7 @@ export default function EssayReview() {
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
   const [isRevisionRequested, setIsRevisionRequested] = useState<string[]>([]);
   const [isRevisionClear, setIsRevisionClear] = useState<string[]>([]);
+  const [isCriticism, setIsCriticism] = useState<string[]>([]);
   const [revisionType, setRevisionType] = useState<string[]>([]);
   const [isPraise, setIsPraise] = useState<string[]>([]);
   const [levelOfInfo, setLevelOfInfo] = useState<string[]>([]);
@@ -146,6 +149,14 @@ export default function EssayReview() {
     });
   };
 
+  const handleIsCriticismChange = (index: number, response: string) => {
+    setIsCriticism((prev) => {
+      const newSelections = [...prev];
+      newSelections[index] = response;
+      return newSelections;
+    });
+  };
+
   const handleIsRevisionClearChange = (index: number, response: string) => {
     setIsRevisionClear((prev) => {
       const newSelections = [...prev];
@@ -211,14 +222,14 @@ export default function EssayReview() {
         return(false)
       }
       if (isRevisionRequested[index] == "YES") {
+        if (isCriticism[index] == "" || isCriticism[index] == null) {
+          return(false);
+        }
         if (isRevisionClear[index] == "" || isRevisionClear[index] == null) {
           return(false);
         }
         if (isRevisionClear[index] == "YES") {
           if(revisionType[index] == "" || revisionType[index] == null) {
-            return(false);
-          }
-          if(selectedTraits[index] == "" || selectedTraits[index] == null) {
             return(false);
           }
         }
@@ -237,6 +248,9 @@ export default function EssayReview() {
             return(false);
           }
         }
+      }
+      if(selectedTraits[index] == "" || selectedTraits[index] == null) {
+        return(false);
       }
       if(sentenceType[index] == "" || sentenceType[index] == null) {
         return(false);
@@ -263,6 +277,7 @@ export default function EssayReview() {
           sentences,
           traits: [...selectedTraits],
           isrevisionrequested: [...isRevisionRequested],
+          iscriticism: [...isCriticism],
           isrevisionclear: [...isRevisionClear],
           ispraise: [...isPraise],
           isbad: [...isBad],
@@ -275,6 +290,7 @@ export default function EssayReview() {
         },
       ]);
       setIsRevisionRequested([]);
+      setIsCriticism([]);
       setIsRevisionClear([]);
       setRevisionType([]);
       setSelectedTraits([]);
@@ -310,6 +326,7 @@ export default function EssayReview() {
                 sentences,
                 traits: [...selectedTraits],
                 isrevisionrequested: [...isRevisionRequested],
+                iscriticism: [...isCriticism],
                 isrevisionclear: [...isRevisionClear],
                 ispraise: [...isPraise],
                 isbad: [...isBad],
@@ -344,6 +361,7 @@ export default function EssayReview() {
         setCurrentCommentIndex(0);
         setLabeledComments([]);
         setIsRevisionRequested([]);
+        setIsCriticism([]);
         setIsRevisionClear([]);
         setRevisionType([]);
         setSelectedTraits([]);
@@ -497,7 +515,14 @@ export default function EssayReview() {
                   checked={isRevisionRequested[index] === "NO"}/> <span>NO</span></div>
                 {isRevisionRequested[index] == "YES" &&
                   <div className="flex flex-col space-y-2 items-start">
-                    <p className="pt-4">Is it clear / apparent what kind of revision is requested?</p>
+                    <p className="pt-4">Is the feedback criticism?</p>
+                    <div><input type="radio" name={`criticism-${index}`} value="YES" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleIsCriticismChange(index, "YES")}/> <span>YES</span></div>
+                    <div><input type="radio" name={`criticism-${index}`} value="NO" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleIsCriticismChange(index, "NO")}/> <span>NO</span></div>
+                    <p className="pt-4">Is the feedback actionable?</p>
                     <div><input type="radio" name={`actionable-${index}`} value="YES" 
                       style={{ marginLeft: '5px', accentColor: '#009AB4' }}
                       onChange={() => handleIsRevisionClearChange(index, "YES")}/> <span>YES</span></div>
@@ -516,20 +541,6 @@ export default function EssayReview() {
                         <div><input type="radio" name={`revtype-${index}`} value="Problem" 
                           style={{ marginLeft: '5px', accentColor: '#009AB4' }}
                           onChange={() => handleRevisionTypeChange(index, "Delete")}/> <span>Delete</span></div>
-                        <p className="pt-4">What trait does the revision target?</p>
-                        <select
-                          className="border border-gray-300 p-2 rounded-lg text-gray-700"
-                          value={selectedTraits[index] || ""}
-                          onChange={(e) => handleTraitChange(index, e.target.value)}
-                          disabled={isSubmitting}
-                        >
-                          <option value="">Select Trait</option>
-                          {TRAITS.map((trait) => (
-                            <option key={trait} value={trait}>
-                              {trait}
-                            </option>
-                          ))}
-                        </select>
                       </div>
                     }
                     <p className="pt-4">What level of information is given?</p>
@@ -548,16 +559,19 @@ export default function EssayReview() {
                     <div><input type="radio" name={`loi-${index}`} value="Elaboration of Solution" 
                       style={{ marginLeft: '5px', accentColor: '#009AB4' }}
                       onChange={() => handleLevelOfInformationChange(index, "Elaboration of Solution")}/> <span>Elaboration of Solution</span></div>
-                    <p className="pt-4">Whose ideas / perspectives are centered?</p>
+                    <p className="pt-4">Who is the authority on this writing?</p>
                     <div><input type="radio" name={`ideas-${index}`} value="Student" 
                       style={{ marginLeft: '5px', accentColor: '#009AB4' }}
                       onChange={() => handleWhoseIdeasChange(index, "Student")}/> <span>Student</span></div>
                     <div><input type="radio" name={`ideas-${index}`} value="Teacher" 
                       style={{ marginLeft: '5px', accentColor: '#009AB4' }}
-                      onChange={() => handleWhoseIdeasChange(index, "Teacher")}/> <span>Teacher</span></div>
-                    <div><input type="radio" name={`ideas-${index}`} value="Norm" 
+                      onChange={() => handleWhoseIdeasChange(index, "Somewhat Student")}/> <span>More Student than Teacher</span></div>
+                    <div><input type="radio" name={`ideas-${index}`} value="Teacher" 
                       style={{ marginLeft: '5px', accentColor: '#009AB4' }}
-                      onChange={() => handleWhoseIdeasChange(index, "Norm")}/> <span>Norm</span></div>
+                      onChange={() => handleWhoseIdeasChange(index, "Somewhat Teacher")}/> <span>More Teacher than Student</span></div>
+                    <div><input type="radio" name={`ideas-${index}`} value="Teacher" 
+                      style={{ marginLeft: '5px', accentColor: '#009AB4' }}
+                      onChange={() => handleWhoseIdeasChange(index, "Teacher")}/> <span>Teacher</span></div>
                   </div>
                 }
                 {isRevisionRequested[index] == "NO" &&
@@ -584,6 +598,20 @@ export default function EssayReview() {
                 }
                 {isRevisionRequested[index] != null &&
                   <div className="flex flex-col space-y-2 items-start">
+                    <p className="pt-4">What trait does the revision target?</p>
+                    <select
+                      className="border border-gray-300 p-2 rounded-lg text-gray-700"
+                      value={selectedTraits[index] || ""}
+                      onChange={(e) => handleTraitChange(index, e.target.value)}
+                      disabled={isSubmitting}
+                    >
+                      <option value="">Select Trait</option>
+                      {TRAITS.map((trait) => (
+                        <option key={trait} value={trait}>
+                          {trait}
+                        </option>
+                      ))}
+                    </select>
                     <p className="pt-4">What is the form of the feedback?</p>
                     <div><input type="radio" name={`form-${index}`} value="Problem" 
                       style={{ marginLeft: '5px', accentColor: '#009AB4' }}

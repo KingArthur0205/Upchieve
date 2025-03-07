@@ -8,6 +8,7 @@ interface LabeledComment {
   traits: string[];
   isrevisionrequested: string[];
   isrevisionclear: string[];
+  iscriticism: string[];
   ispraise: string[];
   isbad: string[];
   levelofinformation: string[];
@@ -107,6 +108,7 @@ export async function PUT(
     const commentIdCol = headers.indexOf("comment_id");
 
     const isRevisionRequestedCol = headers.indexOf("isRevisionRequested");
+    const isCricicismCol = headers.indexOf("isCriticism");
     const isRevisionClearCol = headers.indexOf("isRevisionClear");
     const isPraiseCol = headers.indexOf("isPraise");
     const isBadCol = headers.indexOf("isBad");
@@ -153,6 +155,7 @@ export async function PUT(
         }
 
         sentenceRow[isRevisionRequestedCol] = comment.isrevisionrequested[idx]
+        sentenceRow[isCricicismCol] = comment.iscriticism[idx]
         sentenceRow[isRevisionClearCol] = comment.isrevisionclear[idx]
         sentenceRow[isPraiseCol] = comment.ispraise[idx]
         sentenceRow[isBadCol] = comment.isbad[idx]
