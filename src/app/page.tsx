@@ -6,14 +6,15 @@ import Modal from "./components/Modal";
 import Tab1 from "./tabs/tab1";
 import Tab2 from "./tabs/tab2";
 import Tab3 from "./tabs/tab3";
-import Tab4 from "./tabs/tab4";
 import Papa from "papaparse";
 
 export default function TabComponent() {
   // Tabs definition
   const [customText, setCustomText] = useState("");
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loading, setLoading] = useState(true); // Loading state to track if the file is being fetched
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null); // To store error message if any
   const [email, setEmail] = useState<string>("");
 
@@ -109,6 +110,7 @@ export default function TabComponent() {
               }
   
               // Process data from CSV
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const updatedData = result.data.map((row: any, index: number) => ({
                 col1: row["#"] || `Row ${index + 1} Col 1`,
                 col2: row["In cue"] || `Row ${index + 1} Col 2`,
@@ -124,8 +126,14 @@ export default function TabComponent() {
             header: true, // Enable header to use column names
             skipEmptyLines: true, // Skip empty lines in the CSV file
           });
-        } catch (error) {
-          setError("Error loading CSV: " + error.message);
+        } catch (error: unknown) {
+          // Type assertion to assume error is of type Error
+          if (error instanceof Error) {
+            setError("Error loading CSV: " + error.message);
+          } else {
+            // Handle non-Error objects (optional)
+            setError("An unknown error occurred.");
+          }
           setLoading(false);
         }
       };

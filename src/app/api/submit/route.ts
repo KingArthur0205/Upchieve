@@ -1,11 +1,11 @@
+import { Storage } from '@google-cloud/storage';
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
 
-// Utility function to sanitize email for a file name
-const sanitizeEmail = (email: string) => {
-  return email.replace(/[^a-zA-Z0-9]/g, '_'); // Replace non-alphanumeric characters with underscores
-};
+// Instantiate a Google Cloud Storage client
+const storage = new Storage();
+
+// Specify the name of your bucket
+const bucketName = 'mol_temp1'; // Replace with your GCS bucket name
 
 export async function POST(request: Request) {
   try {
@@ -18,21 +18,26 @@ export async function POST(request: Request) {
     // Sanitize email to use as a valid file name
     const sanitizedEmail = sanitizeEmail(email);
 
-    // Define the file path to save the JSON file, based on the sanitized email
-    const filePath = path.join(process.cwd(), 'data', `${sanitizedEmail}.json`); // Use the sanitized email for the file name
+    // Define the file path and name in GCS
+    const fileName = `${sanitizedEmail}.json`;
 
-    // Ensure the 'data' folder exists, otherwise create it
-    const dirPath = path.dirname(filePath);
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-    }
+    // Get a reference to the bucket
+    const bucket = storage.bucket(bucketName);
 
-    // Write the data to a .json file
-    fs.writeFileSync(filePath, JSON.stringify(dataToSave, null, 2));
+    // Create a file object in the bucket
+    const file = bucket.file(fileName);
 
-    return NextResponse.json({ message: 'Data saved as JSON successfully!' });
+    // Write the data to the GCS file
+    await file.save(JSON.stringify(dataToSave, null, 2));
+
+    return NextResponse.json({ message: 'Data saved to Google Cloud Storage successfully!' });
   } catch (error) {
     console.error('Error saving data:', error);
-    return NextResponse.json({ message: 'Failed to save data.' }, { status: 500 });
+    return NextResponse.json({ message: 'Failed to save data to GCS.' }, { status: 500 });
   }
+}
+
+// Helper function to sanitize email to be a valid file name
+function sanitizeEmail(email: string): string {
+  return email.replace(/[^a-zA-Z0-9]/g, '_'); // Replace invalid characters with '_'
 }
