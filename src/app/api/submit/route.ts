@@ -1,8 +1,19 @@
 import { Storage } from '@google-cloud/storage';
 import { NextResponse } from 'next/server';
 
-// Instantiate a Google Cloud Storage client
-const storage = new Storage();
+// Create a Storage instance with explicit credentials
+let storage: Storage;
+try {
+  // Parse the credentials from the environment variable
+  const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '{}');
+  
+  storage = new Storage({
+    credentials,
+    projectId: credentials.project_id
+  });
+} catch (error) {
+  console.error('Error initializing Google Cloud Storage:', error);
+}
 
 // Specify the name of your bucket
 const bucketName = 'mol_temp1'; // Replace with your GCS bucket name
