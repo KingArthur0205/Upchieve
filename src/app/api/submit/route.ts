@@ -4,8 +4,9 @@ import { NextResponse } from 'next/server';
 // Create a Storage instance with explicit credentials
 let storage: Storage;
 try {
-  // Parse the credentials from the environment variable
-  const credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || '{}');
+  // Decode the Base64-encoded credentials from the environment variable
+  const credentialsJson = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64 || '', 'base64').toString();
+  const credentials = JSON.parse(credentialsJson);
   
   storage = new Storage({
     credentials,
@@ -20,6 +21,10 @@ const bucketName = 'mol_temp1'; // Replace with your GCS bucket name
 
 export async function POST(request: Request) {
   try {
+    if (!storage) {
+      throw new Error('Google Cloud Storage client not properly initialized');
+    }
+    
     const body = await request.json(); // Get the JSON data from the request
     const { tableData, customText, email } = body;
 
@@ -44,7 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Data saved to Google Cloud Storage successfully!' });
   } catch (error) {
     console.error('Error saving data:', error);
-    return NextResponse.json({ message: 'Failed to save data to GCS.' }, { status: 500 });
+    return NextResponse.json({ message: `Error saving data: ${error.message}` }, { status: 500 });
   }
 }
 
