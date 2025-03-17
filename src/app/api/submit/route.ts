@@ -47,9 +47,11 @@ export async function POST(request: Request) {
     await file.save(JSON.stringify(dataToSave, null, 2));
 
     return NextResponse.json({ message: 'Data saved to Google Cloud Storage successfully!' });
-  } catch (error) {
+  } 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  catch (error: any) {
     console.error('Error saving data:', error);
-    return NextResponse.json({ message: `Error saving data: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ message: `Error saving data: ${error?.message || 'Unknown error'}` }, { status: 500 });
   }
 }
 
