@@ -8,15 +8,15 @@ interface Tab2Props {
 
 export default function Tab2({ number }: Tab2Props) {
   const [content, setContent] = useState("");
-
+  
   useEffect(() => {
     if (!number) return; // Ensure the number is available
-
+    
     fetch(`/t${number}/learning_goals.txt`) // Fetch from public folder
       .then((res) => res.text())
       .then((text) => setContent(text));
-  }, []);
-
+  }, [number]); // Add number to the dependency array
+  
   return (
     <div>
       <h2 className="text-xl font-semibold text-black">Learning Goals</h2>

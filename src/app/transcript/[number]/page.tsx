@@ -8,6 +8,15 @@ import Tab2 from "../../tabs/tab2";
 import Tab3 from "../../tabs/tab3";
 import Papa from "papaparse";
 
+interface CsvRow {
+    "#": string;
+    "In cue": string;
+    "Out cue": string;
+    "Speaker": string;
+    "Dialogue": string;
+    [key: string]: string; // For any other columns that might exist
+  }
+
 export default function TranscriptPage() {
   const params = useParams();
   const number = params.number as string;
@@ -129,14 +138,15 @@ export default function TranscriptPage() {
               return;
             }
   
-            const updatedData = result.data.map((row, index) => ({
-              col1: row["#"] || `Row ${index + 1} Col 1`,
-              col2: row["In cue"] || `Row ${index + 1} Col 2`,
-              col3: row["Out cue"] || `Row ${index + 1} Col 3`,
-              col4: row["Speaker"] || `Row ${index + 1} Col 4`,
-              col5: row["Dialogue"] || `Row ${index + 1} Col 5`,
-              checked: false,
-              col6: "",
+            // Add the type assertion here
+            const updatedData = (result.data as CsvRow[]).map((row, index) => ({
+            col1: row["#"] || `Row ${index + 1} Col 1`,
+            col2: row["In cue"] || `Row ${index + 1} Col 2`,
+            col3: row["Out cue"] || `Row ${index + 1} Col 3`,
+            col4: row["Speaker"] || `Row ${index + 1} Col 4`,
+            col5: row["Dialogue"] || `Row ${index + 1} Col 5`,
+            checked: false,
+            col6: "",
             }));
             setTableData(updatedData);
             setLoading(false);
@@ -179,9 +189,9 @@ export default function TranscriptPage() {
       <div className="h-10"></div> 
       {/* First Box: Prompt */}
       <div className="w-full max-w-4xl p-6 mb-6 bg-gray-100 border rounded-lg shadow-md">
-        <h1 className="text-3xl font-semibold text-gray-800 mb-4 text-left">
-          Prompt: What do you notice about students' (a) mathematical strategies, (b) mathematical ideas, or (c) mathematical confusion with respect to this activity's purpose?
-        </h1>
+      <h1 className="text-3xl font-semibold text-gray-800 mb-4 text-left">
+        Prompt: What do you notice about students&apos; mathematical strategies, (b) mathematical ideas, or (c) mathematical confusion with respect to this activity&apos;s purpose?
+      </h1>
       </div>
       {/* Second Box: Grade Level */}
       <div className="w-full max-w-4xl p-6 mb-6 bg-gray-100 border rounded-lg h-auto">
