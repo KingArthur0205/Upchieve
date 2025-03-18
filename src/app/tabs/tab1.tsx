@@ -1,39 +1,66 @@
-import Image from 'next/image';
+"use client"; // Client Component
 
-export default function Tab1() {
-    return (
-        <div className="h-[80vh] overflow-y-auto p-6 border border-gray-300 rounded-md">
+import { useEffect, useState } from "react";
+import Image from "next/image";
 
-          <h2 className="text-xl font-semibold text-black">
-            <a
-              href="https://teacher.desmos.com/activitybuilder/custom/5d8d425acd6acb759685edff?intro-banner-expanded=true&collections=5f8a43dd06b0d9a8bd84c3d0%2C5f8a442106b0d9a8bd84c3d5"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              Lesson link (click here)
-            </a>
-          </h2>
-          
-          <p className="text-black">
-            Students write rules based on input-output pairs represented in tables and are introduced to the concept of function through these rules. <br />
-          </p>
+interface Tab1Props {
+  number: string | undefined;
+}
 
-          {/* Add a title above the image */}
-          <div className="my-4 text-center">
-            <h3 className="text-lg font-semibold text-black mb-2">Warm-up: Rule #1</h3>
-            <Image src="/t19/rule1.png" alt="Description of the image" width={500} height={300} />
+export default function Tab1({ number }: Tab1Props) {
+  const [lessonLink, setLessonLink] = useState<{ url: string; text: string } | null>(null);
+  const [description, setDescription] = useState<string | null>(null);
+  const [imagePaths, setImagePaths] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!number) return; // Ensure the number is available
+
+    // Fetch lesson link and description from content.json
+    fetch(`/t${number}/content.json`)
+      .then((res) => res.json())
+      .then((data) => {
+        setLessonLink(data.lessonLink);
+        setDescription(data.description);
+      })
+      .catch((err) => console.error("Error loading content:", err));
+
+    // Fetch images from images.json
+    fetch(`/t${number}/images.json`)
+      .then((res) => res.json())
+      .then((data) => setImagePaths(data[`t${number}`]))
+      .catch((err) => console.error("Error loading images:", err));
+  }, [number]); // Dependency array ensures this runs when `number` changes
+
+  return (
+    <div className="h-[80vh] overflow-y-auto p-6 border border-gray-300 rounded-md">
+      <h2 className="text-xl font-semibold text-black">
+        {lessonLink ? (
+          <a
+            href={lessonLink.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline"
+          >
+            {lessonLink.text}
+          </a>
+        ) : (
+          "Loading lesson..."
+        )}
+      </h2>
+
+      <p className="text-black">{description || "Loading description..."}</p>
+
+      {/* Dynamically render images */}
+      {imagePaths.length > 0 ? (
+        imagePaths.map((src, index) => (
+          <div key={index} className="my-4 text-center">
+            <h3 className="text-lg font-semibold text-black mb-2">Problem #{index + 1}</h3>
+            <Image src={src} alt={`Rule ${index + 1}`} width={500} height={300} />
           </div>
-
-          <div className="my-4 text-center">
-            <h3 className="text-lg font-semibold text-black mb-2">Rule #2</h3>
-            <Image src="/t19/rule2.png" alt="Description of the image" width={500} height={300} />
-          </div>
-
-          <div className="my-4 text-center">
-            <h3 className="text-lg font-semibold text-black mb-2">Rule #3</h3>
-            <Image src="/t19/rule3.png" alt="Description of the image" width={500} height={300} />
-          </div>
-        </div>
-    );
+        ))
+      ) : (
+        <p className="text-gray-500 text-center mt-4">Loading images...</p>
+      )}
+    </div>
+  );
 }
