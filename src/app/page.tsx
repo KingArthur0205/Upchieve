@@ -7,17 +7,17 @@ export default function Home() {
       <div className="flex flex-col space-y-4">
         <Link href="/transcript/16">
           <button className="px-8 py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-700 transition w-64">
-            Transcript 16 (avaialble)
+            Transcript 16 (available)
           </button>
         </Link>
         <Link href="/transcript/19">
           <button className="px-8 py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-700 transition w-64">
-            Transcript 19 (avaialble)
+            Transcript 19 (available)
           </button>
         </Link>
         <Link href="/transcript/20">
           <button className="px-8 py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-700 transition w-64">
-            Transcript 20
+            Transcript 20 (not ready)
           </button>
         </Link>
       </div>
