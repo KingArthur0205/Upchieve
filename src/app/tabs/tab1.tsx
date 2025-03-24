@@ -11,6 +11,7 @@ export default function Tab1({ number }: Tab1Props) {
   const [lessonLink, setLessonLink] = useState<{ url: string; text: string } | null>(null);
   const [description, setDescription] = useState<string | null>(null);
   const [imagePaths, setImagePaths] = useState<string[]>([]);
+  const [lessonSegmentIDs, setLessonSegmentIDs] = useState<string[]>([]);
 
   useEffect(() => {
     if (!number) return; // Ensure the number is available
@@ -24,10 +25,13 @@ export default function Tab1({ number }: Tab1Props) {
       })
       .catch((err) => console.error("Error loading content:", err));
 
-    // Fetch images from images.json
+    // Fetch images and lesson segment IDs from images.json
     fetch(`/t${number}/images.json`)
       .then((res) => res.json())
-      .then((data) => setImagePaths(data[`t${number}`]))
+      .then((data) => {
+        setImagePaths(data[`t${number}`]); // Image paths
+        setLessonSegmentIDs(data["links"] || []); // Segment IDs
+      })
       .catch((err) => console.error("Error loading images:", err));
   }, [number]); // Dependency array ensures this runs when `number` changes
 
@@ -54,7 +58,12 @@ export default function Tab1({ number }: Tab1Props) {
       {imagePaths.length > 0 ? (
         imagePaths.map((src, index) => (
           <div key={index} className="my-4 text-center">
-            <h3 className="text-lg font-semibold text-black mb-2">Problem #{index + 1}</h3>
+            {/* Always show "Problem #{index + 1}" */}
+            <h3 className="text-lg font-semibold text-black mb-2">
+              Problem #{index + 1}
+              {/* Conditionally render Lesson Segment ID if it exists */}
+              {lessonSegmentIDs[index] && ` (Lesson Segment ID: ${lessonSegmentIDs[index]})`}
+            </h3>
             <Image src={src} alt={`Rule ${index + 1}`} width={500} height={300} />
           </div>
         ))

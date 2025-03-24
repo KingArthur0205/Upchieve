@@ -26,16 +26,16 @@ export async function POST(request: Request) {
     }
     
     const body = await request.json(); // Get the JSON data from the request
-    const { tableData, customText, email } = body;
+    const { tableData, notes, customText, email, transcriptNumber  } = body;
 
     // Prepare the data to save
-    const dataToSave = { tableData, customText, email };
+    const dataToSave = { tableData, customText, email, notes };
 
     // Sanitize email to use as a valid file name
     const sanitizedEmail = sanitizeEmail(email);
 
     // Define the file path and name in GCS
-    const fileName = `${sanitizedEmail}.json`;
+    const fileName = `lesson${transcriptNumber}_${sanitizedEmail}.json`;
 
     // Get a reference to the bucket
     const bucket = storage.bucket(bucketName);

@@ -2,7 +2,19 @@
     "t19": [
       "/t19/rule1.png",
       "/t19/rule2.png",
-      "/t19/rule3.png"
+      "/t19/rule3.png",
+      "/t19/rule4.png",
+      "/t19/rule5.png",
+      "/t19/rule6.png",
+      "/t19/rule7.png"
+    ],
+
+    "links": [
+      "b",
+      "b",
+      "b",
+      "c",
+      "d"
     ]
 }
   
