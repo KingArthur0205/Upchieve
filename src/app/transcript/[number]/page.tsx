@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import Modal from "../../components/Modal";
 import Tab1 from "../../tabs/tab1";
-import Tab2 from "../../tabs/tab2";
-import Tab3 from "../../tabs/tab3";
 import Papa from "papaparse";
 
 interface CsvRow {
@@ -14,25 +11,28 @@ interface CsvRow {
   "Out cue": string;
   "Speaker": string;
   "Dialogue": string;
+  "selectable": string; 
   [key: string]: string; // For any other columns that might exist
 }
 
 // Interface for a single note
 interface Note {
+  content_1: string;
+  content_2: string;
   id: number;      // Numeric ID for the note
   title: string;   // User-editable title
-  content: string;
   rowIndices: number[]; // Track which rows this note belongs to
 }
 
 // Updated table row interface
 interface TableRow {
   col1: string;
-  col2: string;
+  col2: number;
   col3: string;
   col4: string;
   col5: string;
   col6: string;
+  col7: string; // Selectable field
   noteIds: string; // This will store the comma-separated note IDs (read-only)
 }
 
@@ -40,13 +40,78 @@ export default function TranscriptPage() {
   const params = useParams();
   const number = params.number as string;
   const [customText, setCustomText] = useState("");
-  const [activeTab, setActiveTab] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string>("");
   const [gradeLevel, setGradeLevel] = useState("");
+  const [activityPurpose, setActivityPurpose] = useState("");
   const [speakerColors, setSpeakerColors] = useState<{ [key: string]: string }>({});
-  
+  const [availableSegment, setAvailableSegment] = useState<string []>([]);
+  const [whichSegment, setWhichSegment] = useState<string>("full_transcript");
+  const [columnVisibility, setColumnVisibility] = useState({
+    lessonSegmentId: true,
+    lineNumber: true,
+    start: true,
+    end: true,
+    speaker: true,
+    utterance: true,
+    notes: true
+  });
+
+  // Add these state variables at the top of your component
+  const [leftPanelWidth, setLeftPanelWidth] = useState("33.33%"); // Default 2/6
+  const [centerPanelWidth, setcenterPanelWidth] = useState("50%"); // Default 3/6
+  const [rightPanelWidth, setRightPanelWidth] = useState("16.67%"); // Default 1/6
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+
+  // Add these handlers
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingLeft) {
+        const newWidth = (e.clientX / window.innerWidth) * 100;
+        // Set limits (min 15%, max 50%)
+        const limitedWidth = Math.min(Math.max(newWidth, 15), 50);
+        setLeftPanelWidth(`${limitedWidth}%`);
+        
+        // Recalculate center panel width
+        const remainingWidth = 100 - limitedWidth - parseFloat(rightPanelWidth);
+        setcenterPanelWidth(`${remainingWidth}%`);
+      } else if (isDraggingRight) {
+        const rightEdge = window.innerWidth;
+        const newRightWidth = ((rightEdge - e.clientX) / rightEdge) * 100;
+        // Set limits (min 10%, max 40%)
+        const limitedWidth = Math.min(Math.max(newRightWidth, 10), 40);
+        setRightPanelWidth(`${limitedWidth}%`);
+        
+        // Recalculate center panel width
+        const remainingWidth = 100 - parseFloat(leftPanelWidth) - limitedWidth;
+        setcenterPanelWidth(`${remainingWidth}%`);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingLeft(false);
+      setIsDraggingRight(false);
+    };
+
+    if (isDraggingLeft || isDraggingRight) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isDraggingLeft, isDraggingRight, leftPanelWidth, rightPanelWidth]);
+
+  const toggleColumnVisibility = (columnKey: keyof typeof columnVisibility) => {
+    setColumnVisibility(prev => ({
+      ...prev,
+      [columnKey]: !prev[columnKey]
+    }));
+  };
   // Store notes separately from table data
   const [notes, setNotes] = useState<Note[]>([]);
   const [nextNoteId, setNextNoteId] = useState(1);
@@ -63,28 +128,32 @@ export default function TranscriptPage() {
   // NEW: Track which note lines are being edited
   const [editingLinesId, setEditingLinesId] = useState<number | null>(null);
   const [tempSelectedRows, setTempSelectedRows] = useState<number[]>([]);
-  
-  const tabs = [
-    { label: "Learning Goals", key: "tab2", content: <Tab2 number={number}/> },
-    { label: "Common Core State Standards", key: "tab3", content: <Tab3 number={number}/> },
-  ];
 
   // Updated table state
   const [tableData, setTableData] = useState<TableRow[]>(
     Array.from({ length: 3 }, (_, index) => ({
       col1: `Row ${index + 1} Col 1`,
-      col2: `Row ${index + 1} Col 2`,
+      col2: 10,
       col3: `Row ${index + 1} Col 3`,
       col4: `Row ${index + 1} Col 4`,
       col5: `Row ${index + 1} Col 5`,
       col6: `Row ${index + 1} Col 6`,
+      col7: `Row ${index + 1} Col 7`,
       noteIds: "", // Comma-separated note IDs (read-only)
     }))
   );
 
   // After your state declarations
-  const isRowSelectable = (speaker: string): boolean => {
-    return speaker.includes("Student");
+  const isRowSelectable = (rowIndex: number): boolean => {
+    // Assuming col2 should be a number, convert it from string if needed
+    const rowItem = tableData.find(item => Number(item.col2) === rowIndex);
+
+    if (rowItem) {
+      // Check the 'selectable' column - convert to lowercase and check for "true"
+      const selectableValue = rowItem.col7?.toLowerCase();
+      return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
+    }
+    return false;
   };
 
   // Function to parse note IDs from a comma-separated string
@@ -98,34 +167,22 @@ export default function TranscriptPage() {
   };
 
   // Toggle selection of a row
-  const toggleRowSelection = (rowIndex: number) => {
-    const speaker = tableData[rowIndex]?.col5 || "";
-    
-    // Skip if this is a non-selectable row
-    if (!isRowSelectable(speaker)) {
-      return;
-    }
-    
-    if (selectedRows.includes(rowIndex)) {
-      setSelectedRows(selectedRows.filter(index => index !== rowIndex));
+  const toggleRowSelection = (col2Value: number) => {
+    if (selectedRows.includes(col2Value)) {
+      setSelectedRows(selectedRows.filter(id => id !== col2Value));
     } else {
-      setSelectedRows([...selectedRows, rowIndex]);
+      setSelectedRows([...selectedRows, col2Value]);
     }
   };
 
   // Toggle selection of a row for line number editing
-  const toggleTempRowSelection = (rowIndex: number) => {
-    const speaker = tableData[rowIndex]?.col5 || "";
-    
-    // Skip if this is a non-selectable row
-    if (!isRowSelectable(speaker)) {
-      return;
-    }
-    
-    if (tempSelectedRows.includes(rowIndex)) {
-      setTempSelectedRows(tempSelectedRows.filter(index => index !== rowIndex));
-    } else {
-      setTempSelectedRows([...tempSelectedRows, rowIndex]);
+  const toggleTempRowSelection = (col2Value: number) => {
+    if (isRowSelectable(col2Value)) {
+      if (tempSelectedRows.includes(col2Value)) {
+        setTempSelectedRows(tempSelectedRows.filter(id => id !== col2Value));
+      } else {
+        setTempSelectedRows([...tempSelectedRows, col2Value]);
+      }
     }
   };
 
@@ -162,19 +219,18 @@ export default function TranscriptPage() {
     const updatedNotes = [...notes, {
       id: noteId,
       title: noteId.toString(),
-      content: "",
+      content_1: "",
+      content_2: "",
       rowIndices: [...selectedRows]
     }];
     
     // Update table data note IDs
-    const updatedTableData = [...tableData];
-    selectedRows.forEach(rowIndex => {
-      const currentIds = parseNoteIds(updatedTableData[rowIndex].noteIds);
-      if (!currentIds.includes(noteId)) {
-        const newIds = [...currentIds, noteId];
-        updatedTableData[rowIndex].noteIds = newIds.join(', ');
-      }
-    });
+    const updatedTableData = tableData.map(row => ({
+      ...row,
+      noteIds: selectedRows.includes(row.col2) 
+        ? [...parseNoteIds(row.noteIds), noteId].join(', ')
+        : row.noteIds
+    }));
     
     setTableData(updatedTableData);
     setNotes(updatedNotes);
@@ -183,17 +239,25 @@ export default function TranscriptPage() {
   };
 
   // Handle note content changes
-  const handleNoteContentChange = (noteId: number, value: string) => {
+  const handleNoteContentChange1 = (noteId: number, value: string) => {
     const updatedNotes = [...notes];
     const noteIndex = updatedNotes.findIndex(note => note.id === noteId);
     
     if (noteIndex !== -1) {
-      updatedNotes[noteIndex].content = value;
+      updatedNotes[noteIndex].content_1 = value;
       setNotes(updatedNotes);
     }
   };
 
-  // Functions for title editing
+  const handleNoteContentChange2 = (noteId: number, value: string) => {
+    const updatedNotes = [...notes];
+    const noteIndex = updatedNotes.findIndex(note => note.id === noteId);
+    
+    if (noteIndex !== -1) {
+      updatedNotes[noteIndex].content_2 = value;
+      setNotes(updatedNotes);
+    }
+  };
 
   // Start editing a title
   const startTitleEdit = (noteId: number) => {
@@ -362,6 +426,10 @@ export default function TranscriptPage() {
     return note ? note.id.toString() : "";
   };
 
+  const handleSegmentClick = (segment: string) => {
+    setWhichSegment(segment);
+  };
+
   // Function to get display titles for the table
   const getNoteDisplayText = (idsString: string): string => {
     if (!idsString.trim()) return "—";
@@ -377,6 +445,8 @@ export default function TranscriptPage() {
         if (!res.ok) throw new Error("Failed to fetch content.json");
         const data = await res.json();
         setGradeLevel(data.gradeLevel);
+        setActivityPurpose(data.activityPurpose);
+        setAvailableSegment(data.segments || []);
       } catch (err) {
         console.error("Error loading grade level:", err);
       }
@@ -413,11 +483,12 @@ export default function TranscriptPage() {
             // Add the type assertion here with updated schema
             const updatedData = (result.data as CsvRow[]).map((row, index) => ({
               col1: row["Transcript"] || `Row ${index + 1} Col 1`,
-              col2: row["#"] || `Row ${index + 1} Col 2`,
+              col2: parseInt(row["#"], 10) || 10,
               col3: row["In cue"] || `Row ${index + 1} Col 3`,
               col4: row["Out cue"] || `Row ${index + 1} Col 4`,
               col5: row["Speaker"] || `Row ${index + 1} Col 5`,
               col6: row["Dialogue"] || `Row ${index + 1} Col 6`,
+              col7: row["selectable"] || "false",
               noteIds: "",
             }));
             setTableData(updatedData);
@@ -468,7 +539,8 @@ export default function TranscriptPage() {
                   migratedNotes.push({
                     id: newId,
                     title: oldTitle,
-                    content: oldNote?.content || "",
+                    content_1: oldNote?.content_1 || "",
+                    content_2: oldNote?.content_2 || "",
                     rowIndices: [rowIndex]
                   });
                 } else {
@@ -538,73 +610,82 @@ export default function TranscriptPage() {
     <div className="flex flex-col items-center min-h-screen w-full bg-white font-merriweather text-sm">
       {/* Header area with title and tabs */}
       <div className="w-full max-w-6xl p-4 mb-4">
-        <h1 className="text-3xl font-semibold text-gray-800 mb-4 text-center">
-        {`Prompt: What do you notice about students' (a) mathematical strategies, (b) mathematical ideas, or (c) mathematical confusion with respect to this activity's purpose?`}
+
+        <div className="bg-gray-100 border rounded-lg p-4 mb-4">
+        <h1 className="text-xl text-gray-800 mb-2 font-semibold">
+        {`Prompt:`}
         </h1>
+          <h2 className="text-xl text-gray-800 mb-2">
+              <div>
+              Consider the purpose for this lesson. What do you notice about what students say that would help you{" "}
+              <strong>assess and/or advance</strong> their understanding toward that purpose?<i>
+              (Select rows that provide sufficient evidence to allow you to{" "}
+              <strong>assess and/or advance</strong> their understanding toward the lesson purpose.)</i>
+              <br /> <br></br>
+              In your notes, please answer the following two questions:<br />
+              1. What are students saying in the selected piece(s) of evidence?<br />
+              2. What does this piece of evidence(s) tell you about students’ understanding and/or progress toward the lesson’s purpose?
+            </div>
+          </h2>
+        </div>
         
         <div className="bg-gray-100 border rounded-lg p-4 mb-4">
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            {"Why might educators & researchers care about LLMs' noticing students' math talk?"}
+        <h1 className="text-xl text-gray-800 mb-2 font-semibold">
+        {`Lesson purpose: `}{gradeLevel}
+        </h1>
+          <h2 className="text-xl text-gray-800 mb-2">
+            {activityPurpose.split('\n').map((line, index) => (
+              <span key={index}>
+                ● {line}
+                <br />
+              </span>
+            ))}
           </h2>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2 italic">
-            {"To know how to move students' thinking forward"}
-          </h2>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            {"Value proposition:"}
-          </h2>
-          <ul className="list-disc list-inside text-gray-700">
-            <li>{"It helps plan next lessons."}</li>
-            <li>{"It helps decide how to respond in the moment (e.g., facilitating student group discussions, responding to students' confusion, and or questions)."}</li>
-            <li>{"It provides reflection opportunities for teacher professional development."}</li>
-          </ul>
-        </div>
-
-        <div className="bg-gray-100 border rounded-lg p-4 mb-4">
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">{gradeLevel}</h2>
-        </div>
-
-        {/* Tab Buttons */}
-        <div className="flex justify-center space-x-4 mb-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 font-semibold text-lg rounded-md text-black ${
-                activeTab === tab.key ? "bg-blue-500 text-white" : "bg-gray-200"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
         </div>
       </div>
-      
-      {/* Render Modal for the Active Tab */}
-      {tabs.map((tab) => (
-        <Modal key={tab.key} isOpen={activeTab === tab.key} onClose={() => setActiveTab(null)}>
-          {tab.content}
-        </Modal>
-      ))}
+
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-xl font-semibold text-gray-800 text-center">Click the button to view a particular lesson segment (full_transcript shows the entire lesson)</h2>
+      </div>
+      <div>
+        {availableSegment.map((segment) => (
+          <button
+            key={segment}
+            onClick={() => handleSegmentClick(segment)}
+            className={`px-3 py-1 rounded-md text-sm text-white mr-2 ${
+              whichSegment === segment ? 'bg-blue-500 hover:bg-blue-700' : 'bg-gray-400'
+            }`}
+          >
+            {segment}
+          </button>
+        ))}
+      </div>
 
       {/* Main 3-panel layout */}
-      <div className="flex w-full max-w-8xl h-[calc(100vh-200px)] mb-4">
-        {/* Left Panel - Prompt and Grade Level */}
-        <div className="w-2/5 p-4 flex flex-col overflow-y-auto border-r border-gray-300">
-          <div className="bg-gray-100 border rounded-lg shadow-md p-4 mb-4">
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">Student-facing Lesson Prompts</h2>
-            <Tab1 number={number} />
+        <div className="flex w-full max-w-8xl h-[calc(100vh-200px)] mb-4 relative">
+          {/* Left Panel - Prompt and Grade Level */}
+          <div className="p-4 flex flex-col overflow-y-auto border-r border-gray-300" style={{ width: leftPanelWidth }}>
+            <div className="bg-gray-100 border rounded-lg shadow-md p-4 mb-4">
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">Student-facing Lesson Prompts</h2>
+              <Tab1 number={number} selectedSegment={whichSegment} />
+            </div>
           </div>
-        </div>
         
+        {/* Left Resize Handle */}
+        <div 
+          className="w-1 bg-gray-300 hover:bg-blue-500 hover:w-2 cursor-col-resize z-10 transition-colors"
+          onMouseDown={() => setIsDraggingLeft(true)}
+        ></div>
+
         {/* Center Panel - Transcript Table */}
-        <div className="w-2/5 p-4 flex flex-col border-r border-gray-300">
+        <div className="p-4 flex flex-col border-r border-gray-300" style={{ width: centerPanelWidth }}>
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold text-gray-800 text-center">Full Lesson Transcript</h2>
+            <h2 className="text-xl font-semibold text-gray-800 text-center">Transcript</h2>
             
             {/* Note creation controls */}
             {isCreatingNote ? (
-              <div className="flex items-center">
-                <span className="mr-2 text-sm text-black italic">Select  <b className="font-bold">ALL</b>  relevant rows.</span>
+              <div className="border border-gray-300 rounded-md bg-gray-100 p-4 my-3 max-w-md">
+                <span className="mr-2 text-sm text-black italic">Select rows that provide <b className="font-bold">sufficient evidence</b> to allow you to assess and/or advance their understanding toward the lesson purpose. </span>
                 <button
                   onClick={handleCreateNote}
                   disabled={selectedRows.length === 0}
@@ -648,62 +729,265 @@ export default function TranscriptPage() {
               </button>
             )}
           </div>
-          
+
+          {/* Add this new section for hidden column toggles */}
+          <div className="flex flex-wrap gap-2 mb-2">
+            {Object.entries(columnVisibility).map(([key, isVisible]) => !isVisible && (
+              <button
+                key={key}
+                onClick={() => toggleColumnVisibility(key as keyof typeof columnVisibility)}
+                className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              >
+                + {key === 'lessonSegmentId' ? 'Segment ID' : 
+                  key === 'lineNumber' ? 'Line #' : 
+                  key === 'start' ? 'Start timestamp' :
+                  key === 'end' ? 'End timestamp' :
+                  key === 'speaker' ? 'Speaker' :
+                  key === 'utterance' ? 'Utterance' : 
+                  key === 'notes' ? 'Notes' : key}
+              </button>
+            ))}
+          </div>
+
           {loading ? (
             <div className="text-center py-4 flex-grow">Loading transcript data...</div>
           ) : error ? (
             <div className="text-center py-4 text-red-500 flex-grow">{error}</div>
           ) : (
             <div className="overflow-y-auto flex-grow border">
-              <table className="min-w-full table-auto border-collapse">
+              <table className="min-w-full table-auto border-collapse w-full border-2 border-black">
                 <thead className="sticky top-0 bg-white z-10">
-                  <tr className="bg-gray-100">
+                  <tr>
+                    {/* Checkbox column in header */}
                     {(isCreatingNote || editingLinesId !== null) && (
-                      <th className="px-2 py-2 border text-black text-sm">Select</th>
+                      <th className="w-12 px-2 py-2 border border-black border-2  text-center">
+                      </th>
                     )}
-                    <th className="px-2 py-2 border text-black text-sm">Lesson Segment ID</th>
-                    <th className="px-2 py-2 border text-black text-sm">Line #</th>
-                    <th className="px-2 py-2 border text-black text-sm">Start</th>
-                    <th className="px-2 py-2 border text-black text-sm">End</th>
-                    <th className="px-2 py-2 border text-black text-sm">Speaker</th>
-                    <th className="px-2 py-2 border text-black text-sm">Utterance</th>
-                    <th className="px-2 py-2 border text-black text-sm">Notes</th>
+
+                    {/* Lesson Segment ID Column */}
+                    {columnVisibility.lessonSegmentId && (
+                      <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.lessonSegmentId ? 'w-24' : 'w-12'}`}>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={columnVisibility.lessonSegmentId}
+                            onChange={() => toggleColumnVisibility('lessonSegmentId')}
+                            className="mr-1"
+                          />
+                          Segment ID
+                        </label>
+                      </th>
+                    )}
+
+                    {/* Line Number Column */}
+                    {columnVisibility.lineNumber && (
+                      <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.lineNumber ? 'w-16' : 'w-12'}`}>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={columnVisibility.lineNumber}
+                            onChange={() => toggleColumnVisibility('lineNumber')}
+                            className="mr-1"
+                          />
+                          Line #
+                        </label>
+                      </th>
+                    )}
+                  
+                    {/* Start Timestamp Column */}
+                    {columnVisibility.start && (
+                      <th className={`px-2 py-2 border border-black border-2  text-black text-sm ${columnVisibility.start ? 'w-24' : 'w-12'}`}>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={columnVisibility.start}
+                            onChange={() => toggleColumnVisibility('start')}
+                            className="mr-1"
+                          />
+                          Start timestamp
+                        </label>
+                      </th>
+                    )}
+
+                    {/* End Timestamp Column */}
+                    {columnVisibility.end && (
+                      <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.end ? 'w-24' : 'w-12'}`}>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={columnVisibility.end}
+                            onChange={() => toggleColumnVisibility('end')}
+                            className="mr-1"
+                          />
+                          End timestamp
+                        </label>
+                      </th>
+                    )}
+
+                    {/* Speaker Column */}
+                    {columnVisibility.speaker && (
+                      <th className={`px-2 py-2 border border-black border-2  text-black text-sm ${columnVisibility.speaker ? 'w-32' : 'w-12'}`}>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={columnVisibility.speaker}
+                            onChange={() => toggleColumnVisibility('speaker')}
+                            className="mr-1"
+                          />
+                          Speaker
+                        </label>
+                      </th>
+                    )}
+                    
+                    {/* Utterance Column */}
+                    {columnVisibility.utterance && (
+                      <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.utterance ? 'w-auto' : 'w-12'}`}>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={columnVisibility.utterance}
+                            onChange={() => toggleColumnVisibility('utterance')}
+                            className="mr-1"
+                          />
+                          Utterance
+                        </label>
+                      </th>
+                    )}
+                    
+
+                    {/* Notes Column */}
+                    {columnVisibility.notes && (
+                      <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.notes ? 'w-24' : 'w-12'}`}>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={columnVisibility.notes}
+                            onChange={() => toggleColumnVisibility('notes')}
+                            className="mr-1"
+                          />
+                          Notes
+                        </label>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {tableData.map((rowData, index) => {
+                  {tableData
+                  .filter(rowData => 
+                    whichSegment === 'full_transcript' || rowData.col1 === whichSegment
+                  ).map((rowData) => {
                     const hasNote = rowData.noteIds.trim() !== "";
-                    const isSelectedForEditing = editingLinesId !== null && tempSelectedRows.includes(index);
+                    const isSelectedForLineEdit = editingLinesId !== null && tempSelectedRows.includes(+rowData.col2);
+                    const isRowSelectableForNote = isRowSelectable(+rowData.col2);
                     
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const calculateDynamicHeight = (text: any) => {
+                      if (!text) return 'h-10'; // Default height
+                      const length = text.length;
+                      if (length < 50) return 'h-10';
+                      if (length < 100) return 'h-16';
+                      if (length < 200) return 'h-24';
+                      return 'h-32'; // Max height before scrolling
+                    };
+
                     return (
                       <tr
-                        key={index}
+                        key={rowData.col2}
                         className={`${getRowColor(rowData.col5, speakerColors)} 
                           ${hasNote ? "font-bold" : ""} 
-                          ${isSelectedForEditing ? "ring-2 ring-blue-500" : ""}
-                          ${!isRowSelectable(rowData.col5) ? "opacity-75" : ""}`}
+                          ${isSelectedForLineEdit ? "ring-2 ring-blue-500" : ""}
+                          ${!isRowSelectableForNote ? "opacity-50" : ""} 
+                          `}
                       >
+                        {/* Select column */}
                         {(isCreatingNote || editingLinesId !== null) && (
-                          <td className="px-2 py-2 border text-black text-sm text-center">
-                            <input
-                              type="checkbox"
-                              checked={isCreatingNote ? selectedRows.includes(index) : tempSelectedRows.includes(index)}
-                              onChange={() => isCreatingNote ? toggleRowSelection(index) : toggleTempRowSelection(index)}
-                              disabled={!isRowSelectable(rowData.col5)}
-                              title={!isRowSelectable(rowData.col5) ? "Teacher and Unknown speakers cannot be selected" : ""}
-                              className="w-4 h-4"
-                            />
+                          <td className="w-12 px-2 py-1 border border-black border-2 text-center">
+                            {isRowSelectableForNote ? (
+                              isCreatingNote ? (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedRows.includes(rowData.col2)}
+                                  onChange={() => toggleRowSelection(rowData.col2)}
+                                  className="form-checkbox h-4 w-4"
+                                />
+                              ) : (
+                                <input
+                                  type="checkbox"
+                                  checked={tempSelectedRows.includes(rowData.col2)}
+                                  onChange={() => toggleTempRowSelection(rowData.col2)}
+                                  className="form-checkbox h-4 w-4"
+                                />
+                              )
+                            ) : null}
                           </td>
                         )}
-                        <td className="px-2 py-2 border text-black text-sm">{rowData.col1}</td>
-                        <td className="px-2 py-2 border text-black text-sm">{rowData.col2}</td>
-                        <td className="px-2 py-2 border text-black text-sm">{rowData.col3}</td>
-                        <td className="px-2 py-2 border text-black text-sm">{rowData.col4}</td>
-                        <td className="px-2 py-2 border text-black text-sm">{rowData.col5}</td>
-                        <td className="px-2 py-2 border text-black text-sm">{rowData.col6}</td>
-                        <td className="px-2 py-2 border text-black text-sm">
-                          {getNoteDisplayText(rowData.noteIds)}
-                        </td>
+
+                        {/* Lesson Segment ID Column */}
+                        {columnVisibility.lessonSegmentId && (
+                          <td className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24
+                            ${calculateDynamicHeight(rowData.col1)}`}
+                          >
+                              {rowData.col1}
+                          </td>
+                        )}
+
+                        {/* Line Number Column */}
+                        {columnVisibility.lineNumber && (
+                          <td className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24
+                            ${calculateDynamicHeight(rowData.col2)}`}
+                          >  
+                            {rowData.col2}
+                          </td>
+                        )}
+
+                        {/* Start Timestamp Column */}
+                        {columnVisibility.start && (
+                          <td 
+                            className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24 
+                              ${calculateDynamicHeight(rowData.col3)}`}
+                          >
+                            {rowData.col3}
+                          </td>
+                        )}
+
+                        {/* End Timestamp Column */}
+                        {columnVisibility.end && (
+                          <td 
+                            className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24 
+                              ${calculateDynamicHeight(rowData.col4)}`}
+                          >
+                            {rowData.col4}
+                          </td>
+                        )}
+
+                        {/* Speaker Column */}
+                        {columnVisibility.speaker && (
+                          <td 
+                            className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-32 
+                              ${calculateDynamicHeight(rowData.col5)}`}
+                          >
+                            {rowData.col5}
+                          </td>
+                        )}
+
+
+                        {/* Utterance Column */}
+                        {columnVisibility.utterance && (
+                          <td 
+                            className={`px-2 py-1 border border-black border-2  text-sm text-gray-700 w-auto 
+                              ${calculateDynamicHeight(rowData.col6)}
+                              overflow-auto whitespace-normal break-words`}
+                          >
+                            {rowData.col6}
+                          </td>
+                        )}
+
+                        {/* Notes Column */}
+                        {columnVisibility.notes && (
+                          <td className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24 ${calculateDynamicHeight(rowData.noteIds)}`}>
+                            {getNoteDisplayText(rowData.noteIds)}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -713,8 +997,14 @@ export default function TranscriptPage() {
           )}
         </div>
         
+        {/* Right Resize Handle */}
+        <div 
+          className="w-1 bg-gray-300 hover:bg-blue-500 hover:w-2 cursor-col-resize z-10 transition-colors"
+          onMouseDown={() => setIsDraggingRight(true)}
+        ></div>
+
         {/* Right Panel - Analysis Notes */}
-        <div className="w-1/5 p-4 flex flex-col overflow-y-auto">
+        <div className="p-4 flex flex-col overflow-y-auto" style={{ width: rightPanelWidth }}>
           <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Notes</h2>
           
           {loading ? (
@@ -765,7 +1055,7 @@ export default function TranscriptPage() {
                               className="ml-1 text-blue-500 hover:text-blue-700 text-xs"
                               title="Edit title"
                             >
-                              ✎
+                              ✎ Edit note title
                             </button>
                             <button
                               onClick={() => handleDeleteNote(note.id)}
@@ -788,7 +1078,7 @@ export default function TranscriptPage() {
                       className="ml-2 text-blue-500 hover:text-blue-700 text-xs"
                       title="Edit line numbers"
                     >
-                      ✎ Edit
+                      ✎ Edit (add or remove lines)
                     </button>
 
                     {/* Display each row's content for this note */}
@@ -800,13 +1090,25 @@ export default function TranscriptPage() {
                         </div>
                       ))}
                     </div>
-                    
+                    <div className="text-black">
+                    {`Q1: What are students saying in the selected piece(s) of evidence?`}
+                    </div>
                     <textarea
-                      value={note.content}
-                      onChange={(e) => handleNoteContentChange(note.id, e.target.value)}
+                      value={note.content_1}
+                      onChange={(e) => handleNoteContentChange1(note.id, e.target.value)}
                       rows={3}
                       className="w-full p-2 border rounded resize-none text-sm text-black"
-                      placeholder="Your analysis..."
+                      placeholder="Type your response here..."
+                    />
+                    <div className="text-black">
+                    {`Q2: What does this piece of evidence(s) tell you about students’ understanding and/or progress toward the lesson’s purpose?`}
+                    </div>
+                    <textarea
+                      value={note.content_2}
+                      onChange={(e) => handleNoteContentChange2(note.id, e.target.value)}
+                      rows={4}
+                      className="w-full p-2 border rounded resize-none text-sm text-black"
+                      placeholder="Type your response here..."
                     />
                   </div>
                 );
@@ -820,23 +1122,24 @@ export default function TranscriptPage() {
             </div>
           )}
           
-          {/* High level comments field */}
-          <div className="mt-4">
-            <h3 className="font-semibold text-gray-800 mb-2 text-sm">Overall Comments about the Lesson</h3>
-            <textarea
-              className="w-full h-32 p-2 border rounded resize-y text-sm text-black"
-              placeholder="Enter any high-level comments here..."
-              value={customText}
-              onChange={(e) => setCustomText(e.target.value)}
-            />
-          </div>
         </div>
       </div>
       
+      {/* High level comments field */}
+      <div className="w-full max-w-6xl p-4 flex flex-col items-center">
+            <h3 className="font-semibold text-gray-800 mb-2 text-sm">What other evidence would you have liked to access in order to assess and/or advance students’ understanding/progress toward the purpose?</h3>
+            <textarea
+              className="w-full h-32 p-2 border rounded resize-y text-sm text-black"
+              placeholder="Please write your response here..."
+              value={customText}
+              onChange={(e) => setCustomText(e.target.value)}
+            />
+      </div>
+
       {/* Footer area with email and buttons */}
       <div className="w-full max-w-6xl p-4 flex flex-col items-center">
         <div className="w-full max-w-xs mb-4">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="email" className="block text-sm font-medium text-black">
             Enter your email:
           </label>
           <input

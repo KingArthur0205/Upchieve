@@ -8,7 +8,15 @@
       "/t19/rule6.png",
       "/t19/rule7.png"
     ],
-
+    "segments": [
+      "b",
+      "b",
+      "b",
+      "c",
+      "d",
+      "",
+      ""
+    ], 
     "links": [
       "b",
       "b",

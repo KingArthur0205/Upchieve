@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Modal from "./Modal";
-import Tab1 from "../tabs/tab1";
 import Tab2 from "../tabs/tab2";
 import Tab3 from "../tabs/tab3";
 
@@ -14,7 +13,6 @@ export default function TabComponent({ number }: TabComponentProps) {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   
   const tabs = [
-    { label: "Tab 1", key: "tab1", component: <Tab1 number={number} /> },
     { label: "Tab 2", key: "tab2", component: <Tab2 number={number} /> },
     { label: "Tab 3", key: "tab3", component: <Tab3 number={number} /> },
   ];

@@ -10,6 +10,12 @@ export default function Home() {
             Transcript 19 (available)
           </button>
         </Link>
+
+        <Link href="/transcript/16">
+          <button className="px-8 py-3 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-700 transition w-64">
+            Transcript 16 (available)
+          </button>
+        </Link>
       </div>
     </div>
   );

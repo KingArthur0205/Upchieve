@@ -5,16 +5,17 @@ import Image from "next/image";
 
 interface Tab1Props {
   number: string | undefined;
+  selectedSegment: string | undefined;
 }
 
-export default function Tab1({ number }: Tab1Props) {
+export default function Tab1({ number, selectedSegment }: Tab1Props) {
   const [lessonLink, setLessonLink] = useState<{ url: string; text: string } | null>(null);
   const [description, setDescription] = useState<string | null>(null);
   const [imagePaths, setImagePaths] = useState<string[]>([]);
   const [lessonSegmentIDs, setLessonSegmentIDs] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!number) return; // Ensure the number is available
+    if (!number || !selectedSegment) return; // Ensure the number is available
 
     // Fetch lesson link and description from content.json
     fetch(`/t${number}/content.json`)
@@ -53,20 +54,26 @@ export default function Tab1({ number }: Tab1Props) {
       </h2>
 
       <p className="text-black">{description || "Loading description..."}</p>
-
+      
       {/* Dynamically render images */}
       {imagePaths.length > 0 ? (
-        imagePaths.map((src, index) => (
-          <div key={index} className="my-4 text-center">
-            {/* Always show "Problem #{index + 1}" */}
-            <h3 className="text-lg font-semibold text-black mb-2">
-              Problem #{index + 1}
-              {/* Conditionally render Lesson Segment ID if it exists */}
-              {lessonSegmentIDs[index] && ` (Lesson Segment ID: ${lessonSegmentIDs[index]})`}
-            </h3>
-            <Image src={src} alt={`Rule ${index + 1}`} width={500} height={300} />
-          </div>
-        ))
+        imagePaths.map((src, index) => {
+          const segmentID = lessonSegmentIDs[index];
+
+          // Check if the segment should be displayed
+          if (selectedSegment === "full_transcript" || segmentID === selectedSegment) {
+            return (
+              <div key={index} className="my-4 text-center">
+                <h3 className="text-lg font-semibold text-black mb-2">
+                  Problem #{index + 1}
+                  {segmentID && ` (Lesson Segment ID: ${segmentID})`}
+                </h3>
+                <Image src={src} alt={`Problem ${index + 1}`} width={500} height={300} />
+              </div>
+            );
+          }
+          return null; // Do not render if it doesn't match
+        })
       ) : (
         <p className="text-gray-500 text-center mt-4">Loading images...</p>
       )}
