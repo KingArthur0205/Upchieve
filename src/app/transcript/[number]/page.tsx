@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Tab1 from "../../tabs/tab1";
 import Papa from "papaparse";
+import AnnotationPanel, { AnnotationData, FeatureDetails } from "../../components/AnnotationPanel";
+import { read, utils, writeFile } from "xlsx";
+import FeaturePopup from "../../components/FeaturePopup";
+import React from "react";
+import { debounce } from "lodash";
 
 interface CsvRow {
   "#": string;
@@ -36,6 +41,15 @@ interface TableRow {
   noteIds: string; // This will store the comma-separated note IDs (read-only)
 }
 
+// Types for the feature columns component
+interface FeatureColumnsProps {
+  rowData: TableRow;
+  selectedFeature: string | null;
+  annotationData: AnnotationData | null;
+  isStudent: boolean;
+  onFeatureChange: (lineNumber: number, code: string, value: boolean) => void;
+}
+
 export default function TranscriptPage() {
   const params = useParams();
   const number = params.number as string;
@@ -48,11 +62,12 @@ export default function TranscriptPage() {
   const [speakerColors, setSpeakerColors] = useState<{ [key: string]: string }>({});
   const [availableSegment, setAvailableSegment] = useState<string []>([]);
   const [whichSegment, setWhichSegment] = useState<string>("full_transcript");
+  const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [columnVisibility, setColumnVisibility] = useState({
     lessonSegmentId: true,
     lineNumber: true,
-    start: true,
-    end: true,
+    start: false,
+    end: false,
     speaker: true,
     utterance: true,
     notes: true
@@ -431,11 +446,480 @@ export default function TranscriptPage() {
   };
 
   // Function to get display titles for the table
-  const getNoteDisplayText = (idsString: string): string => {
-    if (!idsString.trim()) return "—";
-    
+  const getNoteDisplayText = (idsString: string, rowIndex: number): string => {
     const ids = parseNoteIds(idsString);
-    return ids.map(id => getNoteDisplayById(id)).join(', ');
+    return ids.length > 0 ? ids.map((id: number) => getNoteDisplayById(id)).join(', ') : "—";
+  };
+
+  const [isAnnotating, setIsAnnotating] = useState(false);
+  const [annotationData, setAnnotationData] = useState<AnnotationData | null>(null);
+  const [selectedAnnotationSheet, setSelectedAnnotationSheet] = useState<string | null>(null);
+  const [showNotesColumn, setShowNotesColumn] = useState(true);
+  const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
+
+  const ALLOWED_SHEETS = ["Talk", "Conceptual", "Discursive", "Lexical"];
+
+  // Function to save all annotations
+  const saveAllAnnotations = (data: AnnotationData | null) => {
+    if (!data) return;
+    localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
+  };
+
+  // Handle feature sheet selection
+  const handleFeatureSelection = (feature: string) => {
+    // Save current annotations before switching
+    saveAllAnnotations(annotationData);
+
+    // If clicking the same feature, deselect it
+    if (feature === selectedFeature) {
+      setSelectedFeature(null);
+      return;
+    }
+
+    setSelectedFeature(feature);
+  };
+
+  // Simplified and optimized toggle component with enhanced contrast
+  const FeatureToggle = React.memo(({ 
+    isChecked, 
+    isDisabled, 
+    onToggle 
+  }: { 
+    isChecked: boolean;
+    isDisabled: boolean;
+    onToggle: (checked: boolean) => void;
+  }) => (
+    <div 
+      className={`
+        inline-flex rounded-md select-none
+        ${isDisabled ? 'opacity-40' : ''}
+      `}
+    >
+      <button
+        type="button"
+        disabled={isDisabled}
+        onClick={() => !isDisabled && onToggle(false)}
+        className={`
+          min-w-[28px] px-2 py-0.5 text-xs font-bold rounded-l-md border-r border-white/20
+          ${isChecked 
+            ? 'bg-gray-100 text-gray-400' 
+            : 'bg-red-600 text-white shadow-sm'
+          }
+        `}
+      >
+        N
+      </button>
+      <button
+        type="button"
+        disabled={isDisabled}
+        onClick={() => !isDisabled && onToggle(true)}
+        className={`
+          min-w-[28px] px-2 py-0.5 text-xs font-bold rounded-r-md
+          ${isChecked 
+            ? 'bg-emerald-600 text-white shadow-sm' 
+            : 'bg-gray-100 text-gray-400'
+          }
+        `}
+      >
+        Y
+      </button>
+    </div>
+  ), (prev, next) => 
+    prev.isChecked === next.isChecked && 
+    prev.isDisabled === next.isDisabled
+  );
+
+  // Memoize the header cell to prevent re-renders
+  const FeatureHeader = React.memo(({ 
+    code, 
+    definition,
+    example1,
+    nonexample1
+  }: { 
+    code: string;
+    definition: string;
+    example1: string;
+    nonexample1: string;
+  }) => (
+    <th
+      className="px-2 py-2 border border-black border-2 text-sm w-16 cursor-pointer group"
+      onClick={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setSelectedFeaturePopup({
+          code,
+          definition,
+          example1,
+          nonexample1,
+          position: {
+            x: rect.left + rect.width / 2,
+            y: rect.bottom + 10
+          }
+        });
+      }}
+    >
+      <div className="
+        text-sky-600 
+        group-hover:text-sky-800
+        group-hover:underline 
+        group-hover:underline-offset-4
+        transition-all
+        font-medium
+      ">
+        {code}
+      </div>
+    </th>
+  ));
+
+  // Optimize feature columns component
+  const FeatureColumns = React.memo(({ 
+    rowData,
+    selectedFeature,
+    annotationData,
+    isStudent,
+    onFeatureChange
+  }: FeatureColumnsProps) => {
+    // Early return if no data
+    if (!selectedFeature || !annotationData?.[selectedFeature]) return null;
+
+    const rowAnnotations = annotationData[selectedFeature].annotations[rowData.col2 - 1] || {};
+    const codes = annotationData[selectedFeature].codes;
+    
+    return (
+      <>
+        {codes.map((code: string) => (
+          <td key={code} className="px-1 py-1 border border-black border-2 text-center">
+            <FeatureToggle
+              isChecked={!!rowAnnotations[code]}
+              isDisabled={!isStudent}
+              onToggle={(checked) => onFeatureChange(rowData.col2 - 1, code, checked)}
+            />
+          </td>
+        ))}
+      </>
+    );
+  }, (prev, next) => {
+    // Simplified comparison focusing only on what matters
+    if (prev.selectedFeature !== next.selectedFeature) return false;
+    if (prev.isStudent !== next.isStudent) return false;
+    if (!prev.selectedFeature || !next.selectedFeature) return true;
+
+    const prevRow = prev.annotationData?.[prev.selectedFeature]?.annotations[prev.rowData.col2 - 1];
+    const nextRow = next.annotationData?.[next.selectedFeature]?.annotations[next.rowData.col2 - 1];
+    return prevRow === nextRow; // Direct reference comparison instead of JSON stringify
+  });
+
+  // Memoize the filtered table data
+  const filteredTableData = React.useMemo(() => {
+    return tableData.filter(rowData => 
+      whichSegment === 'full_transcript' || rowData.col1 === whichSegment
+    );
+  }, [tableData, whichSegment]);
+
+  // Memoize feature codes and definitions
+  const featureInfo = React.useMemo(() => {
+    if (!selectedFeature || !annotationData?.[selectedFeature]) return [];
+    return annotationData[selectedFeature].codes.map(code => ({
+      code,
+      definition: annotationData[selectedFeature].definitions[code]?.Definition || ''
+    }));
+  }, [selectedFeature, annotationData]);
+
+  // Optimize the debounced save to be less aggressive
+  const debouncedSave = React.useCallback(
+    debounce((data: AnnotationData) => {
+      localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
+    }, 2000), // Increased debounce time to reduce storage operations
+    [number]
+  );
+
+  // Update TableRow to use the new FeatureColumns component
+  const TableRow = React.memo(({ 
+    rowData, 
+    selectedFeature, 
+    annotationData,
+    onFeatureChange,
+    speakerColors,
+    columnVisibility,
+    showNotesColumn,
+    isCreatingNote,
+    editingLinesId,
+    selectedRows,
+    tempSelectedRows,
+    toggleRowSelection,
+    toggleTempRowSelection,
+    getNoteDisplayText
+  }: {
+    rowData: TableRow;
+    selectedFeature: string | null;
+    annotationData: AnnotationData | null;
+    onFeatureChange: (lineNumber: number, code: string, value: boolean) => void;
+    speakerColors: { [key: string]: string };
+    columnVisibility: any;
+    showNotesColumn: boolean;
+    isCreatingNote: boolean;
+    editingLinesId: number | null;
+    selectedRows: number[];
+    tempSelectedRows: number[];
+    toggleRowSelection: (col2Value: number) => void;
+    toggleTempRowSelection: (col2Value: number) => void;
+    getNoteDisplayText: (idsString: string, rowIndex: number) => string;
+  }) => {
+    const hasNote = rowData.noteIds.trim() !== "";
+    const isSelectedForLineEdit = editingLinesId !== null && tempSelectedRows.includes(+rowData.col2);
+    const isRowSelectableForNote = rowData.col7?.toLowerCase() === "true" || rowData.col7?.toLowerCase() === "yes" || rowData.col7?.toLowerCase() === "1";
+    const isStudent = rowData.col5.includes("Student");
+
+    return (
+      <tr
+        className={`${speakerColors[rowData.col5] || "bg-gray-100"} 
+          ${hasNote ? "font-bold" : ""} 
+          ${isSelectedForLineEdit ? "ring-2 ring-blue-500" : ""}
+          ${!isRowSelectableForNote ? "opacity-50" : ""} 
+          ${!isStudent ? "opacity-50" : ""}
+        `}
+      >
+        {/* Select column */}
+        {(isCreatingNote || editingLinesId !== null) && (
+          <td className="w-12 px-2 py-1 border border-black border-2 text-center">
+            {isRowSelectableForNote ? (
+              isCreatingNote ? (
+                <input
+                  type="checkbox"
+                  checked={selectedRows.includes(rowData.col2)}
+                  onChange={() => toggleRowSelection(rowData.col2)}
+                  className="form-checkbox h-4 w-4"
+                />
+              ) : (
+                <input
+                  type="checkbox"
+                  checked={tempSelectedRows.includes(rowData.col2)}
+                  onChange={() => toggleTempRowSelection(rowData.col2)}
+                  className="form-checkbox h-4 w-4"
+                />
+              )
+            ) : null}
+          </td>
+        )}
+
+        {/* Standard columns */}
+        {columnVisibility.lessonSegmentId && (
+          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24">
+            {rowData.col1}
+          </td>
+        )}
+        {columnVisibility.lineNumber && (
+          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24">
+            {rowData.col2}
+          </td>
+        )}
+        {columnVisibility.start && (
+          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24">
+            {rowData.col3}
+          </td>
+        )}
+        {columnVisibility.end && (
+          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24">
+            {rowData.col4}
+          </td>
+        )}
+        {columnVisibility.speaker && (
+          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-32">
+            {rowData.col5}
+          </td>
+        )}
+        {columnVisibility.utterance && (
+          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-auto overflow-auto whitespace-normal break-words">
+            {rowData.col6}
+          </td>
+        )}
+
+        {/* Notes Column */}
+        {showNotesColumn && (
+          <td className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 ${columnVisibility.notes ? 'w-24' : 'w-12'}`}>
+            {getNoteDisplayText(rowData.noteIds, rowData.col2 - 1)}
+          </td>
+        )}
+
+        {/* Replace feature columns with the new component */}
+        <FeatureColumns
+          rowData={rowData}
+          selectedFeature={selectedFeature}
+          annotationData={annotationData}
+          isStudent={isStudent}
+          onFeatureChange={onFeatureChange}
+        />
+      </tr>
+    );
+  }, (prevProps, nextProps) => {
+    // Less strict comparison function to ensure updates are caught
+    if (!prevProps.annotationData || !nextProps.annotationData) return false;
+    
+    // Deep compare the annotations for this specific row
+    const prevAnnotations = prevProps.selectedFeature && 
+      prevProps.annotationData[prevProps.selectedFeature]?.annotations[prevProps.rowData.col2 - 1];
+    const nextAnnotations = nextProps.selectedFeature && 
+      nextProps.annotationData[nextProps.selectedFeature]?.annotations[nextProps.rowData.col2 - 1];
+    
+    const annotationsEqual = JSON.stringify(prevAnnotations) === JSON.stringify(nextAnnotations);
+    
+    return (
+      prevProps.rowData === nextProps.rowData &&
+      prevProps.selectedFeature === nextProps.selectedFeature &&
+      annotationsEqual &&
+      prevProps.selectedRows === nextProps.selectedRows &&
+      prevProps.tempSelectedRows === nextProps.tempSelectedRows &&
+      prevProps.editingLinesId === nextProps.editingLinesId &&
+      prevProps.isCreatingNote === nextProps.isCreatingNote
+    );
+  });
+
+  // Load data once when page loads
+  useEffect(() => {
+    // Try to load saved annotation data
+    const savedAnnotations = localStorage.getItem(`annotations-${number}`);
+    if (savedAnnotations) {
+      setAnnotationData(JSON.parse(savedAnnotations));
+    } else {
+      // Initialize empty annotation data for all sheets
+      const initialData: AnnotationData = {};
+      ALLOWED_SHEETS.forEach(sheet => {
+        initialData[sheet] = {
+          codes: [],
+          definitions: {},
+          annotations: {}
+        };
+      });
+      setAnnotationData(initialData);
+    }
+  }, [number]);
+
+  // Save annotations when unmounting the component
+  useEffect(() => {
+    return () => {
+      saveAllAnnotations(annotationData);
+    };
+  }, [annotationData]);
+
+  // Add this useEffect to load Excel data when needed
+  useEffect(() => {
+    const loadExcelData = async () => {
+      try {
+        const response = await fetch('/MOL Roles Features.xlsx');
+        if (!response.ok) {
+          throw new Error(`Failed to fetch Excel file: ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const workbook = read(arrayBuffer);
+        
+        // Start with existing data instead of fresh data
+        const newData = annotationData ? { ...annotationData } : {};
+        
+        if (selectedFeature && workbook.SheetNames.includes(selectedFeature)) {
+          const sheet = workbook.Sheets[selectedFeature];
+          const jsonData = utils.sheet_to_json(sheet);
+          
+          // Extract codes and definitions
+          const codes = jsonData
+            .map(row => (row as any).Code)
+            .filter(Boolean);
+          
+          const definitions: { [code: string]: FeatureDetails } = {};
+          
+          jsonData.forEach((row: any) => {
+            const definition = row.Definition || row.definition;
+            if (row.Code && definition) {
+              definitions[row.Code] = {
+                Definition: definition,
+                example1: row.Example1 || row.example1 || '',
+                example2: row.Example2 || row.example2 || '',
+                nonexample1: row.NonExample1 || row.nonexample1 || '',
+                nonexample2: row.NonExample2 || row.nonexample2 || ''
+              };
+            }
+          });
+          
+          // Initialize annotations only if they don't exist for this sheet
+          if (!newData[selectedFeature]) {
+            const annotations: {
+              [key: number]: {
+                [code: string]: boolean;
+              };
+            } = {};
+            
+            for (let i = 0; i < tableData.length; i++) {
+              annotations[i] = {};
+              codes.forEach(code => {
+                annotations[i][code] = false;
+              });
+            }
+            
+            newData[selectedFeature] = {
+              codes,
+              definitions,
+              annotations
+            };
+          } else {
+            // Update codes and definitions while preserving existing annotations
+            newData[selectedFeature] = {
+              ...newData[selectedFeature],
+              codes,
+              definitions
+            };
+          }
+          
+          setAnnotationData(newData);
+        }
+      } catch (error) {
+        console.error('Error loading Excel file:', error);
+      }
+    };
+    
+    if (selectedFeature) {
+      loadExcelData();
+    }
+  }, [selectedFeature, tableData.length, annotationData]);
+
+  const handleSaveAnnotations = (data: AnnotationData) => {
+    setAnnotationData(data);
+    localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
+    alert('Annotations saved successfully!');
+  };
+
+  const handleAnnotationChange = (data: AnnotationData) => {
+    setAnnotationData(data);
+  };
+
+  // Update the state interface to include examples and non-examples
+  const [selectedFeaturePopup, setSelectedFeaturePopup] = useState<{
+    code: string;
+    definition: string;
+    example1: string;
+    nonexample1: string;
+    position: { x: number; y: number };
+  } | null>(null);
+
+  const handleFeatureHeaderClick = (code: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    const rect = (event.target as HTMLElement).getBoundingClientRect();
+    const details = getFeatureDetails(code);
+    setSelectedFeaturePopup({
+      code,
+      definition: details?.Definition || 'No definition available',
+      example1: details?.example1 || '',
+      nonexample1: details?.nonexample1 || '',
+      position: {
+        x: rect.left + rect.width / 2,
+        y: rect.bottom + 10
+      }
+    });
+  };
+
+  // Add this just before the return statement
+  const getFeatureDetails = (code: string): FeatureDetails | null => {
+    if (!selectedFeature || !annotationData?.[selectedFeature]?.definitions) {
+      return null;
+    }
+    return annotationData[selectedFeature].definitions[code];
   };
 
   useEffect(() => {
@@ -606,6 +1090,83 @@ export default function TranscriptPage() {
     }).filter((row): row is TableRow => row !== null);
   };
 
+  const [scrollTop, setScrollTop] = useState(0);
+  
+  // Add scroll handler
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    setScrollTop(target.scrollTop);
+  };
+
+  // Add the export function after handleSubmit
+  const handleExport = () => {
+    if (!annotationData) return;
+
+    // Create workbook
+    const wb = utils.book_new();
+
+    // For each feature sheet
+    Object.entries(annotationData).forEach(([sheetName, sheetData]) => {
+      // Create array for the current sheet's data
+      const sheetRows = [];
+
+      // Add header row with codes
+      sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
+
+      // Add data rows
+      tableData.forEach((row, index) => {
+        const isStudent = row.col5.includes('Student');
+        const rowData = [
+          row.col2, // Line #
+          row.col5, // Speaker
+          row.col6, // Utterance
+          ...sheetData.codes.map(code => {
+            if (!isStudent) return ''; // Empty for non-student speakers
+            return sheetData.annotations[index]?.[code] ? '1' : '0';
+          })
+        ];
+        sheetRows.push(rowData);
+      });
+
+      // Create worksheet and add to workbook
+      const ws = utils.aoa_to_sheet(sheetRows);
+      utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    // Save the workbook
+    const fileName = `transcript_${number}_annotations.xlsx`;
+    writeFile(wb, fileName);
+  };
+
+  // Optimize feature change handler with batched updates
+  const handleFeatureChange = React.useCallback((lineNumber: number, code: string, value: boolean) => {
+    if (!selectedFeature || !annotationData) return;
+    
+    setAnnotationData(prev => {
+      if (!prev) return prev;
+      
+      const currentSheet = prev[selectedFeature];
+      if (!currentSheet) return prev;
+
+      const currentAnnotations = currentSheet.annotations[lineNumber];
+      if (currentAnnotations?.[code] === value) return prev;
+
+      return {
+        ...prev,
+        [selectedFeature]: {
+          ...currentSheet,
+          annotations: {
+            ...currentSheet.annotations,
+            [lineNumber]: {
+              ...currentAnnotations,
+              [code]: value
+            }
+          }
+        }
+      };
+    });
+  }, [selectedFeature, annotationData]);
+
   return (
     <div className="flex flex-col items-center min-h-screen w-full bg-white font-merriweather text-sm">
       {/* Header area with title and tabs */}
@@ -624,7 +1185,7 @@ export default function TranscriptPage() {
               <br /> <br></br>
               In your notes, please answer the following two questions:<br />
               1. What are students saying in the selected piece(s) of evidence?<br />
-              2. What does this piece of evidence(s) tell you about students’ understanding and/or progress toward the lesson’s purpose?
+              2. What does this piece of evidence(s) tell you about students' understanding and/or progress toward the lesson's purpose?
             </div>
           </h2>
         </div>
@@ -664,25 +1225,50 @@ export default function TranscriptPage() {
       {/* Main 3-panel layout */}
         <div className="flex w-full max-w-8xl h-[calc(100vh-200px)] mb-4 relative">
           {/* Left Panel - Prompt and Grade Level */}
-          <div className="p-4 flex flex-col overflow-y-auto border-r border-gray-300" style={{ width: leftPanelWidth }}>
+          <div className={`p-4 flex flex-col overflow-y-auto border-r border-gray-300 transition-all duration-300 ${showPromptPanel ? '' : 'w-0 p-0 overflow-hidden'}`} style={{ width: showPromptPanel ? leftPanelWidth : '0' }}>
             <div className="bg-gray-100 border rounded-lg shadow-md p-4 mb-4">
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">Student-facing Lesson Prompts</h2>
+              <div className="flex justify-between items-center mb-2">
+                <h2 className="text-xl font-semibold text-gray-800">Student-facing Lesson Prompts</h2>
+                <button
+                  onClick={() => setShowPromptPanel(false)}
+                  className="px-2 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-md"
+                >
+                  Hide
+                </button>
+              </div>
               <Tab1 number={number} selectedSegment={whichSegment} />
             </div>
           </div>
         
         {/* Left Resize Handle */}
         <div 
-          className="w-1 bg-gray-300 hover:bg-blue-500 hover:w-2 cursor-col-resize z-10 transition-colors"
+          className={`${showPromptPanel ? 'w-1 bg-gray-300 hover:bg-blue-500 hover:w-2 cursor-col-resize z-10 transition-colors' : 'w-0'}`}
           onMouseDown={() => setIsDraggingLeft(true)}
         ></div>
 
         {/* Center Panel - Transcript Table */}
-        <div className="p-4 flex flex-col border-r border-gray-300" style={{ width: centerPanelWidth }}>
-          <div className="flex justify-between items-center mb-2">
+        <div className="p-4 flex flex-col border-r border-gray-300" style={{ width: showPromptPanel ? centerPanelWidth : 'calc(100% - ' + rightPanelWidth + ')' }}>
+          <div className="flex flex-col gap-2 mb-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                {!showPromptPanel && (
+                  <button
+                    onClick={() => setShowPromptPanel(true)}
+                    className="px-3 py-1 text-sm bg-blue-500 text-white hover:bg-blue-600 rounded-md"
+                  >
+                    Show Prompts
+                  </button>
+                )}
             <h2 className="text-xl font-semibold text-gray-800 text-center">Transcript</h2>
-            
-            {/* Note creation controls */}
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowNotesColumn(prev => !prev)}
+                  className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-md"
+                >
+                  {showNotesColumn ? 'Hide Notes' : 'Show Notes'}
+                </button>
             {isCreatingNote ? (
               <div className="border border-gray-300 rounded-md bg-gray-100 p-4 my-3 max-w-md">
                 <span className="mr-2 text-sm text-black italic">Select rows that provide <b className="font-bold">sufficient evidence</b> to allow you to assess and/or advance their understanding toward the lesson purpose. </span>
@@ -728,25 +1314,83 @@ export default function TranscriptPage() {
                 + New Note
               </button>
             )}
+              </div>
           </div>
 
-          {/* Add this new section for hidden column toggles */}
-          <div className="flex flex-wrap gap-2 mb-2">
-            {Object.entries(columnVisibility).map(([key, isVisible]) => !isVisible && (
+            {/* Split into two rows: column toggles and feature buttons */}
+            <div className="flex justify-between items-center">
+              {/* Column toggle buttons on the left - only show for hidden columns */}
+              <div className="flex flex-wrap gap-2">
+                {!columnVisibility.lessonSegmentId && (
               <button
-                key={key}
-                onClick={() => toggleColumnVisibility(key as keyof typeof columnVisibility)}
-                className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-              >
-                + {key === 'lessonSegmentId' ? 'Segment ID' : 
-                  key === 'lineNumber' ? 'Line #' : 
-                  key === 'start' ? 'Start timestamp' :
-                  key === 'end' ? 'End timestamp' :
-                  key === 'speaker' ? 'Speaker' :
-                  key === 'utterance' ? 'Utterance' : 
-                  key === 'notes' ? 'Notes' : key}
-              </button>
-            ))}
+                    onClick={() => toggleColumnVisibility('lessonSegmentId')}
+                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    Show Segment ID
+                  </button>
+                )}
+                {!columnVisibility.lineNumber && (
+                  <button
+                    onClick={() => toggleColumnVisibility('lineNumber')}
+                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    Show Line #
+                  </button>
+                )}
+                {!columnVisibility.start && (
+                  <button
+                    onClick={() => toggleColumnVisibility('start')}
+                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    Show Start Time
+                  </button>
+                )}
+                {!columnVisibility.end && (
+                  <button
+                    onClick={() => toggleColumnVisibility('end')}
+                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    Show End Time
+                  </button>
+                )}
+                {!columnVisibility.speaker && (
+                  <button
+                    onClick={() => toggleColumnVisibility('speaker')}
+                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    Show Speaker
+                  </button>
+                )}
+                {!columnVisibility.utterance && (
+                  <button
+                    onClick={() => toggleColumnVisibility('utterance')}
+                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  >
+                    Show Utterance
+                  </button>
+                )}
+              </div>
+
+              {/* Feature buttons on the right */}
+              <div className="flex gap-2">
+                {ALLOWED_SHEETS.map(feature => (
+                  <button
+                    key={feature}
+                    onClick={() => handleFeatureSelection(feature)}
+                    className={`
+                      px-3 py-1 rounded-md text-sm transition-all
+                      hover:underline hover:decoration-2 hover:underline-offset-4
+                      ${feature === selectedFeature 
+                        ? 'bg-sky-600 text-white font-medium shadow-sm' 
+                        : 'bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200'
+                      }
+                    `}
+                  >
+                    {feature}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {loading ? (
@@ -760,7 +1404,7 @@ export default function TranscriptPage() {
                   <tr>
                     {/* Checkbox column in header */}
                     {(isCreatingNote || editingLinesId !== null) && (
-                      <th className="w-12 px-2 py-2 border border-black border-2  text-center">
+                      <th className="w-12 px-2 py-2 border border-black border-2 text-center">
                       </th>
                     )}
 
@@ -856,7 +1500,7 @@ export default function TranscriptPage() {
                     
 
                     {/* Notes Column */}
-                    {columnVisibility.notes && (
+                    {showNotesColumn && (
                       <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.notes ? 'w-24' : 'w-12'}`}>
                         <label className="flex items-center">
                           <input
@@ -869,128 +1513,44 @@ export default function TranscriptPage() {
                         </label>
                       </th>
                     )}
+
+                    {/* Feature Columns */}
+                    {featureInfo.map(({ code, definition }) => {
+                      const details = getFeatureDetails(code);
+                      return (
+                        <FeatureHeader 
+                          key={code} 
+                          code={code} 
+                          definition={definition}
+                          example1={details?.example1 || ''}
+                          nonexample1={details?.nonexample1 || ''}
+                        />
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {tableData
-                  .filter(rowData => 
-                    whichSegment === 'full_transcript' || rowData.col1 === whichSegment
-                  ).map((rowData) => {
-                    const hasNote = rowData.noteIds.trim() !== "";
-                    const isSelectedForLineEdit = editingLinesId !== null && tempSelectedRows.includes(+rowData.col2);
-                    const isRowSelectableForNote = isRowSelectable(+rowData.col2);
-                    
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const calculateDynamicHeight = (text: any) => {
-                      if (!text) return 'h-10'; // Default height
-                      const length = text.length;
-                      if (length < 50) return 'h-10';
-                      if (length < 100) return 'h-16';
-                      if (length < 200) return 'h-24';
-                      return 'h-32'; // Max height before scrolling
-                    };
-
-                    return (
-                      <tr
+                    .filter(rowData => whichSegment === 'full_transcript' || rowData.col1 === whichSegment)
+                    .map((rowData) => (
+                      <TableRow
                         key={rowData.col2}
-                        className={`${getRowColor(rowData.col5, speakerColors)} 
-                          ${hasNote ? "font-bold" : ""} 
-                          ${isSelectedForLineEdit ? "ring-2 ring-blue-500" : ""}
-                          ${!isRowSelectableForNote ? "opacity-50" : ""} 
-                          `}
-                      >
-                        {/* Select column */}
-                        {(isCreatingNote || editingLinesId !== null) && (
-                          <td className="w-12 px-2 py-1 border border-black border-2 text-center">
-                            {isRowSelectableForNote ? (
-                              isCreatingNote ? (
-                                <input
-                                  type="checkbox"
-                                  checked={selectedRows.includes(rowData.col2)}
-                                  onChange={() => toggleRowSelection(rowData.col2)}
-                                  className="form-checkbox h-4 w-4"
-                                />
-                              ) : (
-                                <input
-                                  type="checkbox"
-                                  checked={tempSelectedRows.includes(rowData.col2)}
-                                  onChange={() => toggleTempRowSelection(rowData.col2)}
-                                  className="form-checkbox h-4 w-4"
-                                />
-                              )
-                            ) : null}
-                          </td>
-                        )}
-
-                        {/* Lesson Segment ID Column */}
-                        {columnVisibility.lessonSegmentId && (
-                          <td className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24
-                            ${calculateDynamicHeight(rowData.col1)}`}
-                          >
-                              {rowData.col1}
-                          </td>
-                        )}
-
-                        {/* Line Number Column */}
-                        {columnVisibility.lineNumber && (
-                          <td className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24
-                            ${calculateDynamicHeight(rowData.col2)}`}
-                          >  
-                            {rowData.col2}
-                          </td>
-                        )}
-
-                        {/* Start Timestamp Column */}
-                        {columnVisibility.start && (
-                          <td 
-                            className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24 
-                              ${calculateDynamicHeight(rowData.col3)}`}
-                          >
-                            {rowData.col3}
-                          </td>
-                        )}
-
-                        {/* End Timestamp Column */}
-                        {columnVisibility.end && (
-                          <td 
-                            className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24 
-                              ${calculateDynamicHeight(rowData.col4)}`}
-                          >
-                            {rowData.col4}
-                          </td>
-                        )}
-
-                        {/* Speaker Column */}
-                        {columnVisibility.speaker && (
-                          <td 
-                            className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-32 
-                              ${calculateDynamicHeight(rowData.col5)}`}
-                          >
-                            {rowData.col5}
-                          </td>
-                        )}
-
-
-                        {/* Utterance Column */}
-                        {columnVisibility.utterance && (
-                          <td 
-                            className={`px-2 py-1 border border-black border-2  text-sm text-gray-700 w-auto 
-                              ${calculateDynamicHeight(rowData.col6)}
-                              overflow-auto whitespace-normal break-words`}
-                          >
-                            {rowData.col6}
-                          </td>
-                        )}
-
-                        {/* Notes Column */}
-                        {columnVisibility.notes && (
-                          <td className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24 ${calculateDynamicHeight(rowData.noteIds)}`}>
-                            {getNoteDisplayText(rowData.noteIds)}
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
+                        rowData={rowData}
+                        selectedFeature={selectedFeature}
+                        annotationData={annotationData}
+                        onFeatureChange={handleFeatureChange}
+                        speakerColors={speakerColors}
+                        columnVisibility={columnVisibility}
+                        showNotesColumn={showNotesColumn}
+                        isCreatingNote={isCreatingNote}
+                        editingLinesId={editingLinesId}
+                        selectedRows={selectedRows}
+                        tempSelectedRows={tempSelectedRows}
+                        toggleRowSelection={toggleRowSelection}
+                        toggleTempRowSelection={toggleTempRowSelection}
+                        getNoteDisplayText={getNoteDisplayText}
+                      />
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -1004,14 +1564,26 @@ export default function TranscriptPage() {
         ></div>
 
         {/* Right Panel - Analysis Notes */}
-        <div className="p-4 flex flex-col overflow-y-auto" style={{ width: rightPanelWidth }}>
+        <div className="p-4 flex flex-col overflow-hidden" style={{ width: rightPanelWidth }}>
           <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Notes</h2>
           
           {loading ? (
             <div className="text-center py-4">Loading...</div>
           ) : (
+            <div className="flex-grow flex flex-col overflow-hidden">
+              {isAnnotating ? (
+                <div className="flex-grow flex flex-col overflow-hidden">
+                  <AnnotationPanel
+                    numRows={tableData.length}
+                    onSave={handleSaveAnnotations}
+                    savedData={annotationData || undefined}
+                    onAnnotationChange={handleAnnotationChange}
+                  />
+                </div>
+          ) : (
             <div className="flex-grow overflow-y-auto">
-              {notes.map((note) => {
+                  {notes.length > 0 ? (
+                    notes.map((note) => {
                 const noteRows = generateNoteRows(note);
                 const isEditingTitle = editingTitleId === note.id;
                 
@@ -1101,7 +1673,7 @@ export default function TranscriptPage() {
                       placeholder="Type your response here..."
                     />
                     <div className="text-black">
-                    {`Q2: What does this piece of evidence(s) tell you about students’ understanding and/or progress toward the lesson’s purpose?`}
+                          {`Q2: What does this piece of evidence(s) tell you about students' understanding and/or progress toward the lesson's purpose?`}
                     </div>
                     <textarea
                       value={note.content_2}
@@ -1112,11 +1684,12 @@ export default function TranscriptPage() {
                     />
                   </div>
                 );
-              })}
-              
-              {notes.length === 0 && (
+                    })
+                  ) : (
                 <div className="text-center py-4 text-gray-500 italic">
                   {'No notes yet. Click "New Note" to begin.'}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1127,7 +1700,7 @@ export default function TranscriptPage() {
       
       {/* High level comments field */}
       <div className="w-full max-w-6xl p-4 flex flex-col items-center">
-            <h3 className="font-semibold text-gray-800 mb-2 text-sm">What other evidence would you have liked to access in order to assess and/or advance students’ understanding/progress toward the purpose?</h3>
+            <h3 className="font-semibold text-gray-800 mb-2 text-sm">What other evidence would you have liked to access in order to assess and/or advance students' understanding/progress toward the purpose?</h3>
             <textarea
               className="w-full h-32 p-2 border rounded resize-y text-sm text-black"
               placeholder="Please write your response here..."
@@ -1167,8 +1740,26 @@ export default function TranscriptPage() {
           >
             Submit
           </button>
+
+          <button
+            onClick={handleExport}
+            className="px-6 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-700 transition"
+          >
+            Export to Excel
+          </button>
         </div>
       </div>
+
+      {selectedFeaturePopup && selectedFeaturePopup.definition && (
+        <FeaturePopup
+          code={selectedFeaturePopup.code}
+          definition={selectedFeaturePopup.definition}
+          example1={selectedFeaturePopup.example1}
+          nonexample1={selectedFeaturePopup.nonexample1}
+          position={selectedFeaturePopup.position}
+          onClose={() => setSelectedFeaturePopup(null)}
+        />
+      )}
     </div>
   );
 }

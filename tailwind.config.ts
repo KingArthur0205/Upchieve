@@ -12,6 +12,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Helvetica Neue", "Helvetica", "Arial", ...defaultTheme.fontFamily.sans],
+        merriweather: ['var(--font-merriweather)', 'serif'],
       },
       colors: {
         background: "var(--background)",
