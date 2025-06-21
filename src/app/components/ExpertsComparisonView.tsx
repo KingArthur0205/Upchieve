@@ -215,7 +215,7 @@ function FloatingWindow({ window, onClose, onMinimize, onBringToFront, onUpdateP
                   <div className="mb-3">
                     <h6 className="font-medium text-gray-700 text-xs uppercase tracking-wide mb-2">📌 Note Title</h6>
                     <div className="bg-blue-100 text-blue-800 px-2 py-2 rounded-lg text-xs border-l-4 border-blue-400">
-                      {note.title || `Note ${note.id}`}
+                      {note.title || 'User Note'}
                     </div>
                   </div>
                   

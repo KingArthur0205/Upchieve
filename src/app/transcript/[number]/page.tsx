@@ -1793,7 +1793,6 @@ export default function TranscriptPage() {
             let highestId = 0;
             
             const migratedNotes: Note[] = [];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             parsedData.tableData.forEach((row: any, rowIndex: number) => {
               const oldTitles = row.noteTitle ? row.noteTitle.split(',').map((t: string) => t.trim()).filter((t: string) => t !== "") : [];
               
@@ -1804,7 +1803,6 @@ export default function TranscriptPage() {
                   highestId = newId;
                   titleToIdMap.set(oldTitle, newId);
                   
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const oldNote = parsedData.notes?.find((n: any) => n.title === oldTitle);
                   
                   migratedNotes.push({
@@ -1825,7 +1823,6 @@ export default function TranscriptPage() {
               });
             });
             
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const migratedTableData = parsedData.tableData.map((row: any) => {
               const oldTitles = row.noteTitle ? row.noteTitle.split(',').map((t: string) => t.trim()).filter((t: string) => t !== "") : [];
               const newIds = oldTitles.map((title: string) => titleToIdMap.get(title)).filter(Boolean);

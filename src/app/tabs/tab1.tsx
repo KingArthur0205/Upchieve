@@ -32,7 +32,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
         setLessonSegmentIDs(data["segments"] || []); // Segment IDs
       })
       .catch((err) => console.error("Error loading images:", err));
-  }, [number]); // Dependency array ensures this runs when `number` changes
+  }, [number, selectedSegment]); // Include selectedSegment in dependency array
 
   return (
     <div className="h-[80vh] overflow-y-auto p-6 border border-gray-300 rounded-md">

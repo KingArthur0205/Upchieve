@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { AnnotationData } from './AnnotationPanel';
 
 interface TableRow {
   col1: string;
@@ -821,8 +820,8 @@ export default function LLMAnalysisComparisonView({
               <div className="bg-gray-400 text-white px-3 py-1 rounded text-sm font-medium">—</div>
               <span className="text-gray-700">No annotation</span>
             </div>
-            <div className="text-sm text-gray-600 space-y-1">
-              <div><strong>Filter:</strong> Use the "Show only rows with notes" button to display only lines that have annotations</div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                <div><strong>Filter:</strong> Use the &quot;Show only rows with notes&quot; button to display only lines that have annotations</div>
               <div><strong>Row Click:</strong> Click any row to open a consolidated window with all notes (user + LLM analysis) for that line</div>
               <div><strong>Individual:</strong> Click specific user or LLM analysis notes to open the same consolidated window</div>
               <div><strong>Windows:</strong> Drag windows by their header, minimize/maximize with −/□, close with ×</div>
@@ -854,7 +853,7 @@ export default function LLMAnalysisComparisonView({
           onClose={() => closeWindow(window.id)}
           onMinimize={() => toggleMinimize(window.id)}
           onBringToFront={() => bringToFront(window.id)}
-          onUpdatePosition={(newPosition) => updateWindowPosition(window.id, newPosition)}
+          onUpdatePosition={(windowId, newPosition) => updateWindowPosition(windowId, newPosition)}
         />
       ))}
     </div>

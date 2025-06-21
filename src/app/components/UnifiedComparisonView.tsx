@@ -98,7 +98,7 @@ function FloatingWindow({ window, onClose, onMinimize, onExpand, onBringToFront,
       
       onUpdatePosition(window.id, newPosition);
     }
-  }, [isDragging, dragOffset, window.size.width, window.size.height, onUpdatePosition]);
+  }, [isDragging, dragOffset, window.size.width, window.size.height, onUpdatePosition, window.id]);
 
   const handleMouseUp = React.useCallback(() => {
     setIsDragging(false);
@@ -350,7 +350,7 @@ export default function UnifiedComparisonView({
     if (!expertsData?.transcript) return '';
     
     // Try different ways to match line numbers (same as ExpertsComparisonView)
-    const transcriptRow = expertsData.transcript.find((row: any) => {
+    const transcriptRow = expertsData.transcript.find((row: Record<string, unknown>) => {
       const lineCol = row['Line #'] || row['#'] || row['Line'] || row['line'] || row['LINE'];
       return lineCol !== null && lineCol !== undefined && String(lineCol) === String(lineNumber);
     });
@@ -366,7 +366,7 @@ export default function UnifiedComparisonView({
     if (!llmAnalysisData?.transcript) return '';
     
     // Try different ways to match line numbers (same as LLMAnalysisComparisonView)
-    const transcriptRow = llmAnalysisData.transcript.find((row: any) => {
+    const transcriptRow = llmAnalysisData.transcript.find((row: Record<string, unknown>) => {
       const lineCol = row['Line #'] || row['#'] || row['Line'] || row['line'] || row['LINE'];
       return lineCol !== null && lineCol !== undefined && String(lineCol) === String(lineNumber);
     });
@@ -446,18 +446,7 @@ export default function UnifiedComparisonView({
     return { abstract: abstract || '', fullContent: 'Content not found in the LLM notes sheet.' };
   };
 
-  // Parse note content to extract abstract and full content
-  const parseNoteContent = (noteText: string): { abstract: string; fullContent: string } => {
-    if (!noteText) return { abstract: '', fullContent: '' };
-    
-    const lines = noteText.split('\n').filter(line => line.trim());
-    if (lines.length === 0) return { abstract: '', fullContent: '' };
-    
-    const abstract = lines[0].trim();
-    const fullContent = lines.slice(1).join('\n').trim() || abstract;
-    
-    return { abstract, fullContent };
-  };
+
 
   // Handle search functionality
   const handleSearch = (term: string) => {
@@ -861,7 +850,6 @@ export default function UnifiedComparisonView({
             </thead>
             <tbody>
               {filteredTableData.map((rowData, filteredIndex) => {
-                const originalIndex = tableData.findIndex(originalRow => originalRow.col2 === rowData.col2);
                 const isSearchMatch = searchMatches.includes(filteredIndex);
                 const isCurrentMatch = currentSearchMatch >= 0 && searchMatches[currentSearchMatch] === filteredIndex;
                 const userNotesForLine = getUserNotesForLine(rowData.col2);

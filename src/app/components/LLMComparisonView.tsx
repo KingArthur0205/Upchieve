@@ -227,24 +227,10 @@ export default function LLMComparisonView({
     return Array.from(features).sort();
   };
 
-  // Helper function to parse duration from "0 days 00:00:21" format
-  const parseDuration = (durationStr: string): number => {
-    if (!durationStr) return 0;
-    
-    // Handle "0 days 00:00:21" format
-    const match = durationStr.match(/(\d+)\s+days?\s+(\d{2}):(\d{2}):(\d{2})/);
-    if (match) {
-      const [, days, hours, minutes, seconds] = match;
-      return parseInt(days) * 86400 + parseInt(hours) * 3600 + parseInt(minutes) * 60 + parseInt(seconds);
-    }
-    
-    // Fallback: try to parse as number
-    const num = parseFloat(durationStr);
-    return isNaN(num) ? 0 : num;
-  };
+
 
   // Helper function to get Talk data for visualization
-  const getTalkData = (): any[] | null => {
+  const getTalkData = (): Record<string, unknown>[] | null => {
     if (!llmAnnotations || !llmAnnotations['Talk']) return null;
     
     const talkData = llmAnnotations['Talk'];
@@ -254,20 +240,20 @@ export default function LLMComparisonView({
     const rawData = Object.keys(annotations).map(key => ({
       index: parseInt(key),
       ...annotations[parseInt(key)]
-    })) as any[];
+    })) as Record<string, unknown>[];
     
     // Sort by segment first, then by speaker
     return rawData.sort((a, b) => {
       // First sort by segment
-      const segmentA = a.Segment || '';
-      const segmentB = b.Segment || '';
+      const segmentA = String(a.Segment || '');
+      const segmentB = String(b.Segment || '');
       if (segmentA !== segmentB) {
         return segmentA.localeCompare(segmentB);
       }
       
       // Then sort by speaker within the same segment
-      const speakerA = a.Speaker || '';
-      const speakerB = b.Speaker || '';
+      const speakerA = String(a.Speaker || '');
+      const speakerB = String(b.Speaker || '');
       
       // Extract student numbers for proper numeric sorting
       const getStudentNumber = (speaker: string) => {
@@ -421,7 +407,7 @@ export default function LLMComparisonView({
                     {/* Selected Feature Stats */}
                     <div className="bg-green-50 p-6 rounded-lg border-l-4 border-green-400">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="text-green-800 font-semibold text-lg">"{selectedFeature}" Agreement Rate</div>
+                        <div className="text-green-800 font-semibold text-lg">&quot;{selectedFeature}&quot; Agreement Rate</div>
                         <div className="text-3xl font-bold text-green-900">{stats.agreementRate}%</div>
                       </div>
                       {/* Visual progress bar */}
@@ -486,7 +472,7 @@ export default function LLMComparisonView({
                   );
                 }
 
-                const speakers = Array.from(new Set(talkData.map(row => row.Speaker).filter(Boolean))).sort();
+
 
                 return (
                   <div className="space-y-6">
@@ -496,29 +482,34 @@ export default function LLMComparisonView({
                       <div className="bg-white p-4 rounded-lg border">
                         <h3 className="text-lg font-semibold mb-4 text-gray-800">Turn Count by Speaker</h3>
                         <div className="space-y-3">
-                          {speakers.map(speaker => {
-                            const speakerData = talkData.filter(row => row.Speaker === speaker);
-                            const totalTurns = speakerData.reduce((sum, row) => sum + (parseInt(row['Turn Count'] || '0')), 0);
-                            const maxTurns = Math.max(...speakers.map(s => 
-                              talkData.filter(row => row.Speaker === s).reduce((sum, row) => sum + (parseInt(row['Turn Count'] || '0')), 0)
-                            ));
-                            const percentage = maxTurns > 0 ? (totalTurns / maxTurns) * 100 : 0;
+                          {(() => {
+                            // Extract unique speakers for visualization
+                            const uniqueSpeakers = Array.from(new Set(talkData.map(row => String(row.Speaker || '')).filter(Boolean))).sort();
                             
-                            return (
-                              <div key={speaker} className="space-y-1">
-                                <div className="flex justify-between text-sm">
-                                  <span className="font-medium text-black">{speaker}</span>
-                                  <span className="text-black">{totalTurns}</span>
+                            return uniqueSpeakers.map(speaker => {
+                              const speakerData = talkData.filter(row => row.Speaker === speaker);
+                              const totalTurns = speakerData.reduce((sum, row) => sum + (parseInt(String(row['Turn Count'] || '0'))), 0);
+                              const maxTurns = Math.max(...uniqueSpeakers.map(s => 
+                                talkData.filter(row => row.Speaker === s).reduce((sum, row) => sum + (parseInt(String(row['Turn Count'] || '0'))), 0)
+                              ));
+                              const percentage = maxTurns > 0 ? (totalTurns / maxTurns) * 100 : 0;
+                              
+                              return (
+                                <div key={speaker} className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-black">{speaker}</span>
+                                    <span className="text-black">{totalTurns}</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-3">
+                                    <div 
+                                      className="bg-purple-500 h-3 rounded-full transition-all duration-500"
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-3">
-                                  <div 
-                                    className="bg-purple-500 h-3 rounded-full transition-all duration-500"
-                                    style={{ width: `${percentage}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            });
+                          })()}
                         </div>
                       </div>
 
@@ -526,31 +517,36 @@ export default function LLMComparisonView({
                       <div className="bg-white p-4 rounded-lg border">
                         <h3 className="text-lg font-semibold mb-4 text-gray-800">Avg Ontask % by Speaker</h3>
                         <div className="space-y-3">
-                          {speakers.map(speaker => {
-                            const speakerData = talkData.filter(row => row.Speaker === speaker);
-                            const avgOntask = speakerData.length > 0 ? 
-                              speakerData.reduce((sum, row) => sum + (parseFloat(row['Ontask %'] || '0')), 0) / speakerData.length : 0;
-                            const maxOntask = Math.max(...speakers.map(s => {
-                              const data = talkData.filter(row => row.Speaker === s);
-                              return data.length > 0 ? data.reduce((sum, row) => sum + (parseFloat(row['Ontask %'] || '0')), 0) / data.length : 0;
-                            }));
-                            const percentage = maxOntask > 0 ? (avgOntask / maxOntask) * 100 : 0;
+                          {(() => {
+                            // Extract unique speakers for visualization
+                            const uniqueSpeakers = Array.from(new Set(talkData.map(row => String(row.Speaker || '')).filter(Boolean))).sort();
                             
-                            return (
-                              <div key={speaker} className="space-y-1">
-                                <div className="flex justify-between text-sm">
-                                  <span className="font-medium text-black">{speaker}</span>
-                                  <span className="text-black">{avgOntask.toFixed(1)}%</span>
+                            return uniqueSpeakers.map(speaker => {
+                              const speakerData = talkData.filter(row => row.Speaker === speaker);
+                              const avgOntask = speakerData.length > 0 ? 
+                                speakerData.reduce((sum, row) => sum + (parseFloat(String(row['Ontask %'] || '0'))), 0) / speakerData.length : 0;
+                              const maxOntask = Math.max(...uniqueSpeakers.map(s => {
+                                const data = talkData.filter(row => row.Speaker === s);
+                                return data.length > 0 ? data.reduce((sum, row) => sum + (parseFloat(String(row['Ontask %'] || '0'))), 0) / data.length : 0;
+                              }));
+                              const percentage = maxOntask > 0 ? (avgOntask / maxOntask) * 100 : 0;
+                              
+                              return (
+                                <div key={speaker} className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-black">{speaker}</span>
+                                    <span className="text-black">{avgOntask.toFixed(1)}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-3">
+                                    <div 
+                                      className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-3">
-                                  <div 
-                                    className="bg-green-500 h-3 rounded-full transition-all duration-500"
-                                    style={{ width: `${percentage}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            });
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -827,13 +823,82 @@ export default function LLMComparisonView({
                   );
                 }
 
-                // Extract unique speakers and segments
-                const speakers = Array.from(new Set(talkData.map(row => row.Speaker).filter(Boolean))).sort();
-                const segments = Array.from(new Set(talkData.map(row => row.Segment).filter(Boolean))).sort();
-
                 return (
                   <div className="space-y-6">
+                    {/* Charts moved from Discourse Analysis Metrics */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Turn Count by Speaker */}
+                      <div className="bg-white p-4 rounded-lg border">
+                        <h3 className="text-lg font-semibold mb-4 text-gray-800">Turn Count by Speaker</h3>
+                        <div className="space-y-3">
+                          {(() => {
+                            // Extract unique speakers for visualization
+                            const uniqueSpeakers = Array.from(new Set(talkData.map(row => String(row.Speaker || '')).filter(Boolean))).sort();
+                            
+                            return uniqueSpeakers.map(speaker => {
+                              const speakerData = talkData.filter(row => row.Speaker === speaker);
+                              const totalTurns = speakerData.reduce((sum, row) => sum + (parseInt(String(row['Turn Count'] || '0'))), 0);
+                              const maxTurns = Math.max(...uniqueSpeakers.map(s => 
+                                talkData.filter(row => row.Speaker === s).reduce((sum, row) => sum + (parseInt(String(row['Turn Count'] || '0'))), 0)
+                              ));
+                              const percentage = maxTurns > 0 ? (totalTurns / maxTurns) * 100 : 0;
+                              
+                              return (
+                                <div key={speaker} className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-black">{speaker}</span>
+                                    <span className="text-black">{totalTurns}</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-3">
+                                    <div 
+                                      className="bg-purple-500 h-3 rounded-full transition-all duration-500"
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
 
+                      {/* Ontask % by Speaker */}
+                      <div className="bg-white p-4 rounded-lg border">
+                        <h3 className="text-lg font-semibold mb-4 text-gray-800">Avg Ontask % by Speaker</h3>
+                        <div className="space-y-3">
+                          {(() => {
+                            // Extract unique speakers for visualization
+                            const uniqueSpeakers = Array.from(new Set(talkData.map(row => String(row.Speaker || '')).filter(Boolean))).sort();
+                            
+                            return uniqueSpeakers.map(speaker => {
+                              const speakerData = talkData.filter(row => row.Speaker === speaker);
+                              const avgOntask = speakerData.length > 0 ? 
+                                speakerData.reduce((sum, row) => sum + (parseFloat(String(row['Ontask %'] || '0'))), 0) / speakerData.length : 0;
+                              const maxOntask = Math.max(...uniqueSpeakers.map(s => {
+                                const data = talkData.filter(row => row.Speaker === s);
+                                return data.length > 0 ? data.reduce((sum, row) => sum + (parseFloat(String(row['Ontask %'] || '0'))), 0) / data.length : 0;
+                              }));
+                              const percentage = maxOntask > 0 ? (avgOntask / maxOntask) * 100 : 0;
+                              
+                              return (
+                                <div key={speaker} className="space-y-1">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="font-medium text-black">{speaker}</span>
+                                    <span className="text-black">{avgOntask.toFixed(1)}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-3">
+                                    <div 
+                                      className="bg-green-500 h-3 rounded-full transition-all duration-500"
+                                      style={{ width: `${percentage}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -841,7 +906,7 @@ export default function LLMComparisonView({
                       <div className="bg-white p-4 rounded-lg border shadow-sm">
                         <h3 className="text-sm font-semibold text-gray-600 mb-2">Total Turn Count</h3>
                         <div className="text-2xl font-bold text-purple-600">
-                          {talkData.reduce((sum, row) => sum + (parseInt(row['Turn Count']) || 0), 0)}
+                          {talkData.reduce((sum, row) => sum + (parseInt(String(row['Turn Count'] || '0')) || 0), 0)}
               </div>
               </div>
 
@@ -849,7 +914,7 @@ export default function LLMComparisonView({
                       <div className="bg-white p-4 rounded-lg border shadow-sm">
                         <h3 className="text-sm font-semibold text-gray-600 mb-2">Avg Ontask %</h3>
                         <div className="text-2xl font-bold text-green-600">
-                          {(talkData.reduce((sum, row) => sum + (parseFloat(row['Ontask %'] || '0')), 0) / talkData.length).toFixed(1)}%
+                          {(talkData.reduce((sum, row) => sum + (parseFloat(String(row['Ontask %'] || '0'))), 0) / talkData.length).toFixed(1)}%
             </div>
                 </div>
 
@@ -857,7 +922,7 @@ export default function LLMComparisonView({
                       <div className="bg-white p-4 rounded-lg border shadow-sm">
                         <h3 className="text-sm font-semibold text-gray-600 mb-2">Total Crosstalk</h3>
                         <div className="text-2xl font-bold text-orange-600">
-                          {talkData.reduce((sum, row) => sum + (parseInt(row['Crosstalk Count']) || 0), 0)}
+                          {talkData.reduce((sum, row) => sum + (parseInt(String(row['Crosstalk Count'] || '0')) || 0), 0)}
               </div>
               </div>
             </div>
@@ -891,46 +956,46 @@ export default function LLMComparisonView({
                            </thead>
                           <tbody>
                             {talkData.map((row, index) => {
-                              const speaker = row.Speaker || 'Unknown';
+                              const speaker = String(row.Speaker || 'Unknown');
                               const rowBgColor = speakerColors[speaker] || 'bg-gray-100';
                               
                               return (
                                                                  <tr key={index} className={`${rowBgColor} hover:bg-opacity-80 transition-colors`}>
                                    <td className="p-3 border border-gray-300 font-medium">{speaker}</td>
-                                   <td className="p-3 border border-gray-300">{row.Segment || '-'}</td>
+                                   <td className="p-3 border border-gray-300">{String(row.Segment || '-')}</td>
                                    <td className="p-3 border border-gray-300 text-center">
                                      <span className="text-black font-normal">
-                                       {parseInt(row['Turn Count'] || '0')}
+                                       {parseInt(String(row['Turn Count'] || '0'))}
                                      </span>
                                    </td>
                                    <td className="p-3 border border-gray-300 text-center">
                                      <span className="text-black font-normal">
-                                       {parseFloat(row['Duration %'] || '0').toFixed(1)}%
+                                       {parseFloat(String(row['Duration %'] || '0')).toFixed(1)}%
                                      </span>
                                    </td>
                                    <td className="p-3 border border-gray-300 text-center">
                                      <span className="text-black font-normal">
-                                       {parseFloat(row['Ontask %'] || '0').toFixed(1)}%
+                                       {parseFloat(String(row['Ontask %'] || '0')).toFixed(1)}%
                                      </span>
                                    </td>
                                    <td className="p-3 border border-gray-300 text-center">
                                      <span className="text-black font-normal">
-                                       {parseFloat(row['Offtask %'] || '0').toFixed(1)}%
+                                       {parseFloat(String(row['Offtask %'] || '0')).toFixed(1)}%
                                      </span>
                                    </td>
                                    <td className="p-3 border border-gray-300 text-center">
                                      <span className="text-black font-normal">
-                                       {parseInt(row['Crosstalk Count'] || '0')}
+                                       {parseInt(String(row['Crosstalk Count'] || '0'))}
                                      </span>
                                    </td>
                                    <td className="p-3 border border-gray-300 text-center">
                                      <span className="text-black font-normal">
-                                       {row['NDG_Name'] || '-'}
+                                       {String(row['NDG_Name'] || '-')}
                                      </span>
                                    </td>
                                    <td className="p-3 border border-gray-300 text-center">
                                      <span className="text-black font-normal">
-                                       {row['ODG_Name'] || '-'}
+                                       {String(row['ODG_Name'] || '-')}
                                      </span>
                                    </td>
                                  </tr>
