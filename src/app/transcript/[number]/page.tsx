@@ -44,6 +44,7 @@ interface Note {
   id: number;      // Numeric ID for the learning goal note
   title: string;   // User-editable title
   rowIndices: number[]; // Track which rows this learning goal note belongs to
+  lineNumbers: number[]; // Explicit line numbers for this note (redundant but ensures preservation)
 }
 
 // Updated table row interface
@@ -345,7 +346,8 @@ export default function TranscriptPage() {
       title: "",
       content_1: "",
       content_2: "",
-      rowIndices: rowIndices
+      rowIndices: rowIndices,
+      lineNumbers: rowCol2Values
     }];
     
     // Update table data learning goal note IDs
@@ -401,7 +403,8 @@ export default function TranscriptPage() {
       title: "",
       content_1: "",
       content_2: "",
-      rowIndices: rowIndices
+      rowIndices: rowIndices,
+      lineNumbers: selectedRows
     }];
     
     // Update table data learning goal note IDs
@@ -534,8 +537,9 @@ export default function TranscriptPage() {
       tableData.findIndex(row => row.col2 === col2Value)
     ).filter(index => index !== -1);
     
-    // Update the learning goal note's row indices
+    // Update the learning goal note's row indices and line numbers
     updatedNotes[noteIndex].rowIndices = newRowIndices;
+    updatedNotes[noteIndex].lineNumbers = tempSelectedRows;
     
     // Update table data
     const updatedTableData = [...tableData];
@@ -1810,7 +1814,8 @@ export default function TranscriptPage() {
                     title: oldTitle,
                     content_1: oldNote?.content_1 || "",
                     content_2: oldNote?.content_2 || "",
-                    rowIndices: [rowIndex]
+                    rowIndices: [rowIndex],
+                    lineNumbers: [parsedData.tableData[rowIndex]?.col2 || rowIndex + 1]
                   });
                 } else {
                   // Add this row to the existing note
@@ -1818,6 +1823,10 @@ export default function TranscriptPage() {
                   const existingNote = migratedNotes.find(n => n.id === existingNoteId);
                   if (existingNote && !existingNote.rowIndices.includes(rowIndex)) {
                     existingNote.rowIndices.push(rowIndex);
+                    const lineNumber = parsedData.tableData[rowIndex]?.col2 || rowIndex + 1;
+                    if (!existingNote.lineNumbers.includes(lineNumber)) {
+                      existingNote.lineNumbers.push(lineNumber);
+                    }
                   }
                 }
               });
@@ -1839,7 +1848,16 @@ export default function TranscriptPage() {
           } else {
             // If data is already in the new format
             setTableData(parsedData.tableData);
-            setNotes(parsedData.notes || []);
+            
+            // Ensure all notes have lineNumbers field
+            const notesWithLineNumbers = (parsedData.notes || []).map((note: any) => ({
+              ...note,
+              lineNumbers: note.lineNumbers || note.rowIndices.map((index: number) => 
+                parsedData.tableData[index]?.col2 || index + 1
+              )
+            }));
+            
+            setNotes(notesWithLineNumbers);
             setNextNoteId(parsedData.nextNoteId || Math.max(...parsedData.notes.map((n: Note) => n.id), 0) + 1);
           }
           
@@ -1977,10 +1995,12 @@ export default function TranscriptPage() {
       // Add each note as a row
       notes.forEach(note => {
         // Get the line numbers and utterances for this note
-        const associatedLines = note.rowIndices.map(index => {
-          const tableRow = tableData[index];
-          return tableRow ? tableRow.col2 : '';
-        }).filter(line => line !== '').join(', ');
+        const associatedLines = note.lineNumbers?.length > 0 
+          ? note.lineNumbers.join(', ')
+          : note.rowIndices.map(index => {
+              const tableRow = tableData[index];
+              return tableRow ? tableRow.col2 : '';
+            }).filter(line => line !== '').join(', ');
         
         const associatedUtterances = note.rowIndices.map(index => {
           const tableRow = tableData[index];
@@ -2049,10 +2069,12 @@ export default function TranscriptPage() {
         notesRows.push(['Note ID', 'Title', 'Note Abstract', 'Full Context', 'Associated Lines', 'Associated Utterances']);
         
         notes.forEach(note => {
-          const associatedLines = note.rowIndices.map(index => {
-            const tableRow = tableData[index];
-            return tableRow ? tableRow.col2 : '';
-          }).filter(line => line !== '').join(', ');
+          const associatedLines = note.lineNumbers?.length > 0 
+            ? note.lineNumbers.join(', ')
+            : note.rowIndices.map(index => {
+                const tableRow = tableData[index];
+                return tableRow ? tableRow.col2 : '';
+              }).filter(line => line !== '').join(', ');
           
           const associatedUtterances = note.rowIndices.map(index => {
             const tableRow = tableData[index];
@@ -2104,7 +2126,7 @@ export default function TranscriptPage() {
 
       if (response.ok) {
         setUploadStatus('success');
-        alert(`Successfully uploaded XLSX file to Google Cloud Storage!\nFile: ${fileName}`);
+        alert('Successfully uploaded XLSX file to Google Cloud Storage!');
         setTimeout(() => setUploadStatus('idle'), 3000); // Reset after 3 seconds
       } else {
         console.error('Upload failed with response:', responseData);
