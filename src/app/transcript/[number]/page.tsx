@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import Tab1 from "../../tabs/tab1";
 import Papa from "papaparse";
 import AnnotationPanel, { AnnotationData, FeatureDetails } from "../../components/AnnotationPanel";
-import { read, utils, writeFile } from "xlsx";
+import { read, utils, writeFile, write } from "xlsx";
 import FeaturePopup from "../../components/FeaturePopup";
 import React from "react";
 // Create a simple debounce function to replace lodash dependency
@@ -604,6 +604,9 @@ export default function TranscriptPage() {
 
   // State for save status indicator
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  
+  // State for upload status
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
 
   // Auto-save function (silent save without alert)
   const autoSave = useCallback(() => {
@@ -1967,9 +1970,158 @@ export default function TranscriptPage() {
       utils.book_append_sheet(wb, ws, sheetName);
     });
 
+    // Add Notes sheet if there are any notes
+    if (notes.length > 0) {
+      const notesRows = [];
+      
+      // Add header row for notes
+      notesRows.push(['Note ID', 'Title', 'Note Abstract', 'Full Context', 'Associated Lines', 'Associated Utterances']);
+      
+      // Add each note as a row
+      notes.forEach(note => {
+        // Get the line numbers and utterances for this note
+        const associatedLines = note.rowIndices.map(index => {
+          const tableRow = tableData[index];
+          return tableRow ? tableRow.col2 : '';
+        }).filter(line => line !== '').join(', ');
+        
+        const associatedUtterances = note.rowIndices.map(index => {
+          const tableRow = tableData[index];
+          return tableRow ? `"${tableRow.col6}"` : '';
+        }).filter(utterance => utterance !== '""').join('; ');
+        
+        notesRows.push([
+          note.id,
+          note.title,
+          note.content_1,
+          note.content_2,
+          associatedLines,
+          associatedUtterances
+        ]);
+      });
+      
+      // Create notes worksheet and add to workbook
+      const notesWs = utils.aoa_to_sheet(notesRows);
+      utils.book_append_sheet(wb, notesWs, 'Notes');
+    }
+
     // Save the workbook
     const fileName = `transcript_${number}_annotations.xlsx`;
     writeFile(wb, fileName);
+  };
+
+  // Function to upload XLSX file to Google Cloud Storage
+  const handleUploadToCloud = async () => {
+    if (!annotationData) {
+      alert('No annotation data to upload');
+      return;
+    }
+
+    setUploadStatus('uploading');
+
+    try {
+      // Create the Excel workbook (same logic as export)
+      const wb = utils.book_new();
+
+      // For each feature sheet
+      Object.entries(annotationData).forEach(([sheetName, sheetData]) => {
+        const sheetRows = [];
+        sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
+
+        tableData.forEach((row, index) => {
+          const isStudent = row.col5.includes('Student');
+          const rowData = [
+            row.col2, // Line #
+            row.col5, // Speaker
+            row.col6, // Utterance
+            ...sheetData.codes.map(code => {
+              if (!isStudent) return '';
+              return sheetData.annotations[index]?.[code] ? '1' : '0';
+            })
+          ];
+          sheetRows.push(rowData);
+        });
+
+        const ws = utils.aoa_to_sheet(sheetRows);
+        utils.book_append_sheet(wb, ws, sheetName);
+      });
+
+      // Add Notes sheet if there are any notes
+      if (notes.length > 0) {
+        const notesRows = [];
+        notesRows.push(['Note ID', 'Title', 'Note Abstract', 'Full Context', 'Associated Lines', 'Associated Utterances']);
+        
+        notes.forEach(note => {
+          const associatedLines = note.rowIndices.map(index => {
+            const tableRow = tableData[index];
+            return tableRow ? tableRow.col2 : '';
+          }).filter(line => line !== '').join(', ');
+          
+          const associatedUtterances = note.rowIndices.map(index => {
+            const tableRow = tableData[index];
+            return tableRow ? `"${tableRow.col6}"` : '';
+          }).filter(utterance => utterance !== '""').join('; ');
+          
+          notesRows.push([
+            note.id,
+            note.title,
+            note.content_1,
+            note.content_2,
+            associatedLines,
+            associatedUtterances
+          ]);
+        });
+        
+        const notesWs = utils.aoa_to_sheet(notesRows);
+        utils.book_append_sheet(wb, notesWs, 'Notes');
+      }
+
+      // Convert workbook to buffer
+      const wbBinary = write(wb, { bookType: 'xlsx', type: 'array' });
+      
+      // Create a blob from the binary data
+      const blob = new Blob([wbBinary], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      const fileName = `transcript_${number}_annotations_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
+      formData.append('file', blob, fileName);
+      formData.append('transcriptNumber', number.toString());
+
+      console.log('Uploading XLSX file to Google Cloud Storage:', {
+        fileName: fileName,
+        fileSize: blob.size,
+        transcriptNumber: number
+      });
+
+      // Send to our API that uploads to Google Cloud Storage
+      const response = await fetch('/api/upload-xlsx', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const responseData = await response.json();
+      console.log('Upload response:', responseData);
+
+      if (response.ok) {
+        setUploadStatus('success');
+        alert(`Successfully uploaded XLSX file to Google Cloud Storage!\nFile: ${fileName}`);
+        setTimeout(() => setUploadStatus('idle'), 3000); // Reset after 3 seconds
+      } else {
+        console.error('Upload failed with response:', responseData);
+        throw new Error(responseData.message || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Error uploading to cloud:', error);
+      setUploadStatus('error');
+      
+      // More detailed error message
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to upload XLSX file to Google Cloud Storage.\n\nError: ${errorMessage}\n\nPlease check:\n1. Google Cloud credentials are configured\n2. Bucket permissions are set correctly\n3. Network connection is stable`);
+      setTimeout(() => setUploadStatus('idle'), 5000); // Reset after 5 seconds for error
+    }
   };
 
     // Handle Compare with LLM
@@ -3256,23 +3408,15 @@ export default function TranscriptPage() {
               {saveStatus === 'saving' && (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                  <span className="text-blue-600">Saving...</span>
                 </>
               )}
               {saveStatus === 'saved' && (
                 <>
-                  <div className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center">
-                    <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span className="text-green-600">Auto-saved</span>
                 </>
               )}
               {saveStatus === 'unsaved' && (
                 <>
                   <div className="h-4 w-4 rounded-full bg-yellow-500"></div>
-                  <span className="text-yellow-600">Unsaved changes</span>
                 </>
               )}
             </div>
@@ -3285,6 +3429,33 @@ export default function TranscriptPage() {
             className="px-6 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-700 transition"
           >
             Export to Excel
+          </button>
+
+          <button
+            onClick={handleUploadToCloud}
+            disabled={uploadStatus === 'uploading'}
+            className={`px-6 py-2 font-semibold rounded-md transition flex items-center space-x-2 ${
+              uploadStatus === 'uploading'
+                ? 'bg-blue-300 text-white cursor-not-allowed'
+                : uploadStatus === 'success'
+                ? 'bg-green-600 text-white'
+                : uploadStatus === 'error'
+                ? 'bg-red-500 text-white'
+                : 'bg-blue-500 text-white hover:bg-blue-700'
+            }`}
+          >
+            {uploadStatus === 'uploading' && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            )}
+            <span>
+              {uploadStatus === 'uploading'
+                ? 'Uploading...'
+                : uploadStatus === 'success'
+                ? 'Uploaded!'
+                : uploadStatus === 'error'
+                ? 'Upload Failed'
+                : 'Upload to Cloud'}
+            </span>
           </button>
         </div>
       </div>
