@@ -1,14 +1,29 @@
+/* eslint-disable */
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Tab1 from "../../tabs/tab1";
 import Papa from "papaparse";
 import AnnotationPanel, { AnnotationData, FeatureDetails } from "../../components/AnnotationPanel";
 import { read, utils, writeFile } from "xlsx";
 import FeaturePopup from "../../components/FeaturePopup";
 import React from "react";
-import { debounce } from "lodash";
+// Create a simple debounce function to replace lodash dependency
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): T {
+  let timeout: NodeJS.Timeout;
+  return ((...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  }) as T;
+}
+import LLMComparisonView from "../../components/LLMComparisonView";
+import LLMAnalysisComparisonView from "../../components/LLMAnalysisComparisonView";
+import ExpertsComparisonView from "../../components/ExpertsComparisonView";
+import UnifiedComparisonView from "../../components/UnifiedComparisonView";
 
 interface CsvRow {
   "#": string;
@@ -16,17 +31,19 @@ interface CsvRow {
   "Out cue": string;
   "Speaker": string;
   "Dialogue": string;
-  "selectable": string; 
-  [key: string]: string; // For any other columns that might exist
+  "Segment": string;
+  "selectable"?: string;
+  "Selectable"?: string;
+  [key: string]: string | undefined; // For any other columns that might exist
 }
 
-// Interface for a single note
+// Interface for a single learning goal note
 interface Note {
   content_1: string;
   content_2: string;
-  id: number;      // Numeric ID for the note
+  id: number;      // Numeric ID for the learning goal note
   title: string;   // User-editable title
-  rowIndices: number[]; // Track which rows this note belongs to
+  rowIndices: number[]; // Track which rows this learning goal note belongs to
 }
 
 // Updated table row interface
@@ -38,7 +55,7 @@ interface TableRow {
   col5: string;
   col6: string;
   col7: string; // Selectable field
-  noteIds: string; // This will store the comma-separated note IDs (read-only)
+  noteIds: string; // This will store the comma-separated learning goal note IDs (read-only)
 }
 
 // Types for the feature columns component
@@ -47,22 +64,25 @@ interface FeatureColumnsProps {
   selectedFeature: string | null;
   annotationData: AnnotationData | null;
   isStudent: boolean;
+  isSelectable: boolean; // Add this prop
   onFeatureChange: (lineNumber: number, code: string, value: boolean) => void;
+  onHoverChange?: (isHovering: boolean) => void;
 }
 
 export default function TranscriptPage() {
   const params = useParams();
+  const router = useRouter();
   const number = params.number as string;
-  const [customText, setCustomText] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState<string>("");
   const [gradeLevel, setGradeLevel] = useState("");
-  const [activityPurpose, setActivityPurpose] = useState("");
+  const [lessonGoal, setLessonGoal] = useState("");
+  const [showLessonGoal, setShowLessonGoal] = useState(true);
   const [speakerColors, setSpeakerColors] = useState<{ [key: string]: string }>({});
   const [availableSegment, setAvailableSegment] = useState<string []>([]);
   const [whichSegment, setWhichSegment] = useState<string>("full_transcript");
   const [showPromptPanel, setShowPromptPanel] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState({
     lessonSegmentId: true,
     lineNumber: true,
@@ -73,44 +93,55 @@ export default function TranscriptPage() {
     notes: true
   });
 
+  // CRITICAL FIX: Move dropdown states to parent level to persist across re-renders
+  const [expandedDropdowns, setExpandedDropdowns] = useState<{[key: string]: boolean}>({});
+  const [dropdownPositions, setDropdownPositions] = useState<{[key: string]: 'bottom' | 'top' | 'left' | 'right'}>({});
+  const [openedDropdowns, setOpenedDropdowns] = useState<{[key: string]: boolean}>({});
+  const [showFeatureOverview, setShowFeatureOverview] = useState<string | null>(null);
+  const [showLLMComparison, setShowLLMComparison] = useState(false);
+  const [llmAnnotationData, setLlmAnnotationData] = useState<AnnotationData | null>(null);
+  const [showLLMAnalysisComparison, setShowLLMAnalysisComparison] = useState(false);
+  const [llmAnalysisData, setLlmAnalysisData] = useState<{
+    notes: Record<string, unknown>[];
+    transcript: Record<string, unknown>[];
+  } | null>(null);
+  const [showExpertsComparison, setShowExpertsComparison] = useState(false);
+  const [expertsAnnotationData, setExpertsAnnotationData] = useState<{
+    notes: Record<string, unknown>[];
+    transcript: Record<string, unknown>[];
+  } | null>(null);
+  const [showUnifiedComparison, setShowUnifiedComparison] = useState(false);
+
   // Add these state variables at the top of your component
   const [leftPanelWidth, setLeftPanelWidth] = useState("33.33%"); // Default 2/6
-  const [centerPanelWidth, setcenterPanelWidth] = useState("50%"); // Default 3/6
-  const [rightPanelWidth, setRightPanelWidth] = useState("16.67%"); // Default 1/6
+  const [centerPanelWidth, setcenterPanelWidth] = useState("66.67%"); // Default 4/6 - right panel removed
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
-  const [isDraggingRight, setIsDraggingRight] = useState(false);
+
+  // Search functionality state
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [currentSearchMatch, setCurrentSearchMatch] = useState<number>(-1);
+  const [searchMatches, setSearchMatches] = useState<number[]>([]);
 
   // Add these handlers
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDraggingLeft) {
         const newWidth = (e.clientX / window.innerWidth) * 100;
-        // Set limits (min 15%, max 50%)
-        const limitedWidth = Math.min(Math.max(newWidth, 15), 50);
+        // Set limits (min 15%, max 85%)
+        const limitedWidth = Math.min(Math.max(newWidth, 15), 85);
         setLeftPanelWidth(`${limitedWidth}%`);
         
-        // Recalculate center panel width
-        const remainingWidth = 100 - limitedWidth - parseFloat(rightPanelWidth);
-        setcenterPanelWidth(`${remainingWidth}%`);
-      } else if (isDraggingRight) {
-        const rightEdge = window.innerWidth;
-        const newRightWidth = ((rightEdge - e.clientX) / rightEdge) * 100;
-        // Set limits (min 10%, max 40%)
-        const limitedWidth = Math.min(Math.max(newRightWidth, 10), 40);
-        setRightPanelWidth(`${limitedWidth}%`);
-        
-        // Recalculate center panel width
-        const remainingWidth = 100 - parseFloat(leftPanelWidth) - limitedWidth;
+        // Recalculate center panel width (no right panel)
+        const remainingWidth = 100 - limitedWidth;
         setcenterPanelWidth(`${remainingWidth}%`);
       }
     };
 
     const handleMouseUp = () => {
       setIsDraggingLeft(false);
-      setIsDraggingRight(false);
     };
 
-    if (isDraggingLeft || isDraggingRight) {
+    if (isDraggingLeft) {
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     }
@@ -119,7 +150,7 @@ export default function TranscriptPage() {
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDraggingLeft, isDraggingRight, leftPanelWidth, rightPanelWidth]);
+  }, [isDraggingLeft, leftPanelWidth]);
 
   const toggleColumnVisibility = (columnKey: keyof typeof columnVisibility) => {
     setColumnVisibility(prev => ({
@@ -127,20 +158,21 @@ export default function TranscriptPage() {
       [columnKey]: !prev[columnKey]
     }));
   };
-  // Store notes separately from table data
+  // Store learning goal notes separately from table data
   const [notes, setNotes] = useState<Note[]>([]);
   const [nextNoteId, setNextNoteId] = useState(1);
   // Add this with your other state declarations
   const [availableIds, setAvailableIds] = useState<number[]>([]);
+  const [annotationData, setAnnotationData] = useState<AnnotationData | null>(null);
   
-  // State for new note creation
+  // State for new learning goal note creation
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [isCreatingNote, setIsCreatingNote] = useState(false);
   
-  // Track which note title is currently being edited
+  // Track which learning goal note title is currently being edited
   const [editingTitleId, setEditingTitleId] = useState<number | null>(null);
   
-  // NEW: Track which note lines are being edited
+  // NEW: Track which learning goal note lines are being edited
   const [editingLinesId, setEditingLinesId] = useState<number | null>(null);
   const [tempSelectedRows, setTempSelectedRows] = useState<number[]>([]);
 
@@ -154,24 +186,17 @@ export default function TranscriptPage() {
       col5: `Row ${index + 1} Col 5`,
       col6: `Row ${index + 1} Col 6`,
       col7: `Row ${index + 1} Col 7`,
-      noteIds: "", // Comma-separated note IDs (read-only)
+      noteIds: "", // Comma-separated learning goal note IDs (read-only)
     }))
   );
 
-  // After your state declarations
-  const isRowSelectable = (rowIndex: number): boolean => {
-    // Assuming col2 should be a number, convert it from string if needed
-    const rowItem = tableData.find(item => Number(item.col2) === rowIndex);
-
-    if (rowItem) {
-      // Check the 'selectable' column - convert to lowercase and check for "true"
-      const selectableValue = rowItem.col7?.toLowerCase();
+  // Function to check if a table row is selectable by row data
+  const isTableRowSelectable = (rowData: TableRow): boolean => {
+    const selectableValue = rowData.col7?.toLowerCase();
       return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
-    }
-    return false;
   };
 
-  // Function to parse note IDs from a comma-separated string
+  // Function to parse learning goal note IDs from a comma-separated string
   const parseNoteIds = (idString: string): number[] => {
     return idString
       .split(',')
@@ -183,6 +208,10 @@ export default function TranscriptPage() {
 
   // Toggle selection of a row
   const toggleRowSelection = (col2Value: number) => {
+    // Find the row data to check if it's selectable
+    const rowData = tableData.find(row => row.col2 === col2Value);
+    if (!rowData || !isTableRowSelectable(rowData)) return;
+    
     if (selectedRows.includes(col2Value)) {
       setSelectedRows(selectedRows.filter(id => id !== col2Value));
     } else {
@@ -192,28 +221,159 @@ export default function TranscriptPage() {
 
   // Toggle selection of a row for line number editing
   const toggleTempRowSelection = (col2Value: number) => {
-    if (isRowSelectable(col2Value)) {
+    // Find the row data to check if it's selectable
+    const rowData = tableData.find(row => row.col2 === col2Value);
+    if (!rowData || !isTableRowSelectable(rowData)) return;
+    
       if (tempSelectedRows.includes(col2Value)) {
         setTempSelectedRows(tempSelectedRows.filter(id => id !== col2Value));
       } else {
         setTempSelectedRows([...tempSelectedRows, col2Value]);
-      }
     }
   };
 
-  // Start the note creation process
+  // Start the learning goal note creation process
   const startNoteCreation = () => {
     setIsCreatingNote(true);
     setSelectedRows([]);
   };
   
-  // Cancel note creation
+  // Cancel learning goal note creation
   const cancelNoteCreation = () => {
     setIsCreatingNote(false);
     setSelectedRows([]);
   };
 
-  // Function to create a new note
+  // Search functionality
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    
+    if (!term.trim()) {
+      setSearchMatches([]);
+      setCurrentSearchMatch(-1);
+      return;
+    }
+
+    const filteredData = tableData.filter(rowData => {
+      if (whichSegment === 'student_only') {
+        return rowData.col5.includes('Student');
+      }
+      return whichSegment === 'full_transcript' || rowData.col1 === whichSegment;
+    });
+
+    const matches: number[] = [];
+    const searchLower = term.toLowerCase();
+    
+    // Check if search term is a number (line number search)
+    const isLineNumber = /^\d+$/.test(term.trim());
+    
+    filteredData.forEach((row, index) => {
+      if (isLineNumber) {
+        // Search by line number
+        if (row.col2.toString() === term.trim()) {
+          matches.push(index);
+        }
+      } else {
+        // Search by utterance text
+        if (row.col6.toLowerCase().includes(searchLower)) {
+          matches.push(index);
+        }
+      }
+    });
+    
+    setSearchMatches(matches);
+    setCurrentSearchMatch(matches.length > 0 ? 0 : -1);
+    
+    // Scroll to first match
+    if (matches.length > 0) {
+      scrollToMatch(matches[0]);
+    }
+  };
+
+  const navigateSearch = (direction: 'next' | 'prev') => {
+    if (searchMatches.length === 0) return;
+    
+    let nextIndex = currentSearchMatch;
+    if (direction === 'next') {
+      nextIndex = (currentSearchMatch + 1) % searchMatches.length;
+    } else {
+      nextIndex = currentSearchMatch === 0 ? searchMatches.length - 1 : currentSearchMatch - 1;
+    }
+    
+    setCurrentSearchMatch(nextIndex);
+    scrollToMatch(searchMatches[nextIndex]);
+  };
+
+  const scrollToMatch = (tableIndex: number) => {
+    const rowElement = document.querySelector(`[data-row-index="${tableIndex}"]`);
+    if (rowElement) {
+      rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
+    setSearchMatches([]);
+    setCurrentSearchMatch(-1);
+  };
+
+  // Function to create a new learning goal note with specific rows
+  const handleCreateNoteWithRows = (rowCol2Values: number[]) => {
+    if (rowCol2Values.length === 0) return;
+    
+    // Use an available ID if one exists, otherwise use nextNoteId
+    let noteId: number;
+    if (availableIds.length > 0) {
+      // Get the first available ID
+      noteId = availableIds[0];
+      // Remove this ID from the available list
+      setAvailableIds(availableIds.slice(1));
+    } else {
+      // No available IDs, use the next sequential ID
+      noteId = nextNoteId;
+      setNextNoteId(noteId + 1);
+    }
+    
+    // Convert rowCol2Values to array indices for storage
+    const rowIndices = rowCol2Values.map(col2Value => 
+      tableData.findIndex(row => row.col2 === col2Value)
+    ).filter(index => index !== -1);
+    
+    // Create new learning goal note with empty title (will be named in edit window)
+    const updatedNotes = [...notes, {
+      id: noteId,
+      title: "",
+      content_1: "",
+      content_2: "",
+      rowIndices: rowIndices
+    }];
+    
+    // Update table data learning goal note IDs
+    const updatedTableData = tableData.map(row => ({
+      ...row,
+      noteIds: rowCol2Values.includes(row.col2) 
+        ? [...parseNoteIds(row.noteIds), noteId].join(', ')
+        : row.noteIds
+    }));
+    
+    setTableData(updatedTableData);
+    setNotes(updatedNotes);
+    
+    // Automatically open the note for editing
+    const noteRows = updatedNotes[updatedNotes.length - 1].rowIndices.map(rowIndex => {
+      if (rowIndex >= 0 && rowIndex < tableData.length) {
+        return tableData[rowIndex];
+      }
+      return null;
+    }).filter((row): row is TableRow => row !== null);
+    
+    setSelectedNotePopup({ 
+      note: updatedNotes[updatedNotes.length - 1], 
+      noteRows 
+    });
+  };
+
+  // Function to create a new learning goal note
   const handleCreateNote = () => {
     if (selectedRows.length === 0) return;
     
@@ -230,16 +390,21 @@ export default function TranscriptPage() {
       setNextNoteId(noteId + 1);
     }
     
-    // Create new note
+    // Convert selectedRows (col2 values) to array indices for storage
+    const rowIndices = selectedRows.map(col2Value => 
+      tableData.findIndex(row => row.col2 === col2Value)
+    ).filter(index => index !== -1);
+    
+    // Create new learning goal note with empty title (will be named in edit window)
     const updatedNotes = [...notes, {
       id: noteId,
-      title: noteId.toString(),
+      title: "",
       content_1: "",
       content_2: "",
-      rowIndices: [...selectedRows]
+      rowIndices: rowIndices
     }];
     
-    // Update table data note IDs
+    // Update table data learning goal note IDs
     const updatedTableData = tableData.map(row => ({
       ...row,
       noteIds: selectedRows.includes(row.col2) 
@@ -251,9 +416,22 @@ export default function TranscriptPage() {
     setNotes(updatedNotes);
     setSelectedRows([]);
     setIsCreatingNote(false);
+    
+    // Automatically open the note for editing
+    const noteRows = updatedNotes[updatedNotes.length - 1].rowIndices.map(rowIndex => {
+      if (rowIndex >= 0 && rowIndex < tableData.length) {
+        return tableData[rowIndex];
+      }
+      return null;
+    }).filter((row): row is TableRow => row !== null);
+    
+    setSelectedNotePopup({ 
+      note: updatedNotes[updatedNotes.length - 1], 
+      noteRows 
+    });
   };
 
-  // Handle note content changes
+  // Handle learning goal note content changes
   const handleNoteContentChange1 = (noteId: number, value: string) => {
     const updatedNotes = [...notes];
     const noteIndex = updatedNotes.findIndex(note => note.id === noteId);
@@ -322,20 +500,25 @@ export default function TranscriptPage() {
     setEditingTitleId(null);
   };
 
-  // NEW: Functions for line number editing
+  // NEW: Functions for learning goal note line number editing
   
   // Start editing line numbers
   const startLinesEdit = (noteId: number) => {
     const note = notes.find(note => note.id === noteId);
     if (note) {
-      setTempSelectedRows([...note.rowIndices]);
+      // Convert rowIndices (array indices) to col2 values for selection
+      const col2Values = note.rowIndices.map(index => 
+        tableData[index]?.col2
+      ).filter(col2 => col2 !== undefined);
+      
+      setTempSelectedRows(col2Values);
       setEditingLinesId(noteId);
     }
   };
   
   // Save line number edits
   const saveLinesEdit = (noteId: number) => {
-    // Find the note to update
+    // Find the learning goal note to update
     const updatedNotes = [...notes];
     const noteIndex = updatedNotes.findIndex(note => note.id === noteId);
     
@@ -345,15 +528,19 @@ export default function TranscriptPage() {
     }
     
     const oldRowIndices = updatedNotes[noteIndex].rowIndices;
-    const newRowIndices = [...tempSelectedRows];
     
-    // Update the note's row indices
+    // Convert tempSelectedRows (col2 values) to array indices
+    const newRowIndices = tempSelectedRows.map(col2Value => 
+      tableData.findIndex(row => row.col2 === col2Value)
+    ).filter(index => index !== -1);
+    
+    // Update the learning goal note's row indices
     updatedNotes[noteIndex].rowIndices = newRowIndices;
     
     // Update table data
     const updatedTableData = [...tableData];
     
-    // Remove note ID from rows that were removed
+    // Remove learning goal note ID from rows that were removed
     oldRowIndices.forEach(rowIndex => {
       if (!newRowIndices.includes(rowIndex)) {
         const currentIds = parseNoteIds(updatedTableData[rowIndex].noteIds);
@@ -362,7 +549,7 @@ export default function TranscriptPage() {
       }
     });
     
-    // Add note ID to rows that were added
+    // Add learning goal note ID to rows that were added
     newRowIndices.forEach(rowIndex => {
       const currentIds = parseNoteIds(updatedTableData[rowIndex].noteIds);
       if (!currentIds.includes(noteId)) {
@@ -383,9 +570,9 @@ export default function TranscriptPage() {
     setTempSelectedRows([]);
   };
 
-  // Delete a note from the analysis panel
+  // Delete a learning goal note from the analysis panel
   const handleDeleteNote = (noteId: number) => {
-    // Find the note to delete
+    // Find the learning goal note to delete
     const noteToDelete = notes.find(note => note.id === noteId);
     if (!noteToDelete) return;
     
@@ -397,7 +584,7 @@ export default function TranscriptPage() {
       updatedData[rowIndex].noteIds = updatedIds.join(', ');
     });
     
-    // Remove note from notes collection
+    // Remove learning goal note from notes collection
     const updatedNotes = notes.filter(note => note.id !== noteId);
     
     // Add this ID to the available list
@@ -409,11 +596,61 @@ export default function TranscriptPage() {
 
   // Save Function (Stores data locally)
   const handleSave = () => {
-    const dataToSave = { tableData, notes, customText, email, nextNoteId, availableIds };
+    const dataToSave = { tableData, notes, nextNoteId, availableIds };
     console.log(dataToSave);
     localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
     alert("Data saved successfully!");
   };
+
+  // State for save status indicator
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+
+  // Auto-save function (silent save without alert)
+  const autoSave = useCallback(() => {
+    setSaveStatus('saving');
+    const dataToSave = { tableData, notes, nextNoteId, availableIds };
+    localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
+    console.log("Data auto-saved");
+    
+    // Show saved status for 2 seconds
+    setTimeout(() => setSaveStatus('saved'), 500);
+  }, [tableData, notes, nextNoteId, availableIds, number]);
+
+  // Auto-save whenever data changes (debounced to avoid excessive saves)
+  const debouncedAutoSave = useCallback(
+    debounce(autoSave, 1000), // Save 1 second after last change
+    [autoSave]
+  );
+
+  // Effect to trigger auto-save when data changes
+  useEffect(() => {
+    // Don't auto-save on initial load or when data is still loading
+    if (loading || !mounted) return;
+    
+    setSaveStatus('unsaved');
+    debouncedAutoSave();
+  }, [tableData, notes, nextNoteId, availableIds, debouncedAutoSave, loading, mounted]);
+
+  // Save data before page unload
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Force save data immediately before page closes
+      const dataToSave = { tableData, notes, nextNoteId, availableIds };
+      localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
+      
+      if (annotationData) {
+        localStorage.setItem(`annotations-${number}`, JSON.stringify(annotationData));
+      }
+      
+      console.log("Data saved before page unload");
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [tableData, notes, nextNoteId, availableIds, annotationData, number]);
 
   // Submit Function (Sends data to backend)
   const handleSubmit = async () => {
@@ -421,7 +658,7 @@ export default function TranscriptPage() {
       const response = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableData, notes, customText, email, transcriptNumber: number }),
+        body: JSON.stringify({ tableData, notes, transcriptNumber: number }),
       });
 
       if (response.ok) {
@@ -435,7 +672,7 @@ export default function TranscriptPage() {
     }
   };
 
-  // Get note title by ID for display in the table
+  // Get learning goal note title by ID for display in the table
   const getNoteDisplayById = (noteId: number): string => {
     const note = notes.find(note => note.id === noteId);
     return note ? note.id.toString() : "";
@@ -445,19 +682,40 @@ export default function TranscriptPage() {
     setWhichSegment(segment);
   };
 
-  // Function to get display titles for the table
-  const getNoteDisplayText = (idsString: string, rowIndex: number): string => {
+  // Function to get display titles for the table - now returns clickable elements
+  const getNoteDisplayText = (idsString: string, rowIndex: number): React.ReactNode => {
     const ids = parseNoteIds(idsString);
-    return ids.length > 0 ? ids.map((id: number) => getNoteDisplayById(id)).join(', ') : "—";
+    if (ids.length === 0) return "—";
+    
+    return ids.map((id: number, index: number) => {
+      const note = notes.find(n => n.id === id);
+      if (!note) return null;
+      
+      return (
+        <React.Fragment key={id}>
+          {index > 0 && ", "}
+          <button
+            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent the cell click handler from firing
+              const noteRows = generateNoteRows(note);
+              setSelectedNotePopup({ note, noteRows });
+              // Reset edit mode when opening a note
+              setIsNoteInEditMode(false);
+              setNoteEditBuffer(null);
+            }}
+            title={`Click to view note: ${note.title}`}
+          >
+            {note.title || `Note ${id}`}
+          </button>
+        </React.Fragment>
+      );
+    }).filter(Boolean);
   };
 
-  const [isAnnotating, setIsAnnotating] = useState(false);
-  const [annotationData, setAnnotationData] = useState<AnnotationData | null>(null);
-  const [selectedAnnotationSheet, setSelectedAnnotationSheet] = useState<string | null>(null);
   const [showNotesColumn, setShowNotesColumn] = useState(true);
-  const [selectedFeature, setSelectedFeature] = useState<string | null>(null);
 
-  const ALLOWED_SHEETS = ["Talk", "Conceptual", "Discursive", "Lexical"];
+  const ALLOWED_SHEETS = ["Conceptual", "Discursive"];
 
   // Function to save all annotations
   const saveAllAnnotations = (data: AnnotationData | null) => {
@@ -465,24 +723,10 @@ export default function TranscriptPage() {
     localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
   };
 
-  // Handle feature sheet selection
-  const handleFeatureSelection = (feature: string) => {
-    // Save current annotations before switching
-    saveAllAnnotations(annotationData);
-
-    // If clicking the same feature, deselect it
-    if (feature === selectedFeature) {
-      setSelectedFeature(null);
-      return;
-    }
-
-    setSelectedFeature(feature);
-  };
-
   // Simplified and optimized toggle component with enhanced contrast
   const FeatureToggle = React.memo(({ 
     isChecked, 
-    isDisabled, 
+    isDisabled,
     onToggle 
   }: { 
     isChecked: boolean;
@@ -491,43 +735,56 @@ export default function TranscriptPage() {
   }) => (
     <div 
       className={`
-        inline-flex rounded-md select-none
-        ${isDisabled ? 'opacity-40' : ''}
+        inline-flex rounded-md select-none shadow-sm
+        ${isDisabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
       `}
     >
       <button
         type="button"
         disabled={isDisabled}
-        onClick={() => !isDisabled && onToggle(false)}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isDisabled) onToggle(false);
+        }}
         className={`
-          min-w-[28px] px-2 py-0.5 text-xs font-bold rounded-l-md border-r border-white/20
+          min-w-[32px] px-3 py-1 text-xs font-bold rounded-l-md border-r border-white/20
+          transition-all duration-150 ease-in-out
           ${isChecked 
-            ? 'bg-gray-100 text-gray-400' 
-            : 'bg-red-600 text-white shadow-sm'
+            ? 'bg-gray-200 text-gray-500 hover:bg-gray-300' 
+            : 'bg-red-600 text-white shadow-md hover:bg-red-700 active:bg-red-800'
           }
+          ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}
         `}
       >
-        N
+        No
       </button>
       <button
         type="button"
         disabled={isDisabled}
-        onClick={() => !isDisabled && onToggle(true)}
-        className={`
-          min-w-[28px] px-2 py-0.5 text-xs font-bold rounded-r-md
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isDisabled) onToggle(true);
+        }}
+          className={`
+          min-w-[32px] px-3 py-1 text-xs font-bold rounded-r-md
+          transition-all duration-150 ease-in-out
           ${isChecked 
-            ? 'bg-emerald-600 text-white shadow-sm' 
-            : 'bg-gray-100 text-gray-400'
+            ? 'bg-emerald-600 text-white shadow-md hover:bg-emerald-700 active:bg-emerald-800' 
+            : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
           }
+          ${isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}
         `}
       >
-        Y
+        Yes
       </button>
     </div>
   ), (prev, next) => 
     prev.isChecked === next.isChecked && 
     prev.isDisabled === next.isDisabled
   );
+  FeatureToggle.displayName = 'FeatureToggle';
 
   // Memoize the header cell to prevent re-renders
   const FeatureHeader = React.memo(({ 
@@ -544,17 +801,17 @@ export default function TranscriptPage() {
     <th
       className="px-2 py-2 border border-black border-2 text-sm w-16 cursor-pointer group"
       onClick={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        setSelectedFeaturePopup({
-          code,
-          definition,
-          example1,
-          nonexample1,
-          position: {
-            x: rect.left + rect.width / 2,
-            y: rect.bottom + 10
-          }
-        });
+        // const rect = e.currentTarget.getBoundingClientRect();
+        // setSelectedFeaturePopup({
+        //   code,
+        //   definition,
+        //   example1,
+        //   nonexample1,
+        //   position: {
+        //     x: rect.left + rect.width / 2,
+        //     y: rect.bottom + 10
+        //   }
+        // });
       }}
     >
       <div className="
@@ -576,7 +833,9 @@ export default function TranscriptPage() {
     selectedFeature,
     annotationData,
     isStudent,
-    onFeatureChange
+    isSelectable, // Add this prop
+    onFeatureChange,
+    onHoverChange
   }: FeatureColumnsProps) => {
     // Early return if no data
     if (!selectedFeature || !annotationData?.[selectedFeature]) return null;
@@ -588,11 +847,11 @@ export default function TranscriptPage() {
       <>
         {codes.map((code: string) => (
           <td key={code} className="px-1 py-1 border border-black border-2 text-center">
-            <FeatureToggle
+              <FeatureToggle
               isChecked={!!rowAnnotations[code]}
-              isDisabled={!isStudent}
+              isDisabled={!isStudent || !isSelectable} // Add isSelectable check
               onToggle={(checked) => onFeatureChange(rowData.col2 - 1, code, checked)}
-            />
+              />
           </td>
         ))}
       </>
@@ -601,6 +860,7 @@ export default function TranscriptPage() {
     // Simplified comparison focusing only on what matters
     if (prev.selectedFeature !== next.selectedFeature) return false;
     if (prev.isStudent !== next.isStudent) return false;
+    if (prev.isSelectable !== next.isSelectable) return false; // Add this check
     if (!prev.selectedFeature || !next.selectedFeature) return true;
 
     const prevRow = prev.annotationData?.[prev.selectedFeature]?.annotations[prev.rowData.col2 - 1];
@@ -608,21 +868,418 @@ export default function TranscriptPage() {
     return prevRow === nextRow; // Direct reference comparison instead of JSON stringify
   });
 
+  // New CollapsibleFeatureCell component for the new design
+  const CollapsibleFeatureCell = React.memo(({ 
+    rowData,
+    category,
+    annotationData,
+    isStudent,
+    onFeatureChange
+  }: {
+    rowData: TableRow;
+    category: string;
+    annotationData: AnnotationData | null;
+    isStudent: boolean;
+    onFeatureChange: (lineNumber: number, code: string, value: boolean) => void;
+  }) => {
+    // Check if row is selectable for annotations
+    const isSelectable = isTableRowSelectable(rowData);
+    
+    // CRITICAL FIX: Use parent-level state instead of local state
+    const dropdownKey = `${rowData.col2}-${category}`;
+    const isExpanded = expandedDropdowns[dropdownKey] || false;
+    const dropdownPosition = dropdownPositions[dropdownKey] || 'bottom';
+    
+    const [showAnnotationWindow, setShowAnnotationWindow] = useState(false);
+    const [selectedDefinition, setSelectedDefinition] = useState<{
+      code: string;
+      definition: string;
+      example1: string;
+      nonexample1: string;
+      position: { x: number; y: number };
+    } | null>(null);
+
+    // Add click-outside-to-close functionality
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (isExpanded) {
+          const target = event.target as HTMLElement;
+          // Check if the click is outside the dropdown
+          if (!target.closest(`[data-dropdown="true"][data-dropdown-key="${dropdownKey}"]`) &&
+              !target.closest(`[data-cell-key="${dropdownKey}"]`)) {
+            setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
+          }
+        }
+      };
+
+      if (isExpanded) {
+        document.addEventListener('mousedown', handleClickOutside);
+      }
+
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [isExpanded, dropdownKey]);
+    
+    if (!annotationData?.[category]) {
+      return (
+        <td className="px-2 py-1 border border-black border-2 text-center">
+          <div className="text-xs text-black">—</div>
+        </td>
+      );
+    }
+
+    const rowIndex = rowData.col2 - 1;
+    const rowAnnotations = annotationData[category].annotations[rowIndex] || {};
+    const codes = annotationData[category].codes;
+    
+    // Calculate how many features are "Yes" (true)
+    const yesCount = codes.filter(code => rowAnnotations[code]).length;
+    const totalCount = codes.length;
+
+    // Determine background color based on selection state
+    const getCellColor = () => {
+      if (!isStudent) return "bg-gray-100";
+      // Removed gray-out for non-selectable rows - keep them with normal colors
+      
+      // HIGHLIGHT: Show yellow if dropdown has ever been opened (stays yellow permanently)
+      if (openedDropdowns[dropdownKey]) return "bg-yellow-200";
+      
+      if (yesCount === 0) return "bg-white";
+      if (yesCount === totalCount) return "bg-green-100";
+      return "bg-yellow-100"; // Partial selection
+    };
+
+    const handleFeatureClick = (code: string, event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = event.currentTarget.getBoundingClientRect();
+      const details = annotationData[category].definitions[code];
+      if (details) {
+        setSelectedDefinition({
+          code,
+          definition: details.Definition || 'No definition available',
+          example1: details.example1 || '',
+          nonexample1: details.nonexample1 || '',
+          position: {
+            x: rect.left + rect.width / 2,
+            y: rect.bottom + 10
+          }
+        });
+      }
+      // Ensure dropdown stays open
+      return false;
+    };
+
+    const calculateDropdownPosition = (cellElement: HTMLElement) => {
+      const rect = cellElement.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const dropdownHeight = 300; // Estimated dropdown height
+      const dropdownWidth = 256; // min-w-64 = 256px
+
+      // Check vertical space
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // Check horizontal space
+      const spaceRight = viewportWidth - rect.right;
+      const spaceLeft = rect.left;
+
+      // Determine best position
+      if (spaceBelow >= dropdownHeight) {
+        return 'bottom';
+      } else if (spaceAbove >= dropdownHeight) {
+        return 'top';
+      } else if (spaceRight >= dropdownWidth) {
+        return 'right';
+      } else if (spaceLeft >= dropdownWidth) {
+        return 'left';
+      } else {
+        return 'bottom'; // Default fallback
+      }
+    };
+
+    const handleCellClick = (event: React.MouseEvent) => {
+      if (isStudent && isSelectable) { // Add isSelectable check
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Toggle the dropdown - close if already open, open if closed
+        if (isExpanded) {
+          // Close the dropdown if it's currently open
+          setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
+        } else {
+          // Open the dropdown if it's currently closed
+          const cellElement = event.currentTarget as HTMLElement;
+          const position = calculateDropdownPosition(cellElement);
+          setDropdownPositions(prev => ({ ...prev, [dropdownKey]: position }));
+          setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: true }));
+          // Mark this dropdown as having been opened at least once
+          setOpenedDropdowns(prev => ({ ...prev, [dropdownKey]: true }));
+        }
+      }
+    };
+
+    const handleOpenAnnotationWindow = (event: React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setShowAnnotationWindow(true);
+      setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
+    };
+
+    const handleCloseDropdown = () => {
+      setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
+    };
+
+    const handleCloseAnnotationWindow = () => {
+      setShowAnnotationWindow(false);
+    };
+
+    const handleCloseDefinition = () => {
+      setSelectedDefinition(null);
+    };
+
+    const getDropdownClasses = () => {
+      const baseClasses = "absolute bg-white border-2 border-gray-800 rounded-lg shadow-lg z-40 min-w-64 p-3";
+      
+      switch (dropdownPosition) {
+        case 'top':
+          return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-1`;
+        case 'right':
+          return `${baseClasses} top-0 left-full ml-1`;
+        case 'left':
+          return `${baseClasses} top-0 right-full mr-1`;
+        case 'bottom':
+        default:
+          return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 mt-1`;
+      }
+    };
+
+    return (
+      <>
+        <td 
+          className={`px-2 py-1 border border-black border-2 text-center relative cursor-pointer ${getCellColor()}`}
+          onClick={handleCellClick}
+          data-cell-key={dropdownKey}
+        >
+          {isStudent ? (
+            <div className="text-xs font-medium relative">
+              {/* Summary display */}
+              <div className={yesCount > 0 ? 'text-green-700' : 'text-black'}>
+                {isSelectable ? `${yesCount}/${totalCount}` : '—'}
+                </div>
+              
+              {/* Dropdown expansion */}
+              {isExpanded && (
+                <div 
+                  className={getDropdownClasses()}
+                  onClick={(e) => e.stopPropagation()}
+                  data-dropdown="true"
+                  data-dropdown-key={dropdownKey}
+                >
+                  <div className="flex justify-between items-center mb-3">
+                    <div className="text-sm font-semibold text-gray-800">
+                      {category} Features
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleOpenAnnotationWindow}
+                        className="text-blue-600 hover:text-blue-800 text-xs"
+                        title="Open full annotation window"
+                      >
+                        ⤢
+                      </button>
+                      <button
+                        onClick={handleCloseDropdown}
+                        className="text-gray-500 hover:text-gray-700 text-lg leading-none"
+                        title="Close"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {codes.map((code: string) => (
+                      <div key={code} className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
+                        <div className="flex items-center flex-1">
+                          <input
+                            type="checkbox"
+                            checked={rowAnnotations[code] || false}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                                onFeatureChange(rowData.col2 - 1, code, e.target.checked);
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            className="mr-2 form-checkbox h-3 w-3 text-blue-600"
+                            disabled={!isStudent}
+                          />
+                          <button
+                            className="text-sky-600 hover:text-sky-800 hover:underline text-left flex-1"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleFeatureClick(code, e);
+                              return false;
+                            }}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            title="Click for definition and examples"
+                          >
+                            {code}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-xs text-black">—</div>
+          )}
+        </td>
+
+        {/* Separate Annotation Window */}
+        {showAnnotationWindow && isStudent && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+            onClick={handleCloseAnnotationWindow}
+          >
+            <div 
+              className="bg-white border-2 border-gray-800 rounded-lg shadow-lg p-4 max-w-md w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <div className="text-lg font-semibold text-gray-800">
+                  {category} Features
+                </div>
+                <button
+                  onClick={handleCloseAnnotationWindow}
+                  className="text-gray-500 hover:text-gray-700 text-xl leading-none"
+                  title="Close"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {codes.map((code: string) => (
+                  <div key={code} className="flex items-center justify-between">
+                    <button
+                      className="text-sky-600 hover:text-sky-800 hover:underline text-left mr-3 flex-1 text-sm"
+                      onClick={(e) => handleFeatureClick(code, e)}
+                      title="Click for definition and examples"
+                    >
+                      {code}
+                    </button>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <FeatureToggle
+                        isChecked={rowAnnotations[code] || false}
+                        isDisabled={!isStudent}
+                        onToggle={(checked) => {
+                          onFeatureChange(rowIndex, code, checked);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Separate Definition Popup */}
+        {selectedDefinition && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+            onClick={handleCloseDefinition}
+          >
+            <div 
+              className="bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg p-4 max-w-lg w-full mx-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-3">
+                <div className="text-lg font-semibold text-blue-800">
+                  {selectedDefinition.code}
+                </div>
+                <button
+                  onClick={handleCloseDefinition}
+                  className="text-blue-500 hover:text-blue-700 text-xl leading-none"
+                  title="Close"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="text-sm text-gray-700">
+                  <strong className="text-blue-800">Definition:</strong>
+                  <div className="mt-1">{selectedDefinition.definition}</div>
+                </div>
+                
+                {selectedDefinition.example1 && (
+                  <div className="text-sm text-green-700">
+                    <strong className="text-green-800">Example:</strong>
+                    <div className="mt-1">{selectedDefinition.example1}</div>
+                  </div>
+                )}
+                
+                {selectedDefinition.nonexample1 && (
+                  <div className="text-sm text-red-700">
+                    <strong className="text-red-800">Non-example:</strong>
+                    <div className="mt-1">{selectedDefinition.nonexample1}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }, (prevProps, nextProps) => {
+    // Custom comparison: Only re-render if THIS specific row's annotations change
+    const prevRowData = prevProps.rowData;
+    const nextRowData = nextProps.rowData;
+    
+    // Basic props comparison
+    if (prevRowData.col2 !== nextRowData.col2 || 
+        prevProps.category !== nextProps.category ||
+        prevProps.isStudent !== nextProps.isStudent) {
+      return false; // Re-render if basic props changed
+    }
+    
+    // Check if annotation data for THIS specific row changed
+    if (!prevProps.annotationData || !nextProps.annotationData) return false;
+    
+    const prevCategoryData = prevProps.annotationData[prevProps.category];
+    const nextCategoryData = nextProps.annotationData[nextProps.category];
+    
+    if (!prevCategoryData || !nextCategoryData) return false;
+    
+    const rowIndex = prevRowData.col2 - 1;
+    const prevRowAnnotations = prevCategoryData.annotations[rowIndex];
+    const nextRowAnnotations = nextCategoryData.annotations[rowIndex];
+    
+    // Only re-render if THIS row's annotations changed
+    return JSON.stringify(prevRowAnnotations) === JSON.stringify(nextRowAnnotations);
+  });
+
   // Memoize the filtered table data
   const filteredTableData = React.useMemo(() => {
-    return tableData.filter(rowData => 
-      whichSegment === 'full_transcript' || rowData.col1 === whichSegment
-    );
+    return tableData.filter(rowData => {
+      // Handle student_only filter
+      if (whichSegment === 'student_only') {
+        return rowData.col5.includes('Student');
+      }
+      // Handle segment-based filtering
+      return whichSegment === 'full_transcript' || rowData.col1 === whichSegment;
+    });
   }, [tableData, whichSegment]);
-
-  // Memoize feature codes and definitions
-  const featureInfo = React.useMemo(() => {
-    if (!selectedFeature || !annotationData?.[selectedFeature]) return [];
-    return annotationData[selectedFeature].codes.map(code => ({
-      code,
-      definition: annotationData[selectedFeature].definitions[code]?.Definition || ''
-    }));
-  }, [selectedFeature, annotationData]);
 
   // Optimize the debounced save to be less aggressive
   const debouncedSave = React.useCallback(
@@ -632,10 +1289,21 @@ export default function TranscriptPage() {
     [number]
   );
 
-  // Update TableRow to use the new FeatureColumns component
+  // Add new state for learning goal note popup
+  const [learningGoalNotePopup, setLearningGoalNotePopup] = useState<{
+    rowIndex: number;
+    rowData: TableRow;
+    position: { x: number; y: number };
+    mode: 'initial' | 'creating'; // Add mode to track popup state
+  } | null>(null);
+
+  // Add state for new note title during creation
+  const [newNoteTitle, setNewNoteTitle] = useState('');
+
+  // Update TableRow component to handle learning goal note cell clicks
   const TableRow = React.memo(({ 
     rowData, 
-    selectedFeature, 
+    rowIndex,
     annotationData,
     onFeatureChange,
     speakerColors,
@@ -650,7 +1318,7 @@ export default function TranscriptPage() {
     getNoteDisplayText
   }: {
     rowData: TableRow;
-    selectedFeature: string | null;
+    rowIndex: number;
     annotationData: AnnotationData | null;
     onFeatureChange: (lineNumber: number, code: string, value: boolean) => void;
     speakerColors: { [key: string]: string };
@@ -662,110 +1330,191 @@ export default function TranscriptPage() {
     tempSelectedRows: number[];
     toggleRowSelection: (col2Value: number) => void;
     toggleTempRowSelection: (col2Value: number) => void;
-    getNoteDisplayText: (idsString: string, rowIndex: number) => string;
+    getNoteDisplayText: (idsString: string, rowIndex: number) => React.ReactNode;
   }) => {
     const hasNote = rowData.noteIds.trim() !== "";
     const isSelectedForLineEdit = editingLinesId !== null && tempSelectedRows.includes(+rowData.col2);
-    const isRowSelectableForNote = rowData.col7?.toLowerCase() === "true" || rowData.col7?.toLowerCase() === "yes" || rowData.col7?.toLowerCase() === "1";
+    const isRowSelectableForNote = isTableRowSelectable(rowData);
     const isStudent = rowData.col5.includes("Student");
+    const isSelectedForNoteCreation = isCreatingNote && selectedRows.includes(rowData.col2);
+
+    // Search highlighting
+    const isSearchMatch = searchMatches.includes(rowIndex);
+    const isCurrentMatch = currentSearchMatch >= 0 && searchMatches[currentSearchMatch] === rowIndex;
+
+    const handleLearningGoalNoteCellClick = (e: React.MouseEvent) => {
+      if (!isRowSelectableForNote) return;
+      
+      const rect = e.currentTarget.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const popupHeight = 300; // Approximate max height of popup
+      const popupWidth = 250; // minWidth of popup
+      
+      // Calculate available space in each direction
+      const spaceRight = viewportWidth - rect.right;
+      const spaceLeft = rect.left;
+      
+      // Determine position
+      let top: number;
+      let left: number;
+      
+      // First try to position to the right of the cell
+      if (spaceRight >= popupWidth) {
+        left = rect.right;
+        top = rect.top;
+        
+        // If popup would go off the bottom, move it up
+        if (top + popupHeight > viewportHeight) {
+          top = Math.max(0, viewportHeight - popupHeight);
+        }
+      }
+      // If not enough space on right, try left
+      else if (spaceLeft >= popupWidth) {
+        left = rect.left - popupWidth;
+        top = rect.top;
+        
+        // If popup would go off the bottom, move it up
+        if (top + popupHeight > viewportHeight) {
+          top = Math.max(0, viewportHeight - popupHeight);
+        }
+      }
+      // If not enough space on either side, position below
+      else {
+        left = rect.left;
+        if (rect.bottom + popupHeight <= viewportHeight) {
+          top = rect.bottom;
+        } else {
+          top = rect.top - popupHeight;
+        }
+      }
+      
+      setLearningGoalNotePopup({
+        rowIndex,
+        rowData,
+        position: {
+          x: left,
+          y: top
+        },
+        mode: 'initial'
+      });
+    };
 
     return (
       <tr
+        data-row-index={rowIndex}
         className={`${speakerColors[rowData.col5] || "bg-gray-100"} 
           ${hasNote ? "font-bold" : ""} 
           ${isSelectedForLineEdit ? "ring-2 ring-blue-500" : ""}
-          ${!isRowSelectableForNote ? "opacity-50" : ""} 
-          ${!isStudent ? "opacity-50" : ""}
+          ${isSelectedForNoteCreation ? "ring-2 ring-green-500" : ""}
+          ${isCurrentMatch ? "ring-2 ring-yellow-400 bg-yellow-100" : 
+            isSearchMatch ? "bg-yellow-50" : ""}
         `}
       >
         {/* Select column */}
         {(isCreatingNote || editingLinesId !== null) && (
-          <td className="w-12 px-2 py-1 border border-black border-2 text-center">
+          <td className="w-12 px-2 py-2 border border-black border-2 text-center">
             {isRowSelectableForNote ? (
               isCreatingNote ? (
                 <input
                   type="checkbox"
                   checked={selectedRows.includes(rowData.col2)}
                   onChange={() => toggleRowSelection(rowData.col2)}
-                  className="form-checkbox h-4 w-4"
+                  className="form-checkbox h-4 w-4 text-green-500 focus:ring-green-500"
                 />
               ) : (
                 <input
                   type="checkbox"
                   checked={tempSelectedRows.includes(rowData.col2)}
                   onChange={() => toggleTempRowSelection(rowData.col2)}
-                  className="form-checkbox h-4 w-4"
+                  className="form-checkbox h-4 w-4 text-blue-500 focus:ring-blue-500"
                 />
               )
-            ) : null}
+            ) : (
+              <span className="text-black text-xs">N/A</span>
+            )}
           </td>
         )}
 
         {/* Standard columns */}
         {columnVisibility.lessonSegmentId && (
-          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24">
+          <td className="px-2 py-1 border border-black border-2 text-sm text-black w-24">
             {rowData.col1}
           </td>
         )}
         {columnVisibility.lineNumber && (
-          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24">
+          <td className="px-2 py-1 border border-black border-2 text-sm text-black w-24">
             {rowData.col2}
           </td>
         )}
         {columnVisibility.start && (
-          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24">
+          <td className="px-2 py-1 border border-black border-2 text-sm text-black w-24">
             {rowData.col3}
           </td>
         )}
         {columnVisibility.end && (
-          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-24">
+          <td className="px-2 py-1 border border-black border-2 text-sm text-black w-24">
             {rowData.col4}
           </td>
         )}
         {columnVisibility.speaker && (
-          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-32">
+          <td className="px-2 py-1 border border-black border-2 text-sm text-black w-32">
             {rowData.col5}
           </td>
         )}
         {columnVisibility.utterance && (
-          <td className="px-2 py-1 border border-black border-2 text-sm text-gray-700 w-auto overflow-auto whitespace-normal break-words">
-            {rowData.col6}
+          <td className="px-2 py-1 border border-black border-2 text-sm text-black w-auto overflow-auto whitespace-normal break-words">
+            {isSearchMatch && searchTerm && !(/^\d+$/.test(searchTerm.trim())) ? (
+              <span dangerouslySetInnerHTML={{
+                __html: rowData.col6.replace(
+                  new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'),
+                  '<mark class="bg-yellow-300">$1</mark>'
+                )
+              }} />
+            ) : (
+              rowData.col6
+            )}
           </td>
         )}
 
         {/* Notes Column */}
         {showNotesColumn && (
-          <td className={`px-2 py-1 border border-black border-2 text-sm text-gray-700 ${columnVisibility.notes ? 'w-24' : 'w-12'}`}>
+          <td 
+            className={`px-2 py-1 border border-black border-2 text-sm text-black ${columnVisibility.notes ? 'w-24' : 'w-12'} 
+              ${isRowSelectableForNote ? 'cursor-pointer hover:bg-gray-50' : 'cursor-not-allowed'} 
+              relative group`}
+            onClick={handleLearningGoalNoteCellClick}
+          >
             {getNoteDisplayText(rowData.noteIds, rowData.col2 - 1)}
+            {!isRowSelectableForNote && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-xs text-gray-500">Not eligible for notes</span>
+              </div>
+            )}
           </td>
         )}
 
         {/* Replace feature columns with the new component */}
-        <FeatureColumns
+        {ALLOWED_SHEETS.map(category => (
+          <CollapsibleFeatureCell
+            key={category}
           rowData={rowData}
-          selectedFeature={selectedFeature}
+            category={category}
           annotationData={annotationData}
           isStudent={isStudent}
           onFeatureChange={onFeatureChange}
         />
+        ))}
       </tr>
     );
   }, (prevProps, nextProps) => {
-    // Less strict comparison function to ensure updates are caught
+    // Simplified comparison function
     if (!prevProps.annotationData || !nextProps.annotationData) return false;
-    
-    // Deep compare the annotations for this specific row
-    const prevAnnotations = prevProps.selectedFeature && 
-      prevProps.annotationData[prevProps.selectedFeature]?.annotations[prevProps.rowData.col2 - 1];
-    const nextAnnotations = nextProps.selectedFeature && 
-      nextProps.annotationData[nextProps.selectedFeature]?.annotations[nextProps.rowData.col2 - 1];
-    
-    const annotationsEqual = JSON.stringify(prevAnnotations) === JSON.stringify(nextAnnotations);
     
     return (
       prevProps.rowData === nextProps.rowData &&
-      prevProps.selectedFeature === nextProps.selectedFeature &&
-      annotationsEqual &&
+      prevProps.rowIndex === nextProps.rowIndex &&
+      prevProps.annotationData === nextProps.annotationData &&
       prevProps.selectedRows === nextProps.selectedRows &&
       prevProps.tempSelectedRows === nextProps.tempSelectedRows &&
       prevProps.editingLinesId === nextProps.editingLinesId &&
@@ -800,84 +1549,123 @@ export default function TranscriptPage() {
     };
   }, [annotationData]);
 
-  // Add this useEffect to load Excel data when needed
+  // Add this useEffect to load annotation data when needed
   useEffect(() => {
-    const loadExcelData = async () => {
+    const loadAnnotationData = async () => {
       try {
-        const response = await fetch('/MOL Roles Features.xlsx');
-        if (!response.ok) {
-          throw new Error(`Failed to fetch Excel file: ${response.statusText}`);
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        const workbook = read(arrayBuffer);
+        console.log('Starting to load annotation data from XLSX');
         
-        // Start with existing data instead of fresh data
-        const newData = annotationData ? { ...annotationData } : {};
+        let newData = annotationData ? { ...annotationData } : {};
         
-        if (selectedFeature && workbook.SheetNames.includes(selectedFeature)) {
-          const sheet = workbook.Sheets[selectedFeature];
-          const jsonData = utils.sheet_to_json(sheet);
-          
-          // Extract codes and definitions
-          const codes = jsonData
-            .map(row => (row as any).Code)
-            .filter(Boolean);
-          
-          const definitions: { [code: string]: FeatureDetails } = {};
-          
-          jsonData.forEach((row: any) => {
-            const definition = row.Definition || row.definition;
-            if (row.Code && definition) {
-              definitions[row.Code] = {
-                Definition: definition,
-                example1: row.Example1 || row.example1 || '',
-                example2: row.Example2 || row.example2 || '',
-                nonexample1: row.NonExample1 || row.nonexample1 || '',
-                nonexample2: row.NonExample2 || row.nonexample2 || ''
-              };
-            }
-          });
-          
-          // Initialize annotations only if they don't exist for this sheet
-          if (!newData[selectedFeature]) {
-            const annotations: {
-              [key: number]: {
-                [code: string]: boolean;
-              };
-            } = {};
-            
-            for (let i = 0; i < tableData.length; i++) {
-              annotations[i] = {};
-              codes.forEach(code => {
-                annotations[i][code] = false;
-              });
-            }
-            
-            newData[selectedFeature] = {
-              codes,
-              definitions,
-              annotations
-            };
-          } else {
-            // Update codes and definitions while preserving existing annotations
-            newData[selectedFeature] = {
-              ...newData[selectedFeature],
-              codes,
-              definitions
-            };
+          console.log('Loading XLSX file /MOL Roles Features.xlsx');
+          const xlsxResponse = await fetch('/MOL%20Roles%20Features.xlsx');
+          if (!xlsxResponse.ok) {
+            throw new Error(`Failed to fetch annotation file: ${xlsxResponse.statusText}`);
           }
-          
-          setAnnotationData(newData);
-        }
+          const arrayBuffer = await xlsxResponse.arrayBuffer();
+          newData = parseXLSXAnnotationData(arrayBuffer, newData);
+          console.log('XLSX data parsed successfully');
+        
+        console.log('Setting annotation data:', newData);
+        setAnnotationData(newData);
       } catch (error) {
-        console.error('Error loading Excel file:', error);
+        console.error('Error loading annotation data:', error);
       }
     };
     
-    if (selectedFeature) {
-      loadExcelData();
+    // Load annotation data when component mounts or tableData changes
+    if (tableData.length > 0) {
+      loadAnnotationData();
     }
-  }, [selectedFeature, tableData.length, annotationData]);
+  }, [tableData.length]);
+
+
+
+  // Function to parse XLSX annotation data (extracted from existing logic)
+  const parseXLSXAnnotationData = (arrayBuffer: ArrayBuffer, existingData: AnnotationData): AnnotationData => {
+    const workbook = read(arrayBuffer);
+    console.log('Excel file loaded. Sheet names:', workbook.SheetNames);
+    console.log('Allowed sheets:', ALLOWED_SHEETS);
+    
+    const newData = { ...existingData };
+    
+    // Load all allowed sheets
+    ALLOWED_SHEETS.forEach(sheetName => {
+      if (workbook.SheetNames.includes(sheetName)) {
+        console.log('Processing sheet:', sheetName);
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = utils.sheet_to_json(sheet);
+        
+        console.log(`Sheet ${sheetName} data:`, jsonData.slice(0, 3));
+        
+        // Extract codes and definitions
+        const codes = (jsonData as {Code?: string}[])
+          .map(row => row.Code)
+          .filter((code): code is string => Boolean(code));
+        
+        console.log(`Codes found in ${sheetName}:`, codes);
+        
+        const definitions: { [code: string]: FeatureDetails } = {};
+        
+        (jsonData as {
+          Code?: string;
+          Definition?: string;
+          definition?: string;
+          Example1?: string;
+          example1?: string;
+          Example2?: string;
+          example2?: string;
+          NonExample1?: string;
+          nonexample1?: string;
+          NonExample2?: string;
+          nonexample2?: string;
+        }[]).forEach(row => {
+          const definition = row.Definition || row.definition;
+          if (row.Code && definition) {
+            definitions[row.Code] = {
+              Definition: definition,
+              example1: row.Example1 || row.example1 || '',
+              example2: row.Example2 || row.example2 || '',
+              nonexample1: row.NonExample1 || row.nonexample1 || '',
+              nonexample2: row.NonExample2 || row.nonexample2 || ''
+            };
+          }
+        });
+        
+        // Initialize annotations only if they don't exist for this sheet
+        if (!newData[sheetName] || newData[sheetName].codes.length === 0) {
+          console.log('Creating new annotation data for:', sheetName);
+        const annotations: {
+          [key: number]: {
+            [code: string]: boolean;
+          };
+        } = {};
+        
+        for (let i = 0; i < tableData.length; i++) {
+          annotations[i] = {};
+            codes.forEach(code => {
+              annotations[i][code] = false;
+            });
+          }
+          
+          newData[sheetName] = {
+            codes,
+            definitions,
+          annotations
+        };
+        } else {
+          // Update codes and definitions while preserving existing annotations
+          newData[sheetName] = {
+            ...newData[sheetName],
+            codes,
+            definitions
+          };
+        }
+      }
+    });
+    
+    return newData;
+  };
 
   const handleSaveAnnotations = (data: AnnotationData) => {
     setAnnotationData(data);
@@ -887,6 +1675,10 @@ export default function TranscriptPage() {
 
   const handleAnnotationChange = (data: AnnotationData) => {
     setAnnotationData(data);
+    
+    // Auto-save annotations when they change
+    localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
+    console.log("Annotations auto-saved");
   };
 
   // Update the state interface to include examples and non-examples
@@ -898,29 +1690,21 @@ export default function TranscriptPage() {
     position: { x: number; y: number };
   } | null>(null);
 
-  const handleFeatureHeaderClick = (code: string, event: React.MouseEvent) => {
-    event.preventDefault();
-    const rect = (event.target as HTMLElement).getBoundingClientRect();
-    const details = getFeatureDetails(code);
-    setSelectedFeaturePopup({
-      code,
-      definition: details?.Definition || 'No definition available',
-      example1: details?.example1 || '',
-      nonexample1: details?.nonexample1 || '',
-      position: {
-        x: rect.left + rect.width / 2,
-        y: rect.bottom + 10
-      }
-    });
-  };
-
-  // Add this just before the return statement
-  const getFeatureDetails = (code: string): FeatureDetails | null => {
-    if (!selectedFeature || !annotationData?.[selectedFeature]?.definitions) {
-      return null;
-    }
-    return annotationData[selectedFeature].definitions[code];
-  };
+  // const handleFeatureHeaderClick = (code: string, event: React.MouseEvent) => {
+  //   event.preventDefault();
+  //   const rect = (event.target as HTMLElement).getBoundingClientRect();
+  //   const details = getFeatureDetails(code);
+  //   setSelectedFeaturePopup({
+  //     code,
+  //     definition: details?.Definition || 'No definition available',
+  //     example1: details?.example1 || '',
+  //     nonexample1: details?.nonexample1 || '',
+  //     position: {
+  //       x: rect.left + rect.width / 2,
+  //       y: rect.bottom + 10
+  //     }
+  //   });
+  // };
 
   useEffect(() => {
     const fetchContent = async () => {
@@ -929,10 +1713,10 @@ export default function TranscriptPage() {
         if (!res.ok) throw new Error("Failed to fetch content.json");
         const data = await res.json();
         setGradeLevel(data.gradeLevel);
-        setActivityPurpose(data.activityPurpose);
+        setLessonGoal(data.lessonGoal || "");
         setAvailableSegment(data.segments || []);
       } catch (err) {
-        console.error("Error loading grade level:", err);
+        console.error("Error loading content:", err);
       }
     };
 
@@ -966,13 +1750,13 @@ export default function TranscriptPage() {
             
             // Add the type assertion here with updated schema
             const updatedData = (result.data as CsvRow[]).map((row, index) => ({
-              col1: row["Transcript"] || `Row ${index + 1} Col 1`,
+              col1: row["Segment"] || `Row ${index + 1} Col 1`,
               col2: parseInt(row["#"], 10) || 10,
               col3: row["In cue"] || `Row ${index + 1} Col 3`,
               col4: row["Out cue"] || `Row ${index + 1} Col 4`,
               col5: row["Speaker"] || `Row ${index + 1} Col 5`,
               col6: row["Dialogue"] || `Row ${index + 1} Col 6`,
-              col7: row["selectable"] || "false",
+              col7: row["selectable"] || row["Selectable"] || "false",
               noteIds: "",
             }));
             setTableData(updatedData);
@@ -1059,8 +1843,7 @@ export default function TranscriptPage() {
             setNextNoteId(parsedData.nextNoteId || Math.max(...parsedData.notes.map((n: Note) => n.id), 0) + 1);
           }
           
-          setCustomText(parsedData.customText || "");
-          setEmail(parsedData.email || "");
+
           setLoading(false);
         } else {
           loadCSVData(); // Load CSV if saved data format is incorrect
@@ -1074,13 +1857,20 @@ export default function TranscriptPage() {
     }
     fetchSpeakers();
     fetchContent(); // Fetch grade level text
-  }, [number]); 
+  }, [number]);
+
+  // Set mounted state after initial load
+  useEffect(() => {
+    if (!loading) {
+      setMounted(true);
+    }
+  }, [loading]); 
   
   const getRowColor = (speaker: string, speakerColors: { [key: string]: string }) => {
     return speakerColors[speaker] || "bg-gray-100"; // Default to gray if speaker is not found
   };
 
-  // Generate rows for a specific note
+  // Generate rows for a specific learning goal note
   const generateNoteRows = (note: Note) => {
     return note.rowIndices.map(rowIndex => {
       if (rowIndex >= 0 && rowIndex < tableData.length) {
@@ -1088,6 +1878,50 @@ export default function TranscriptPage() {
       }
       return null;
     }).filter((row): row is TableRow => row !== null);
+  };
+
+  // Functions to handle note popup edit mode
+  const enterNoteEditMode = (note: Note) => {
+    setIsNoteInEditMode(true);
+    setNoteEditBuffer({
+      title: note.title,
+      content_1: note.content_1,
+      content_2: note.content_2
+    });
+  };
+
+  const exitNoteEditMode = () => {
+    setIsNoteInEditMode(false);
+    setNoteEditBuffer(null);
+  };
+
+  const saveNoteChanges = () => {
+    if (selectedNotePopup && noteEditBuffer) {
+      const noteId = selectedNotePopup.note.id;
+      
+      // Update the note with buffer values
+      setNotes(prevNotes => 
+        prevNotes.map(note => 
+          note.id === noteId 
+            ? { ...note, title: noteEditBuffer.title, content_1: noteEditBuffer.content_1, content_2: noteEditBuffer.content_2 }
+            : note
+        )
+      );
+
+      // Update the popup note reference
+      setSelectedNotePopup(prev => 
+        prev ? {
+          ...prev,
+          note: { ...prev.note, title: noteEditBuffer.title, content_1: noteEditBuffer.content_1, content_2: noteEditBuffer.content_2 }
+        } : null
+      );
+
+      exitNoteEditMode();
+    }
+  };
+
+  const cancelNoteChanges = () => {
+    exitNoteEditMode();
   };
 
   const [scrollTop, setScrollTop] = useState(0);
@@ -1138,14 +1972,681 @@ export default function TranscriptPage() {
     writeFile(wb, fileName);
   };
 
+    // Handle Compare with LLM
+  const handleCompareWithLLM = async () => {
+    try {
+      console.log('Loading LLM annotations...');
+      
+      let llmData: AnnotationData = {};
+      let dataLoaded = false;
+      
+      // Try to load Excel format first (multiple sheets)
+      try {
+        const excelResponse = await fetch(`/t${number}/annotated_transcript.xlsx`);
+        if (excelResponse.ok) {
+          console.log('Loading LLM annotations from annotated_transcript.xlsx');
+          const arrayBuffer = await excelResponse.arrayBuffer();
+          const workbook = read(arrayBuffer);
+          
+          console.log('LLM annotation file loaded. Sheet names:', workbook.SheetNames);
+          
+          const ALL_SHEETS = ["Conceptual", "Discursive", "Lexical", "Talk"];
+          
+          // Load all sheets from LLM annotations
+          ALL_SHEETS.forEach(sheetName => {
+            if (workbook.SheetNames.includes(sheetName)) {
+              console.log('Processing LLM sheet:', sheetName);
+              const sheet = workbook.Sheets[sheetName];
+              
+              const jsonData = utils.sheet_to_json(sheet, { 
+                defval: null,
+                raw: false
+              });
+              
+              // Extract codes from the first row (headers)
+              const headers = Object.keys(jsonData[0] || {});
+              console.log(`${sheetName} sheet headers:`, headers);
+              
+              const codes = headers.filter(header => 
+                header !== 'Line #' && 
+                header !== 'Speaker' && 
+                header !== 'Utterance' &&
+                header !== '#' &&
+                header !== 'Dialogue' &&
+                header !== 'Segment'  // For Talk sheet, exclude Segment from codes
+              );
+              
+              console.log(`${sheetName} sheet codes:`, codes);
+              
+              // Convert LLM data to our annotation format
+              const annotations: { [key: number]: { [code: string]: any } } = {};
+              
+              jsonData.forEach((row: any, rowIndex: number) => {
+                if (sheetName === 'Talk') {
+                  // For Talk sheet, use row index directly since it's summary data
+                  annotations[rowIndex] = {};
+                  
+                  codes.forEach(code => {
+                    const value = row[code];
+                    let processedValue;
+                    
+                    // For Talk sheet, preserve the original data types
+                    if (code === 'Response Latency' || code === 'Turn Latency') {
+                      // Handle latency values as decimal numbers
+                      processedValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+                    } else if (typeof value === 'string' && !isNaN(Number(value))) {
+                      processedValue = Number(value);
+                    } else if (typeof value === 'number') {
+                      processedValue = value;
+                    } else {
+                      processedValue = value;
+                    }
+                    
+                    annotations[rowIndex][code] = processedValue;
+                  });
+                  
+                  // Also store metadata for Talk sheet
+                  annotations[rowIndex]['Segment'] = row['Segment'];
+                  annotations[rowIndex]['Speaker'] = row['Speaker'];
+                  
+                  // Handle duration columns specifically
+                  if (row['Total Duration']) {
+                    annotations[rowIndex]['Total Duration'] = row['Total Duration'];
+                  }
+                  if (row['Duration']) {
+                    annotations[rowIndex]['Duration'] = row['Duration'];
+                  }
+                  
+                  // Handle latency columns specifically
+                  if (row['Response Latency']) {
+                    annotations[rowIndex]['Response Latency'] = parseFloat(row['Response Latency']) || 0;
+                  }
+                  if (row['Turn Latency']) {
+                    annotations[rowIndex]['Turn Latency'] = parseFloat(row['Turn Latency']) || 0;
+                  }
+                  
+                  // Handle crosstalk variations
+                  if (row['Crosstalk Count'] !== undefined) {
+                    annotations[rowIndex]['Crosstalk Count'] = Number(row['Crosstalk Count']) || 0;
+                  } else if (row['Crosstalk'] !== undefined) {
+                    annotations[rowIndex]['Crosstalk Count'] = Number(row['Crosstalk']) || 0;
+                  } else if (row['CrossTalk'] !== undefined) {
+                    annotations[rowIndex]['Crosstalk Count'] = Number(row['CrossTalk']) || 0;
+                  } else if (row['Cross Talk'] !== undefined) {
+                    annotations[rowIndex]['Crosstalk Count'] = Number(row['Cross Talk']) || 0;
+                  }
+                } else {
+                  const lineNumber = row['Line #'] || row['#'] || row['Line Number'];
+                  
+                  if (lineNumber) {
+                    // Find the corresponding table row index by matching line numbers
+                    const tableRowIndex = tableData.findIndex(tableRow => tableRow.col2 === parseInt(lineNumber, 10));
+                    
+                    if (tableRowIndex >= 0) {
+                      annotations[tableRowIndex] = {};
+                      
+                      codes.forEach(code => {
+                        const value = row[code];
+                        let processedValue;
+                        if (sheetName === 'Lexical') {
+                          // For Lexical category, keep numeric values
+                          processedValue = typeof value === 'number' ? value : (parseInt(value) || 0);
+                        } else {
+                          // For Conceptual, Discursive categories, convert to boolean
+                          if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) {
+                            processedValue = false;
+                          } else {
+                            processedValue = Number(value) === 1 || value === 1 || value === 1.0 || value === "1" || value === true || value === "true";
+                          }
+                        }
+                        annotations[tableRowIndex][code] = processedValue;
+                      });
+                    }
+                  }
+                }
+              });
+              
+              llmData[sheetName] = {
+                codes,
+                definitions: annotationData?.[sheetName]?.definitions || {},
+                annotations
+              };
+            }
+          });
+          
+          dataLoaded = true;
+        }
+      } catch (excelError) {
+        console.log('Excel file not found or error loading it, trying CSV format...');
+      }
+      
+      // If Excel didn't work, try CSV format (single file with all annotations)
+      if (!dataLoaded) {
+        try {
+          const csvResponse = await fetch(`/t${number}/annotated_transcript.csv`);
+          if (csvResponse.ok) {
+            console.log('Loading LLM annotations from annotated_transcript.csv');
+            const csvText = await csvResponse.text();
+            
+            // Parse CSV using Papa Parse
+            const { data: csvData } = Papa.parse(csvText, {
+              header: true,
+              skipEmptyLines: true
+            });
+            
+            console.log('CSV data loaded:', csvData.slice(0, 3));
+            
+            // Get all available annotation columns (excluding metadata columns)
+            const metadataColumns = ['#', 'In cue', 'Out cue', 'Duration', 'Speaker', 'Language', 'Dialogue', 'Annotations', 'Error Type', 'Segment', 'Selectable'];
+            const allHeaders = Object.keys(csvData[0] || {});
+            const annotationColumns = allHeaders.filter(header => !metadataColumns.includes(header));
+            
+            console.log('Available annotation columns:', annotationColumns);
+            
+            // Group annotation columns by category based on known patterns
+            const conceptualCodes = annotationColumns.filter(col => [
+              'explain_reason', 'claim_math', 'apology', 'question_s', 'compare', 'agree', 'revoice', 'redirect', 
+              'help_math', 'nextstep', 'question_g', 'addon', 'disagree', 'explain_action', 'help_non', 
+              'Mathcompetent', 'Langcompetent', 'Understanding'
+            ].includes(col));
+            
+            const discursiveCodes = annotationColumns.filter(col => [
+              'Offtask', 'Recording', 'Directions'
+            ].includes(col));
+            
+            const lexicalCodes = annotationColumns.filter(col => {
+              // Add any LIWC or lexical analysis columns here if they exist
+              const lexicalColumns: string[] = [];
+              return lexicalColumns.includes(col);
+            });
+            
+            // Create annotation data for each category
+            if (conceptualCodes.length > 0) {
+              const conceptualAnnotations: { [key: number]: { [code: string]: any } } = {};
+              
+              csvData.forEach((row: any) => {
+                const lineNumber = parseInt(row['#']);
+                if (!isNaN(lineNumber)) {
+                  const tableRowIndex = tableData.findIndex(tableRow => tableRow.col2 === lineNumber);
+                  
+                  if (tableRowIndex >= 0) {
+                    conceptualAnnotations[tableRowIndex] = {};
+                    
+                    conceptualCodes.forEach(code => {
+                      const value = row[code];
+                      let processedValue;
+                      if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) {
+                        processedValue = false;
+                      } else {
+                        // Convert to boolean: only 1 or "1" or true should be true
+                        processedValue = Number(value) === 1 || value === 1 || value === 1.0 || value === "1" || value === true || value === "true";
+                      }
+                      conceptualAnnotations[tableRowIndex][code] = processedValue;
+                    });
+                  }
+                }
+              });
+              
+              llmData['Conceptual'] = {
+                codes: conceptualCodes,
+                definitions: annotationData?.['Conceptual']?.definitions || {},
+                annotations: conceptualAnnotations
+              };
+            }
+            
+            if (discursiveCodes.length > 0) {
+              const discursiveAnnotations: { [key: number]: { [code: string]: any } } = {};
+              
+              csvData.forEach((row: any) => {
+                const lineNumber = parseInt(row['#']);
+                if (!isNaN(lineNumber)) {
+                  const tableRowIndex = tableData.findIndex(tableRow => tableRow.col2 === lineNumber);
+                  
+                  if (tableRowIndex >= 0) {
+                    discursiveAnnotations[tableRowIndex] = {};
+                    
+                    discursiveCodes.forEach(code => {
+                      const value = row[code];
+                      let processedValue;
+                      if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) {
+                        processedValue = false;
+                      } else {
+                        // Convert to boolean: only 1 or "1" or true should be true
+                        processedValue = Number(value) === 1 || value === 1 || value === 1.0 || value === "1" || value === true || value === "true";
+                      }
+                      discursiveAnnotations[tableRowIndex][code] = processedValue;
+                    });
+                  }
+                }
+              });
+              
+              llmData['Discursive'] = {
+                codes: discursiveCodes,
+                definitions: annotationData?.['Discursive']?.definitions || {},
+                annotations: discursiveAnnotations
+              };
+            }
+            
+            dataLoaded = true;
+          }
+        } catch (csvError) {
+          console.error('Error loading CSV format:', csvError);
+        }
+      }
+      
+      if (dataLoaded) {
+        console.log('Setting LLM annotation data:', llmData);
+        setLlmAnnotationData(llmData);
+        setShowLLMComparison(true);
+      } else {
+        throw new Error('No LLM annotation files found');
+      }
+      
+    } catch (error) {
+      console.error('Error loading LLM annotations:', error);
+      alert('Failed to load LLM annotations. Please check if annotated_transcript.xlsx or annotated_transcript.csv exists in the transcript folder.');
+    }
+  };
+
+  // Handle Compare with Experts
+  const handleCompareWithExperts = async () => {
+    try {
+      console.log('Loading expert annotations...');
+      
+      const excelResponse = await fetch(`/t${number}/expert_annotations.xlsx`);
+      if (!excelResponse.ok) {
+        throw new Error('Expert annotations file not found');
+      }
+      
+      const arrayBuffer = await excelResponse.arrayBuffer();
+      const workbook = read(arrayBuffer);
+      
+      console.log('Expert annotation file loaded. Sheet names:', workbook.SheetNames);
+      
+      // Find the notes sheet - try multiple possible names
+      const possibleNotesSheetNames = ['What Students Are Saying', 'Notes', 'Student Notes', 'What Students are Saying'];
+      let notesSheet = null;
+      let notesSheetName = '';
+      
+      for (const sheetName of possibleNotesSheetNames) {
+        if (workbook.Sheets[sheetName]) {
+          notesSheet = workbook.Sheets[sheetName];
+          notesSheetName = sheetName;
+          break;
+        }
+      }
+      
+      if (!notesSheet) {
+        // If no notes sheet found, try the first sheet that isn't "Annotated Transcript"
+        const firstNonTranscriptSheet = workbook.SheetNames.find(name => 
+          !name.toLowerCase().includes('annotated') && !name.toLowerCase().includes('transcript')
+        );
+        if (firstNonTranscriptSheet) {
+          notesSheet = workbook.Sheets[firstNonTranscriptSheet];
+          notesSheetName = firstNonTranscriptSheet;
+          console.log(`Using sheet "${firstNonTranscriptSheet}" as notes sheet`);
+        } else {
+          throw new Error(`Notes sheet not found. Available sheets: ${workbook.SheetNames.join(', ')}`);
+        }
+      } else {
+        console.log(`Found notes sheet: "${notesSheetName}"`);
+      }
+      
+      const notesData = utils.sheet_to_json(notesSheet, { 
+        defval: null,
+        raw: false
+      });
+      
+      // Fix column names - the visible columns are named "Expert 1.1", "Expert 2.1", etc.
+      // but should be "Expert 1", "Expert 2", etc. to match the transcript sheet
+      const fixedNotesData = notesData.map(row => {
+        const fixedRow: Record<string, unknown> = {};
+        if (row && typeof row === 'object') {
+          for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+            if (key === 'Expert 1.1') {
+              fixedRow['Expert 1'] = value;
+            } else if (key === 'Expert 2.1') {
+              fixedRow['Expert 2'] = value;
+            } else if (key === 'Expert 3.1') {
+              fixedRow['Expert 3'] = value;
+            } else {
+              fixedRow[key] = value;
+            }
+          }
+        }
+        return fixedRow;
+      });
+      
+      // Find the transcript sheet - try multiple possible names
+      const possibleTranscriptSheetNames = ['Annotated Transcript', 'Transcript', 'Annotations', 'Annotated transcript'];
+      let transcriptSheet = null;
+      let transcriptSheetName = '';
+      
+      for (const sheetName of possibleTranscriptSheetNames) {
+        if (workbook.Sheets[sheetName]) {
+          transcriptSheet = workbook.Sheets[sheetName];
+          transcriptSheetName = sheetName;
+          break;
+        }
+      }
+      
+      if (!transcriptSheet) {
+        // If no transcript sheet found, try the first sheet that isn't the notes sheet
+        const firstNonNotesSheet = workbook.SheetNames.find(name => name !== notesSheetName);
+        if (firstNonNotesSheet) {
+          transcriptSheet = workbook.Sheets[firstNonNotesSheet];
+          transcriptSheetName = firstNonNotesSheet;
+          console.log(`Using sheet "${firstNonNotesSheet}" as transcript sheet`);
+        } else {
+          throw new Error(`Transcript sheet not found. Available sheets: ${workbook.SheetNames.join(', ')}`);
+        }
+      } else {
+        console.log(`Found transcript sheet: "${transcriptSheetName}"`);
+      }
+      
+      const transcriptData = utils.sheet_to_json(transcriptSheet, { 
+        defval: null,
+        raw: false
+      });
+      
+      console.log('Expert notes data:', notesData.slice(0, 3));
+      console.log('Expert transcript data:', transcriptData.slice(0, 3));
+      
+      setExpertsAnnotationData({
+        notes: fixedNotesData as Record<string, unknown>[],
+        transcript: transcriptData as Record<string, unknown>[]
+      });
+      setShowExpertsComparison(true);
+      
+    } catch (error) {
+      console.error('Error loading expert annotations:', error);
+      alert('Failed to load expert annotations. Please check if expert_annotations.xlsx exists in the transcript folder.');
+    }
+  };
+
+  // Handle Compare with LLM Analysis (transcript_analysis.xlsx)
+  const handleCompareWithLLMAnalysis = async () => {
+    try {
+      console.log('Loading LLM analysis annotations...');
+      
+      const excelResponse = await fetch(`/t${number}/transcript_analysis.xlsx`);
+      if (!excelResponse.ok) {
+        throw new Error('LLM analysis file not found');
+      }
+      
+      const arrayBuffer = await excelResponse.arrayBuffer();
+      const workbook = read(arrayBuffer);
+      
+      console.log('LLM analysis file loaded. Sheet names:', workbook.SheetNames);
+      
+      // Find the notes sheet - try multiple possible names
+      const possibleNotesSheetNames = ['What Students Are Saying', 'Notes', 'Student Notes', 'What Students are Saying'];
+      let notesSheet = null;
+      let notesSheetName = '';
+      
+      for (const sheetName of possibleNotesSheetNames) {
+        if (workbook.Sheets[sheetName]) {
+          notesSheet = workbook.Sheets[sheetName];
+          notesSheetName = sheetName;
+          break;
+        }
+      }
+      
+      if (!notesSheet) {
+        throw new Error(`Notes sheet not found. Available sheets: ${workbook.SheetNames.join(', ')}`);
+      }
+      
+      console.log(`Found notes sheet: "${notesSheetName}"`);
+      
+      const notesData = utils.sheet_to_json(notesSheet, { 
+        defval: null,
+        raw: false
+      });
+      
+      // Fix null values in notes data
+      const fixedNotesData = notesData.map(row => {
+        const fixedRow: Record<string, unknown> = {};
+        Object.keys(row as Record<string, unknown>).forEach(key => {
+          fixedRow[key] = (row as any)[key] === null ? '' : (row as any)[key];
+        });
+        return fixedRow;
+      });
+      
+      // Find the transcript sheet - try multiple possible names
+      const possibleTranscriptSheetNames = ['Transcript', 'transcript', 'Sheet1', 'Data'];
+      let transcriptSheet = null;
+      let transcriptSheetName = '';
+      
+      for (const sheetName of possibleTranscriptSheetNames) {
+        if (workbook.Sheets[sheetName]) {
+          transcriptSheet = workbook.Sheets[sheetName];
+          transcriptSheetName = sheetName;
+          break;
+        }
+      }
+      
+      if (!transcriptSheet) {
+        // If no transcript sheet found, try the first sheet that isn't the notes sheet
+        const firstNonNotesSheet = workbook.SheetNames.find(name => name !== notesSheetName);
+        if (firstNonNotesSheet) {
+          transcriptSheet = workbook.Sheets[firstNonNotesSheet];
+          transcriptSheetName = firstNonNotesSheet;
+          console.log(`Using sheet "${firstNonNotesSheet}" as transcript sheet`);
+        } else {
+          throw new Error(`Transcript sheet not found. Available sheets: ${workbook.SheetNames.join(', ')}`);
+        }
+      } else {
+        console.log(`Found transcript sheet: "${transcriptSheetName}"`);
+      }
+      
+      const transcriptData = utils.sheet_to_json(transcriptSheet, { 
+        defval: null,
+        raw: false
+      });
+      
+      console.log('LLM analysis notes data:', notesData.slice(0, 3));
+      console.log('LLM analysis transcript data:', transcriptData.slice(0, 3));
+      
+      setLlmAnalysisData({
+        notes: fixedNotesData as Record<string, unknown>[],
+        transcript: transcriptData as Record<string, unknown>[]
+      });
+      setShowLLMAnalysisComparison(true);
+      
+    } catch (error) {
+      console.error('Error loading LLM analysis annotations:', error);
+      alert('Failed to load LLM analysis annotations. Please check if transcript_analysis.xlsx exists in the transcript folder.');
+    }
+  };
+
+  // Handle Unified Comparison (combines both Expert and LLM Analysis)
+  const handleUnifiedComparison = async () => {
+    try {
+      console.log('Loading unified comparison data...');
+      
+      // Load Expert data
+      let expertsData = null;
+      try {
+        const expertsResponse = await fetch(`/t${number}/expert_annotations.xlsx`);
+        if (expertsResponse.ok) {
+          const expertsArrayBuffer = await expertsResponse.arrayBuffer();
+          const expertsWorkbook = read(expertsArrayBuffer);
+          
+          // Find notes sheet
+          const possibleNotesSheetNames = ['What Students Are Saying', 'Notes', 'Student Notes', 'What Students are Saying'];
+          let notesSheet = null;
+          let notesSheetName = '';
+          
+          for (const sheetName of possibleNotesSheetNames) {
+            if (expertsWorkbook.Sheets[sheetName]) {
+              notesSheet = expertsWorkbook.Sheets[sheetName];
+              notesSheetName = sheetName;
+              break;
+            }
+          }
+          
+          if (!notesSheet) {
+            const firstNonTranscriptSheet = expertsWorkbook.SheetNames.find(name => 
+              !name.toLowerCase().includes('annotated') && !name.toLowerCase().includes('transcript')
+            );
+            if (firstNonTranscriptSheet) {
+              notesSheet = expertsWorkbook.Sheets[firstNonTranscriptSheet];
+              notesSheetName = firstNonTranscriptSheet;
+            }
+          }
+          
+          if (notesSheet) {
+            const notesData = utils.sheet_to_json(notesSheet, { defval: null, raw: false });
+            const fixedNotesData = notesData.map(row => {
+              const fixedRow: Record<string, unknown> = {};
+              if (row && typeof row === 'object') {
+                for (const [key, value] of Object.entries(row as Record<string, unknown>)) {
+                  if (key === 'Expert 1.1') {
+                    fixedRow['Expert 1'] = value;
+                  } else if (key === 'Expert 2.1') {
+                    fixedRow['Expert 2'] = value;
+                  } else if (key === 'Expert 3.1') {
+                    fixedRow['Expert 3'] = value;
+                  } else {
+                    fixedRow[key] = value;
+                  }
+                }
+              }
+              return fixedRow;
+            });
+            
+            // Find the transcript sheet
+            const possibleTranscriptSheetNames = ['Annotated Transcript', 'Transcript', 'Annotations', 'Annotated transcript'];
+            let transcriptSheet = null;
+            let transcriptSheetName = '';
+            
+            for (const sheetName of possibleTranscriptSheetNames) {
+              if (expertsWorkbook.Sheets[sheetName]) {
+                transcriptSheet = expertsWorkbook.Sheets[sheetName];
+                transcriptSheetName = sheetName;
+                break;
+              }
+            }
+            
+            if (!transcriptSheet) {
+              const firstNonNotesSheet = expertsWorkbook.SheetNames.find(name => name !== notesSheetName);
+              if (firstNonNotesSheet) {
+                transcriptSheet = expertsWorkbook.Sheets[firstNonNotesSheet];
+                transcriptSheetName = firstNonNotesSheet;
+              }
+            }
+            
+            const transcriptData = transcriptSheet ? utils.sheet_to_json(transcriptSheet, { defval: null, raw: false }) : [];
+            
+            expertsData = {
+              notes: fixedNotesData as Record<string, unknown>[],
+              transcript: transcriptData as Record<string, unknown>[]
+            };
+            console.log('Expert data loaded successfully');
+          }
+        }
+      } catch (error) {
+        console.log('Expert data not available:', error);
+      }
+      
+      // Load LLM Analysis data
+      let llmData = null;
+      try {
+        const llmResponse = await fetch(`/t${number}/transcript_analysis.xlsx`);
+        if (llmResponse.ok) {
+          const llmArrayBuffer = await llmResponse.arrayBuffer();
+          const llmWorkbook = read(llmArrayBuffer);
+          
+          // Find notes sheet
+          const possibleNotesSheetNames = ['What Students Are Saying', 'Notes', 'Student Notes', 'What Students are Saying'];
+          let notesSheet = null;
+          let notesSheetName = '';
+          
+          for (const sheetName of possibleNotesSheetNames) {
+            if (llmWorkbook.Sheets[sheetName]) {
+              notesSheet = llmWorkbook.Sheets[sheetName];
+              notesSheetName = sheetName;
+              break;
+            }
+          }
+          
+          if (notesSheet) {
+            const notesData = utils.sheet_to_json(notesSheet, { defval: null, raw: false });
+            const fixedNotesData = notesData.map(row => {
+              const fixedRow: Record<string, unknown> = {};
+              Object.keys(row as Record<string, unknown>).forEach(key => {
+                fixedRow[key] = (row as any)[key] === null ? '' : (row as any)[key];
+              });
+              return fixedRow;
+            });
+            
+            // Find the transcript sheet
+            const possibleTranscriptSheetNames = ['Transcript', 'transcript', 'Sheet1', 'Data'];
+            let transcriptSheet = null;
+            let transcriptSheetName = '';
+            
+            for (const sheetName of possibleTranscriptSheetNames) {
+              if (llmWorkbook.Sheets[sheetName]) {
+                transcriptSheet = llmWorkbook.Sheets[sheetName];
+                transcriptSheetName = sheetName;
+                break;
+              }
+            }
+            
+            if (!transcriptSheet) {
+              const firstNonNotesSheet = llmWorkbook.SheetNames.find(name => name !== notesSheetName);
+              if (firstNonNotesSheet) {
+                transcriptSheet = llmWorkbook.Sheets[firstNonNotesSheet];
+                transcriptSheetName = firstNonNotesSheet;
+              }
+            }
+            
+            const transcriptData = transcriptSheet ? utils.sheet_to_json(transcriptSheet, { defval: null, raw: false }) : [];
+            
+            llmData = {
+              notes: fixedNotesData as Record<string, unknown>[],
+              transcript: transcriptData as Record<string, unknown>[]
+            };
+            console.log('LLM data loaded successfully');
+          }
+        }
+      } catch (error) {
+        console.log('LLM data not available:', error);
+      }
+      
+      // Check if at least one data source is available
+      if (!expertsData && !llmData) {
+        alert('No comparison data available. Please ensure expert_annotations.xlsx or transcript_analysis.xlsx exists in the transcript folder.');
+        return;
+      }
+      
+      setExpertsAnnotationData(expertsData);
+      setLlmAnalysisData(llmData);
+      setShowUnifiedComparison(true);
+      
+    } catch (error) {
+      console.error('Error loading unified comparison data:', error);
+      alert('Failed to load comparison data. Please check the file availability.');
+    }
+  };
+
   // Optimize feature change handler with batched updates
   const handleFeatureChange = React.useCallback((lineNumber: number, code: string, value: boolean) => {
-    if (!selectedFeature || !annotationData) return;
-    
     setAnnotationData(prev => {
       if (!prev) return prev;
       
-      const currentSheet = prev[selectedFeature];
+      // Find which category this code belongs to
+      let targetCategory = null;
+      for (const category of ALLOWED_SHEETS) {
+        if (prev[category]?.codes.includes(code)) {
+          targetCategory = category;
+          break;
+        }
+      }
+      
+      if (!targetCategory) return prev;
+      
+      const currentSheet = prev[targetCategory];
       if (!currentSheet) return prev;
 
       const currentAnnotations = currentSheet.annotations[lineNumber];
@@ -1153,7 +2654,7 @@ export default function TranscriptPage() {
 
       return {
         ...prev,
-        [selectedFeature]: {
+        [targetCategory]: {
           ...currentSheet,
           annotations: {
             ...currentSheet.annotations,
@@ -1165,43 +2666,183 @@ export default function TranscriptPage() {
         }
       };
     });
-  }, [selectedFeature, annotationData]);
+  }, [annotationData]);
+
+  const [showOnlyStudent, setShowOnlyStudent] = useState(false);
+  const [isNotesPanelCollapsed, setIsNotesPanelCollapsed] = useState(false);
+  const [showPromptPopup, setShowPromptPopup] = useState(false);
+  const [selectedNotePopup, setSelectedNotePopup] = useState<{
+    note: Note;
+    noteRows: TableRow[];
+  } | null>(null);
+  const [isNoteInEditMode, setIsNoteInEditMode] = useState(false);
+  const [noteEditBuffer, setNoteEditBuffer] = useState<{
+    title: string;
+    content_1: string;
+    content_2: string;
+  } | null>(null);
+
+  // Fix hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Add useEffect for handling click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (learningGoalNotePopup && !(event.target as Element).closest('.learning-goal-popup')) {
+        setLearningGoalNotePopup(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [learningGoalNotePopup]);
+
+  // Add state for tracking duplicate title validation
+  const [titleValidationError, setTitleValidationError] = useState<string>('');
+
+  // Function to check if a title already exists (excluding the current note)
+  const checkTitleExists = (title: string, currentNoteId?: number): boolean => {
+    const trimmedTitle = title.trim().toLowerCase();
+    if (trimmedTitle === '') return false;
+    
+    return notes.some(note => 
+      note.id !== currentNoteId && 
+      note.title.trim().toLowerCase() === trimmedTitle
+    );
+  };
+
+  if (!mounted) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white">
+        <div className="text-center">
+          <h1 className="text-3xl font-bold mb-4 text-black">Loading Transcript...</h1>
+          <div className="animate-pulse text-gray-500">Please wait...</div>
+              </div>
+            </div>
+    );
+  }
+
+  // Show LLM comparison view if requested
+  if (showLLMComparison) {
+    return (
+      <LLMComparisonView 
+        number={number}
+        tableData={tableData}
+        humanAnnotations={annotationData}
+        llmAnnotations={llmAnnotationData}
+        onBack={() => setShowLLMComparison(false)}
+        speakerColors={speakerColors}
+        whichSegment={whichSegment}
+      />
+    );
+  }
+
+  // Show LLM Analysis comparison view if requested
+  if (showLLMAnalysisComparison) {
+    return (
+      <LLMAnalysisComparisonView 
+        number={number}
+        tableData={tableData}
+        userNotes={notes}
+        llmAnalysisData={llmAnalysisData}
+        onBack={() => setShowLLMAnalysisComparison(false)}
+        speakerColors={speakerColors}
+        whichSegment={whichSegment}
+      />
+    );
+  }
+
+  // Show Experts comparison view if requested
+  if (showExpertsComparison) {
+    return (
+      <ExpertsComparisonView 
+        number={number}
+        tableData={tableData}
+        userNotes={notes}
+        expertsData={expertsAnnotationData}
+        onBack={() => setShowExpertsComparison(false)}
+        speakerColors={speakerColors}
+        whichSegment={whichSegment}
+      />
+    );
+  }
+
+  // Show Unified comparison view if requested
+  if (showUnifiedComparison) {
+    return (
+      <UnifiedComparisonView 
+        number={number}
+        tableData={tableData}
+        userNotes={notes}
+        expertsData={expertsAnnotationData}
+        llmAnalysisData={llmAnalysisData}
+        onBack={() => setShowUnifiedComparison(false)}
+        speakerColors={speakerColors}
+        whichSegment={whichSegment}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col items-center min-h-screen w-full bg-white font-merriweather text-sm">
-      {/* Header area with title and tabs */}
+      {/* Navigation button - fixed in top left corner */}
+      <button
+        onClick={() => router.push("/")}
+        className="fixed top-4 left-4 z-50 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
+        title="Back to Transcript Selection"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+        </svg>
+        Home
+      </button>
+      
+      {/* Header area with title */}
       <div className="w-full max-w-6xl p-4 mb-4">
-
         <div className="bg-gray-100 border rounded-lg p-4 mb-4">
-        <h1 className="text-xl text-gray-800 mb-2 font-semibold">
-        {`Prompt:`}
+          <div className="flex justify-between items-start mb-3">
+            <h1 className="text-xl text-gray-800 font-semibold">
+              {gradeLevel}
         </h1>
-          <h2 className="text-xl text-gray-800 mb-2">
-              <div>
-              Consider the purpose for this lesson. What do you notice about what students say that would help you{" "}
-              <strong>assess and/or advance</strong> their understanding toward that purpose?<i>
-              (Select rows that provide sufficient evidence to allow you to{" "}
-              <strong>assess and/or advance</strong> their understanding toward the lesson purpose.)</i>
-              <br /> <br></br>
-              In your notes, please answer the following two questions:<br />
-              1. What are students saying in the selected piece(s) of evidence?<br />
-              2. What does this piece of evidence(s) tell you about students' understanding and/or progress toward the lesson's purpose?
-            </div>
-          </h2>
+            <button
+              onClick={() => setShowLessonGoal(!showLessonGoal)}
+              className="px-3 py-1 text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md transition-colors flex items-center gap-1"
+              title={showLessonGoal ? "Hide lesson details" : "Show lesson details"}
+            >
+              {showLessonGoal ? (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"/>
+                  </svg>
+                  Hide
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16.59 8.59L12 13.17 7.41 8.59 6 10l6 6 6-6z"/>
+                  </svg>
+                  Show
+                </>
+            )}
+            </button>
         </div>
-        
-        <div className="bg-gray-100 border rounded-lg p-4 mb-4">
-        <h1 className="text-xl text-gray-800 mb-2 font-semibold">
-        {`Lesson purpose: `}{gradeLevel}
-        </h1>
-          <h2 className="text-xl text-gray-800 mb-2">
-            {activityPurpose.split('\n').map((line, index) => (
-              <span key={index}>
-                ● {line}
-                <br />
-              </span>
-            ))}
-          </h2>
+          
+          {showLessonGoal && (
+            <>
+              {lessonGoal && (
+                <div>
+                  <h2 className="text-lg text-gray-800 font-medium mb-2">Lesson Goal:</h2>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                    {lessonGoal}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -1210,16 +2851,24 @@ export default function TranscriptPage() {
       </div>
       <div>
         {availableSegment.map((segment) => (
-          <button
-            key={segment}
-            onClick={() => handleSegmentClick(segment)}
+            <button
+              key={segment}
+              onClick={() => handleSegmentClick(segment)}
             className={`px-3 py-1 rounded-md text-sm text-white mr-2 ${
-              whichSegment === segment ? 'bg-blue-500 hover:bg-blue-700' : 'bg-gray-400'
+                whichSegment === segment ? 'bg-blue-500 hover:bg-blue-700' : 'bg-gray-400'
+              }`}
+            >
+              {segment}
+            </button>
+          ))}
+          <button
+          onClick={() => handleSegmentClick('student_only')}
+          className={`px-3 py-1 rounded-md text-sm text-white mr-2 ${
+            whichSegment === 'student_only' ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-400'
             }`}
-          >
-            {segment}
+        >
+          student_only
           </button>
-        ))}
       </div>
 
       {/* Main 3-panel layout */}
@@ -1247,7 +2896,9 @@ export default function TranscriptPage() {
         ></div>
 
         {/* Center Panel - Transcript Table */}
-        <div className="p-4 flex flex-col border-r border-gray-300" style={{ width: showPromptPanel ? centerPanelWidth : 'calc(100% - ' + rightPanelWidth + ')' }}>
+        <div className="p-4 flex flex-col" style={{ 
+          width: showPromptPanel ? centerPanelWidth : '100%'
+        }}>
           <div className="flex flex-col gap-2 mb-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -1263,15 +2914,9 @@ export default function TranscriptPage() {
               </div>
               
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowNotesColumn(prev => !prev)}
-                  className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-md"
-                >
-                  {showNotesColumn ? 'Hide Notes' : 'Show Notes'}
-                </button>
             {isCreatingNote ? (
               <div className="border border-gray-300 rounded-md bg-gray-100 p-4 my-3 max-w-md">
-                <span className="mr-2 text-sm text-black italic">Select rows that provide <b className="font-bold">sufficient evidence</b> to allow you to assess and/or advance their understanding toward the lesson purpose. </span>
+                <span className="mr-2 text-sm text-black italic">Select rows that provide <b className="font-bold">sufficient evidence</b> to allow you to assess and/or advance their understanding toward the lesson goals. </span>
                 <button
                   onClick={handleCreateNote}
                   disabled={selectedRows.length === 0}
@@ -1292,7 +2937,7 @@ export default function TranscriptPage() {
               </div>
             ) : editingLinesId !== null ? (
               <div className="flex items-center">
-                <span className="mr-2 text-sm">Editing lines for note #{editingLinesId}</span>
+                <span className="mr-2 text-sm">Editing lines for learning goal note #{editingLinesId}</span>
                 <button
                   onClick={() => saveLinesEdit(editingLinesId)}
                   className="px-2 py-1 rounded text-xs mr-1 bg-green-500 text-white"
@@ -1307,12 +2952,20 @@ export default function TranscriptPage() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={startNoteCreation}
-                className="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-700 text-sm"
-              >
-                + New Note
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCompareWithLLM}
+                  className="px-3 py-1 bg-purple-500 text-white rounded-md hover:bg-purple-700 text-sm"
+                >
+                  Compare Talk Features
+                </button>
+                <button
+                  onClick={handleUnifiedComparison}
+                  className="px-3 py-1 bg-indigo-500 text-white rounded-md hover:bg-indigo-700 text-sm"
+                >
+                  Compare Learning Notes
+                </button>
+              </div>
             )}
               </div>
           </div>
@@ -1373,22 +3026,53 @@ export default function TranscriptPage() {
 
               {/* Feature buttons on the right */}
               <div className="flex gap-2">
-                {ALLOWED_SHEETS.map(feature => (
+                <div className="text-sm text-gray-600 italic">
+                  Click on feature columns to see code definitions
+                </div>
+              </div>
+            </div>
+
+            {/* Search Box */}
+            <div className="flex items-center justify-center gap-2 py-3 border-t border-gray-200">
+              <span className="text-sm text-gray-600">Search:</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  placeholder="Search utterances or enter line number..."
+                  className="px-3 py-1 border border-gray-300 rounded text-sm w-80"
+                />
+                {searchMatches.length > 0 && (
+                  <>
+                    <span className="text-sm text-gray-600">
+                      {currentSearchMatch + 1} of {searchMatches.length}
+                    </span>
                   <button
-                    key={feature}
-                    onClick={() => handleFeatureSelection(feature)}
-                    className={`
-                      px-3 py-1 rounded-md text-sm transition-all
-                      hover:underline hover:decoration-2 hover:underline-offset-4
-                      ${feature === selectedFeature 
-                        ? 'bg-sky-600 text-white font-medium shadow-sm' 
-                        : 'bg-sky-50 text-sky-600 hover:bg-sky-100 border border-sky-200'
-                      }
-                    `}
+                      onClick={() => navigateSearch('prev')}
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                      title="Previous match"
+                    >
+                      ↑
+              </button>
+                <button
+                      onClick={() => navigateSearch('next')}
+                      className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                      title="Next match"
+                    >
+                      ↓
+                </button>
+                  </>
+                )}
+                {searchTerm && (
+                  <button
+                    onClick={clearSearch}
+                    className="px-2 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                    title="Clear search"
                   >
-                    {feature}
+                    ✕
                   </button>
-                ))}
+                )}
               </div>
             </div>
           </div>
@@ -1501,245 +3185,100 @@ export default function TranscriptPage() {
 
                     {/* Notes Column */}
                     {showNotesColumn && (
-                      <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.notes ? 'w-24' : 'w-12'}`}>
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={columnVisibility.notes}
-                            onChange={() => toggleColumnVisibility('notes')}
-                            className="mr-1"
-                          />
-                          Notes
-                        </label>
+                      <th className={`px-2 py-2 border border-black border-2 text-sm ${columnVisibility.notes ? 'w-24' : 'w-12'}`}>
+                          <button
+                            onClick={() => setShowPromptPopup(true)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-sm font-medium"
+                            title="Click to view annotation prompt"
+                          >
+                            Learning Goal Notes
+                          </button>
                       </th>
                     )}
 
                     {/* Feature Columns */}
-                    {featureInfo.map(({ code, definition }) => {
-                      const details = getFeatureDetails(code);
-                      return (
-                        <FeatureHeader 
-                          key={code} 
-                          code={code} 
-                          definition={definition}
-                          example1={details?.example1 || ''}
-                          nonexample1={details?.nonexample1 || ''}
-                        />
-                      );
-                    })}
+                    {ALLOWED_SHEETS.map(category => (
+                      <th 
+                        key={category} 
+                        className="px-2 py-2 border border-black border-2 text-sm w-20 text-center cursor-pointer hover:bg-blue-50"
+                        onClick={() => setShowFeatureOverview(category)}
+                        title={`Click to see all ${category} features and definitions`}
+                      >
+                        <div className="text-sky-600 font-medium hover:text-sky-800">
+                          {category}
+                        </div>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {tableData
-                    .filter(rowData => whichSegment === 'full_transcript' || rowData.col1 === whichSegment)
-                    .map((rowData) => (
-                      <TableRow
-                        key={rowData.col2}
-                        rowData={rowData}
-                        selectedFeature={selectedFeature}
-                        annotationData={annotationData}
-                        onFeatureChange={handleFeatureChange}
-                        speakerColors={speakerColors}
-                        columnVisibility={columnVisibility}
-                        showNotesColumn={showNotesColumn}
-                        isCreatingNote={isCreatingNote}
-                        editingLinesId={editingLinesId}
-                        selectedRows={selectedRows}
-                        tempSelectedRows={tempSelectedRows}
-                        toggleRowSelection={toggleRowSelection}
-                        toggleTempRowSelection={toggleTempRowSelection}
-                        getNoteDisplayText={getNoteDisplayText}
-                      />
-                    ))}
+                  {filteredTableData.map((rowData, index) => (
+                    <TableRow
+                      key={`${rowData.col2}-${index}`}
+                      rowData={rowData}
+                      rowIndex={index}
+                      annotationData={annotationData}
+                      onFeatureChange={handleFeatureChange}
+                      speakerColors={speakerColors}
+                      columnVisibility={columnVisibility}
+                      showNotesColumn={showNotesColumn}
+                      isCreatingNote={isCreatingNote}
+                      editingLinesId={editingLinesId}
+                      selectedRows={selectedRows}
+                      tempSelectedRows={tempSelectedRows}
+                      toggleRowSelection={toggleRowSelection}
+                      toggleTempRowSelection={toggleTempRowSelection}
+                      getNoteDisplayText={getNoteDisplayText}
+                    />
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
         </div>
-        
-        {/* Right Resize Handle */}
-        <div 
-          className="w-1 bg-gray-300 hover:bg-blue-500 hover:w-2 cursor-col-resize z-10 transition-colors"
-          onMouseDown={() => setIsDraggingRight(true)}
-        ></div>
 
-        {/* Right Panel - Analysis Notes */}
-        <div className="p-4 flex flex-col overflow-hidden" style={{ width: rightPanelWidth }}>
-          <h2 className="text-xl font-semibold text-gray-800 mb-4 text-center">Notes</h2>
-          
-          {loading ? (
-            <div className="text-center py-4">Loading...</div>
-          ) : (
-            <div className="flex-grow flex flex-col overflow-hidden">
-              {isAnnotating ? (
-                <div className="flex-grow flex flex-col overflow-hidden">
-                  <AnnotationPanel
-                    numRows={tableData.length}
-                    onSave={handleSaveAnnotations}
-                    savedData={annotationData || undefined}
-                    onAnnotationChange={handleAnnotationChange}
-                  />
-                </div>
-          ) : (
-            <div className="flex-grow overflow-y-auto">
-                  {notes.length > 0 ? (
-                    notes.map((note) => {
-                const noteRows = generateNoteRows(note);
-                const isEditingTitle = editingTitleId === note.id;
-                
-                return (
-                  <div key={note.id} className="mb-4 border p-3 rounded bg-white shadow-sm">
-                    <div className="flex justify-between mb-1">
-                      <div className="flex items-center">
-                        <span className="font-semibold text-sm text-blue-600 mr-2">#{note.id}</span>
-                        
-                        {isEditingTitle ? (
-                          <div className="flex items-center w-full">
-                            <input
-                              type="text"
-                              value={note.title}
-                              onChange={(e) => updateTitleText(note.id, e.target.value)}
-                              className="text-sm border border-blue-300 focus:border-blue-500 focus:outline-none bg-white p-1 rounded w-full text-black"
-                              autoFocus
-                            />
-                            <button
-                              onClick={() => saveTitleEdit(note.id)}
-                              className="ml-1 text-green-500 hover:text-green-700 text-xs p-1"
-                              title="Save title"
-                            >
-                              ✓
-                            </button>
-                            <button
-                              onClick={() => cancelTitleEdit(note.id)}
-                              className="ml-1 text-red-500 hover:text-red-700 text-xs p-1"
-                              title="Cancel"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center w-full">
-                            <span className="text-sm text-black mr-2">
-                              {note.title || "no title"}
-                            </span>
-                            <button
-                              onClick={() => startTitleEdit(note.id)}
-                              className="ml-1 text-blue-500 hover:text-blue-700 text-xs"
-                              title="Edit title"
-                            >
-                              ✎ Edit note title
-                            </button>
-                            <button
-                              onClick={() => handleDeleteNote(note.id)}
-                              className="ml-2 text-red-500 hover:text-red-700 text-xs"
-                              title="Delete note"
-                            >
-                              ✕
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <span className="text-gray-600 text-xs">
-                      Lines: {note.rowIndices.map(idx => tableData[idx]?.col2).join(', ')}
-                    </span>
-                    
-                    <button
-                      onClick={() => startLinesEdit(note.id)}
-                      className="ml-2 text-blue-500 hover:text-blue-700 text-xs"
-                      title="Edit line numbers"
-                    >
-                      ✎ Edit (add or remove lines)
-                    </button>
-
-                    {/* Display each row's content for this note */}
-                    <div className="max-h-40 overflow-y-auto mb-2 mt-1">
-                      {noteRows.map((row, rowIdx) => (
-                        <div key={rowIdx} className="mb-1 pb-1 border-b border-gray-100 last:border-b-0">
-                          <p className="text-sm text-gray-800 italic">{row.col6}</p>
-                          <p className="text-xs text-gray-500">Speaker: {row.col5}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-black">
-                    {`Q1: What are students saying in the selected piece(s) of evidence?`}
-                    </div>
-                    <textarea
-                      value={note.content_1}
-                      onChange={(e) => handleNoteContentChange1(note.id, e.target.value)}
-                      rows={3}
-                      className="w-full p-2 border rounded resize-none text-sm text-black"
-                      placeholder="Type your response here..."
-                    />
-                    <div className="text-black">
-                          {`Q2: What does this piece of evidence(s) tell you about students' understanding and/or progress toward the lesson's purpose?`}
-                    </div>
-                    <textarea
-                      value={note.content_2}
-                      onChange={(e) => handleNoteContentChange2(note.id, e.target.value)}
-                      rows={4}
-                      className="w-full p-2 border rounded resize-none text-sm text-black"
-                      placeholder="Type your response here..."
-                    />
+        {/* Right panel removed - all notes functionality moved to popup */}
+            </div>
+      
+      {/* Footer area with buttons */}
+      <div className="w-full max-w-6xl p-4 flex flex-col items-center">
+        <div className="flex justify-center items-center space-x-8">
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleSave}
+              className="px-6 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-700 transition"
+            >
+              Save
+            </button>
+            
+            {/* Auto-save status indicator */}
+            <div className="flex items-center space-x-2 text-sm">
+              {saveStatus === 'saving' && (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                  <span className="text-blue-600">Saving...</span>
+                </>
+              )}
+              {saveStatus === 'saved' && (
+                <>
+                  <div className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center">
+                    <svg className="h-3 w-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
                   </div>
-                );
-                    })
-                  ) : (
-                <div className="text-center py-4 text-gray-500 italic">
-                  {'No notes yet. Click "New Note" to begin.'}
-                    </div>
-                  )}
-                </div>
+                  <span className="text-green-600">Auto-saved</span>
+                </>
+              )}
+              {saveStatus === 'unsaved' && (
+                <>
+                  <div className="h-4 w-4 rounded-full bg-yellow-500"></div>
+                  <span className="text-yellow-600">Unsaved changes</span>
+                </>
               )}
             </div>
-          )}
+          </div>
           
-        </div>
-      </div>
-      
-      {/* High level comments field */}
-      <div className="w-full max-w-6xl p-4 flex flex-col items-center">
-            <h3 className="font-semibold text-gray-800 mb-2 text-sm">What other evidence would you have liked to access in order to assess and/or advance students' understanding/progress toward the purpose?</h3>
-            <textarea
-              className="w-full h-32 p-2 border rounded resize-y text-sm text-black"
-              placeholder="Please write your response here..."
-              value={customText}
-              onChange={(e) => setCustomText(e.target.value)}
-            />
-      </div>
 
-      {/* Footer area with email and buttons */}
-      <div className="w-full max-w-6xl p-4 flex flex-col items-center">
-        <div className="w-full max-w-xs mb-4">
-          <label htmlFor="email" className="block text-sm font-medium text-black">
-            Enter your email:
-          </label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 p-2 w-full border rounded-md text-black"
-          />
-        </div>
-        
-        <div className="flex justify-center space-x-8">
-          <button
-            onClick={handleSave}
-            className="px-6 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-700 transition"
-          >
-            Save
-          </button>
-          
-          <button
-            onClick={handleSubmit}
-            className="px-6 py-2 bg-blue-500 text-white font-semibold rounded-md hover:bg-blue-700 transition"
-          >
-            Submit
-          </button>
 
           <button
             onClick={handleExport}
@@ -1759,6 +3298,393 @@ export default function TranscriptPage() {
           position={selectedFeaturePopup.position}
           onClose={() => setSelectedFeaturePopup(null)}
         />
+      )}
+
+      {/* Feature Overview Popup */}
+      {showFeatureOverview && annotationData?.[showFeatureOverview] && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          onClick={() => setShowFeatureOverview(null)}
+        >
+          <div 
+            className="bg-white border-2 border-gray-800 rounded-lg shadow-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-800">
+                {showFeatureOverview} Features & Definitions
+              </h2>
+              <button
+                onClick={() => setShowFeatureOverview(null)}
+                className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {annotationData[showFeatureOverview].codes.map((code: string) => {
+                const definition = annotationData[showFeatureOverview].definitions[code];
+                return (
+                  <div key={code} className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-blue-700 mb-2">{code}</h3>
+                    
+                    {definition && (
+                      <>
+                        <div className="mb-3">
+                          <h4 className="font-medium text-gray-800 mb-1">Definition:</h4>
+                          <p className="text-gray-700">{definition.Definition || 'No definition available'}</p>
+                        </div>
+                        
+                        {definition.example1 && (
+                          <div className="mb-3">
+                            <h4 className="font-medium text-green-800 mb-1">Example:</h4>
+                            <p className="text-green-700 italic">{definition.example1}</p>
+                          </div>
+                        )}
+                        
+                        {definition.example2 && (
+                          <div className="mb-3">
+                            <h4 className="font-medium text-green-800 mb-1">Example 2:</h4>
+                            <p className="text-green-700 italic">{definition.example2}</p>
+                          </div>
+                        )}
+                        
+                        {definition.nonexample1 && (
+                          <div className="mb-3">
+                            <h4 className="font-medium text-red-800 mb-1">Non-example:</h4>
+                            <p className="text-red-700 italic">{definition.nonexample1}</p>
+                          </div>
+                        )}
+                        
+                        {definition.nonexample2 && (
+                          <div className="mb-3">
+                            <h4 className="font-medium text-red-800 mb-1">Non-example 2:</h4>
+                            <p className="text-red-700 italic">{definition.nonexample2}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Note Content Popup */}
+      {selectedNotePopup && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedNotePopup(null)}
+        >
+          <div 
+            className="bg-white border-2 border-gray-800 rounded-lg shadow-lg max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-white rounded-t-lg flex-shrink-0">
+              <div className="flex-1">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="flex items-center gap-1">
+                  <h1 className="text-xl text-gray-800 font-semibold">
+                      Learning Goal Note :
+                  </h1>
+                    <div className="flex-1">
+                        <input
+                          type="text"
+                        value={isNoteInEditMode ? (noteEditBuffer?.title || '') : selectedNotePopup.note.title}
+                        onChange={(e) => {
+                          const newTitle = e.target.value;
+                          
+                          // Check for duplicate titles
+                          if (checkTitleExists(newTitle, selectedNotePopup.note.id)) {
+                            setTitleValidationError('This title already exists. Please choose a different name.');
+                          } else {
+                            setTitleValidationError('');
+                          }
+                          
+                          if (isNoteInEditMode) {
+                            setNoteEditBuffer(prev => prev ? {...prev, title: newTitle} : null);
+                          } else {
+                            // Update the note directly when not in edit mode
+                            const updatedNotes = notes.map(note => 
+                              note.id === selectedNotePopup.note.id 
+                                ? {...note, title: newTitle}
+                                : note
+                            );
+                            setNotes(updatedNotes);
+                            setSelectedNotePopup({
+                              ...selectedNotePopup,
+                              note: {...selectedNotePopup.note, title: newTitle}
+                            });
+                          }
+                        }}
+                        className={`text-xl text-blue-600 font-medium border focus:outline-none bg-white p-1 rounded flex-1 ${
+                          titleValidationError 
+                            ? 'border-red-500 focus:border-red-500' 
+                            : 'border-blue-300 focus:border-blue-500'
+                        }`}
+                        placeholder="Enter note title..."
+                      />
+                      {titleValidationError && (
+                        <div className="text-red-500 text-xs mt-1">{titleValidationError}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <p>Lines: {selectedNotePopup.note.rowIndices.map(idx => tableData[idx]?.col2).join(', ')}</p>
+                  <button
+                    onClick={() => {
+                      if (confirm('Are you sure you want to delete this note?')) {
+                        handleDeleteNote(selectedNotePopup.note.id);
+                        setSelectedNotePopup(null);
+                      }
+                    }}
+                    className="text-red-500 hover:text-red-700"
+                    title="Delete this note"
+                  >
+                    🗑 Delete this Note
+                  </button>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 ml-4">
+                    <button
+                  onClick={() => {
+                    if (!titleValidationError) {
+                      setSelectedNotePopup(null);
+                      setTitleValidationError('');
+                    }
+                  }}
+                  disabled={titleValidationError !== ''}
+                  className={`px-4 py-2 rounded-md text-sm font-medium ${
+                    titleValidationError 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'bg-green-500 hover:bg-green-600 text-white'
+                  }`}
+                  title={titleValidationError ? 'Please fix the title error before saving' : 'Save and close'}
+                    >
+                  Save & Close
+                    </button>
+                <button
+                  onClick={() => {
+                    setSelectedNotePopup(null);
+                    setTitleValidationError('');
+                  }}
+                  className="text-gray-500 hover:text-gray-700 text-2xl leading-none flex-shrink-0"
+                  title="Close"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="overflow-y-auto flex-1 p-6 space-y-6">
+              {/* Evidence */}
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h3 className="font-semibold text-gray-800 mb-3">Evidence from Transcript:</h3>
+                <div className="space-y-3 max-h-60 overflow-y-auto">
+                  {selectedNotePopup.noteRows.map((row, rowIdx) => (
+                    <div key={rowIdx} className="pb-3 border-b border-gray-200 last:border-b-0">
+                      <p className="text-sm text-gray-800 mb-1">{row.col6}</p>
+                      <p className="text-xs text-gray-500">Line {row.col2} • {row.col5}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Question 1 */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-800 mb-3">
+                  Q1: What are students saying in the selected piece(s) of evidence?
+                </h3>
+                  <textarea
+                  value={selectedNotePopup.note.content_1 || ''}
+                  onChange={(e) => {
+                    const updatedNotes = notes.map(note => 
+                      note.id === selectedNotePopup.note.id 
+                        ? {...note, content_1: e.target.value}
+                        : note
+                    );
+                    setNotes(updatedNotes);
+                    setSelectedNotePopup({
+                      ...selectedNotePopup,
+                      note: {...selectedNotePopup.note, content_1: e.target.value}
+                    });
+                  }}
+                    rows={4}
+                    className="w-full p-3 border border-gray-300 rounded focus:border-blue-500 focus:outline-none resize-y text-sm text-gray-800"
+                    placeholder="Type your response here..."
+                  />
+              </div>
+
+              {/* Question 2 */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-800 mb-3">
+                  Q2: What does this piece of evidence(s) tell you about students' understanding and/or progress toward the lesson's goals?
+                </h3>
+                  <textarea
+                  value={selectedNotePopup.note.content_2 || ''}
+                  onChange={(e) => {
+                    const updatedNotes = notes.map(note => 
+                      note.id === selectedNotePopup.note.id 
+                        ? {...note, content_2: e.target.value}
+                        : note
+                    );
+                    setNotes(updatedNotes);
+                    setSelectedNotePopup({
+                      ...selectedNotePopup,
+                      note: {...selectedNotePopup.note, content_2: e.target.value}
+                    });
+                  }}
+                    rows={5}
+                    className="w-full p-3 border border-gray-300 rounded focus:border-blue-500 focus:outline-none resize-y text-sm text-gray-800"
+                    placeholder="Type your response here..."
+                  />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Prompt Popup */}
+      {showPromptPopup && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4"
+          onClick={() => setShowPromptPopup(false)}
+        >
+          <div 
+            className="bg-white border-2 border-gray-800 rounded-lg shadow-lg max-w-4xl w-full max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col mt-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Sticky Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-white rounded-t-lg flex-shrink-0">
+              <h1 className="text-2xl text-gray-800 font-semibold">
+                Prompt:
+              </h1>
+              <button
+                onClick={() => setShowPromptPopup(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl leading-none flex-shrink-0"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto flex-1 p-6">
+              <h2 className="text-xl text-gray-800">
+                <div>
+                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <strong>Note:</strong> Only focal student dialogue where the teacher is not present is eligible
+                  </div>
+                  Consider the goals for this lesson. What do you notice about what students say that would help you{" "}
+                  <strong>assess and/or advance</strong> their understanding toward those goals?<i>
+                  (Select rows that provide sufficient evidence to allow you to{" "}
+                  <strong>assess and/or advance</strong> their understanding toward the lesson goals.)</i>
+                  <br /> <br></br>
+                  In your notes, please answer the following two questions:<br />
+                  1. What are students saying in the selected piece(s) of evidence?<br />
+                  2. What does this piece of evidence(s) tell you about students' understanding and/or progress toward the lesson's goals?
+                </div>
+              </h2>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {learningGoalNotePopup && (
+        <div 
+          className="fixed z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-4 learning-goal-popup"
+          style={{
+            left: learningGoalNotePopup.position.x,
+            top: learningGoalNotePopup.position.y,
+            minWidth: '250px',
+            maxHeight: '300px'
+          }}
+        >
+          {learningGoalNotePopup.mode === 'initial' && (
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  handleCreateNoteWithRows([learningGoalNotePopup.rowData.col2]);
+                  setLearningGoalNotePopup(null);
+                }}
+                className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center gap-2"
+              >
+                <span>+</span>
+                <span>Create New Learning Goal Note</span>
+              </button>
+              
+              {notes.length > 0 && (
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <div className="text-sm font-medium text-gray-700 mb-2">Assign to Existing Note:</div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {notes.map(note => {
+                      const rowIndex = tableData.findIndex(row => row.col2 === learningGoalNotePopup.rowData.col2);
+                      const isAssigned = rowIndex !== -1 && note.rowIndices.includes(rowIndex);
+                      
+                      return (
+                        <div 
+                          key={note.id}
+                          className="flex items-center gap-2 px-2 py-1.5 hover:bg-gray-50 rounded cursor-pointer"
+                          onClick={() => {
+                            const updatedNotes = [...notes];
+                            const noteIndex = updatedNotes.findIndex(n => n.id === note.id);
+                            if (noteIndex !== -1) {
+                              if (isAssigned) {
+                                // Remove from note
+                                updatedNotes[noteIndex].rowIndices = updatedNotes[noteIndex].rowIndices.filter(idx => idx !== rowIndex);
+                                
+                                // Update table data
+                                const updatedTableData = [...tableData];
+                                const currentIds = parseNoteIds(updatedTableData[rowIndex].noteIds);
+                                updatedTableData[rowIndex].noteIds = currentIds.filter(id => id !== note.id).join(', ');
+                                setTableData(updatedTableData);
+                              } else {
+                                // Add to note
+                                updatedNotes[noteIndex].rowIndices.push(rowIndex);
+                                
+                                // Update table data
+                                const updatedTableData = [...tableData];
+                                const currentIds = parseNoteIds(updatedTableData[rowIndex].noteIds);
+                                updatedTableData[rowIndex].noteIds = [...currentIds, note.id].join(', ');
+                                setTableData(updatedTableData);
+                              }
+                              setNotes(updatedNotes);
+                            }
+                          }}
+                        >
+                          <div className={`w-4 h-4 rounded border ${isAssigned ? 'bg-blue-500 border-blue-500' : 'border-gray-300'} flex items-center justify-center`}>
+                            {isAssigned && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          <span className="text-sm text-gray-700 flex-1">{note.title || `Note ${note.id}`}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              <button
+                onClick={() => setLearningGoalNotePopup(null)}
+                className="px-3 py-2 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 mt-2"
+              >
+                Close
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

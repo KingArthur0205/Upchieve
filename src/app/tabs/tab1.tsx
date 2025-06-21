@@ -10,19 +10,17 @@ interface Tab1Props {
 
 export default function Tab1({ number, selectedSegment }: Tab1Props) {
   const [lessonLink, setLessonLink] = useState<{ url: string; text: string } | null>(null);
-  const [description, setDescription] = useState<string | null>(null);
   const [imagePaths, setImagePaths] = useState<string[]>([]);
   const [lessonSegmentIDs, setLessonSegmentIDs] = useState<string[]>([]);
 
   useEffect(() => {
     if (!number || !selectedSegment) return; // Ensure the number is available
 
-    // Fetch lesson link and description from content.json
+    // Fetch lesson link from content.json
     fetch(`/t${number}/content.json`)
       .then((res) => res.json())
       .then((data) => {
         setLessonLink(data.lessonLink);
-        setDescription(data.description);
       })
       .catch((err) => console.error("Error loading content:", err));
 
@@ -31,7 +29,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
       .then((res) => res.json())
       .then((data) => {
         setImagePaths(data[`t${number}`]); // Image paths
-        setLessonSegmentIDs(data["links"] || []); // Segment IDs
+        setLessonSegmentIDs(data["segments"] || []); // Segment IDs
       })
       .catch((err) => console.error("Error loading images:", err));
   }, [number]); // Dependency array ensures this runs when `number` changes
@@ -52,8 +50,6 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
           "Loading lesson..."
         )}
       </h2>
-
-      <p className="text-black">{description || "Loading description..."}</p>
       
       {/* Dynamically render images */}
       {imagePaths.length > 0 ? (
@@ -61,7 +57,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
           const segmentID = lessonSegmentIDs[index];
 
           // Check if the segment should be displayed
-          if (selectedSegment === "full_transcript" || segmentID === selectedSegment) {
+          if (selectedSegment === "full_transcript" || selectedSegment === "student_only" || segmentID === selectedSegment) {
             return (
               <div key={index} className="my-4 text-center">
                 <h3 className="text-lg font-semibold text-black mb-2">

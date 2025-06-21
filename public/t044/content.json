@@ -1,0 +1,9 @@
+{
+    "gradeLevel": "Grade: 8, Unit 6: Associations in Data, Lesson 8: Analyzing Bivariate Data",
+    "lessonGoal": "Students use everything they have studied in the unit so far to analyze and interpret bivariate data in context (MP2). They add points to a scatter plot, identify outliers, and fit a line. They also compare actual and predicted values and reflect on what they've learned about modeling bivariate data.",
+    "segments": ["a", "b", "c", "d", "e", "full_transcript"],
+    "lessonLink": {
+      "url": "https://teacher.desmos.com/activitybuilder/custom/5bd9c27f82dadd0d48f39fe2?collections=5f8a43dd06b0d9a8bd84c3d0%2C5f8a442206b0d9a8bd84c3d6",
+      "text": "Lesson link (click here to view the original desmos lesson which the teacher adapted)"
+    }
+}

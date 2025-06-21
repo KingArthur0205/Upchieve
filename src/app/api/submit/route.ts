@@ -12,12 +12,13 @@ try {
     credentials,
     projectId: credentials.project_id
   });
+  console.log('Google Cloud Storage initialized successfully for project:', credentials.project_id);
 } catch (error) {
   console.error('Error initializing Google Cloud Storage:', error);
 }
 
 // Specify the name of your bucket
-const bucketName = 'mol_temp1'; // Replace with your GCS bucket name
+const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'mol_temp1';
 
 export async function POST(request: Request) {
   try {

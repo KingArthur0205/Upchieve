@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 
 export interface FeatureDetails {
@@ -30,6 +30,67 @@ interface Props {
 
 const ALLOWED_SHEETS = ["Talk", "Conceptual", "Discursive", "Lexical"];
 
+  // Function to parse XLSX annotation data (extracted from existing logic)
+const parseXLSXAnnotationData = (arrayBuffer: ArrayBuffer, numRows: number, savedData?: AnnotationData): AnnotationData => {
+    const workbook = XLSX.read(arrayBuffer);
+    console.log('AnnotationPanel: Excel file loaded. Sheet names:', workbook.SheetNames);
+    console.log('AnnotationPanel: Allowed sheets:', ALLOWED_SHEETS);
+    
+    const data: AnnotationData = {};
+    
+    // Process only allowed sheets
+    workbook.SheetNames
+      .filter(name => ALLOWED_SHEETS.includes(name))
+      .forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+        
+        // Extract codes and definitions
+        const codes = (jsonData as {Code?: string}[]).map(row => row.Code).filter((code): code is string => Boolean(code));
+        const definitions: { [code: string]: FeatureDetails } = {};
+        
+        (jsonData as {
+          Code?: string;
+          Definition?: string;
+          Example1?: string;
+          example1?: string;
+          Example2?: string;
+          example2?: string;
+          NonExample1?: string;
+          nonexample1?: string;
+          NonExample2?: string;
+          nonexample2?: string;
+        }[]).forEach((row) => {
+          if (row.Code) {
+            definitions[row.Code] = {
+              Definition: row.Definition || '',
+              example1: row.Example1 || row.example1 || '',
+              example2: row.Example2 || row.example2 || '',
+              nonexample1: row.NonExample1 || row.nonexample1 || '',
+              nonexample2: row.NonExample2 || row.nonexample2 || ''
+            };
+          }
+        });
+        
+        // Initialize annotations for each line
+        const annotations: { [rowIndex: number]: { [code: string]: boolean } } = {};
+        for (let i = 0; i < numRows; i++) {
+          annotations[i] = {};
+          codes.forEach(code => {
+            annotations[i][code] = false;
+          });
+        }
+        
+        data[sheetName] = {
+          codes,
+          definitions,
+          annotations: savedData?.[sheetName]?.annotations || annotations
+        };
+      });
+    
+    return data;
+  };
+
 export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotationChange }: Props) {
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
@@ -37,55 +98,21 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadExcelData = async () => {
+    const loadAnnotationData = async () => {
       try {
-        const response = await fetch('/public/MOL Roles Features.xlsx');
-        const arrayBuffer = await response.arrayBuffer();
-        const workbook = XLSX.read(arrayBuffer);
+        console.log('AnnotationPanel: Starting to load annotation data from XLSX');
         
-        const data: AnnotationData = {};
-        
-        // Process only allowed sheets
-        workbook.SheetNames
-          .filter(name => ALLOWED_SHEETS.includes(name))
-          .forEach(sheetName => {
-            const sheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(sheet);
-            
-            // Extract codes and definitions
-            const codes = jsonData.map(row => (row as any).Code).filter(Boolean);
-            const definitions: { [code: string]: FeatureDetails } = {};
-            
-            jsonData.forEach(row => {
-              if ((row as any).Code) {
-                definitions[(row as any).Code] = {
-                  Definition: (row as any).Definition || '',
-                  example1: (row as any).Example1 || (row as any).example1 || '',
-                  example2: (row as any).Example2 || (row as any).example2 || '',
-                  nonexample1: (row as any).NonExample1 || (row as any).nonexample1 || '',
-                  nonexample2: (row as any).NonExample2 || (row as any).nonexample2 || ''
-                };
-              }
-            });
-            
-            // Initialize annotations for each line
-            const annotations: { [rowIndex: number]: { [code: string]: boolean } } = {};
-            for (let i = 0; i < numRows; i++) {
-              annotations[i] = {};
-              codes.forEach(code => {
-                annotations[i][code] = false;
-              });
-            }
-            
-            data[sheetName] = {
-              codes,
-              definitions,
-              annotations: savedData?.[sheetName]?.annotations || annotations
-            };
-          });
+        console.log('AnnotationPanel: Loading XLSX file /MOL Roles Features.xlsx');
+        const xlsxResponse = await fetch('/MOL%20Roles%20Features.xlsx');
+        if (!xlsxResponse.ok) {
+          throw new Error(`Failed to fetch annotation file: ${xlsxResponse.statusText}`);
+        }
+        const arrayBuffer = await xlsxResponse.arrayBuffer();
+        const data = parseXLSXAnnotationData(arrayBuffer, numRows, savedData);
+        console.log('AnnotationPanel: XLSX data parsed successfully');
         
         setAnnotationData(data);
-        setSheetNames(ALLOWED_SHEETS.filter(name => workbook.SheetNames.includes(name)));
+        setSheetNames(ALLOWED_SHEETS.filter(name => data[name]));
         setLoading(false);
         
         // If there's saved data, make sure it's reflected in the UI immediately
@@ -95,12 +122,12 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
           onAnnotationChange?.(data);
         }
       } catch (error) {
-        console.error('Error loading Excel file:', error);
+        console.error('Error loading annotation data:', error);
         setLoading(false);
       }
     };
     
-    loadExcelData();
+    loadAnnotationData();
   }, [numRows, savedData, onAnnotationChange]);
 
   const handleAnnotationChange = (lineNumber: number, code: string, value: boolean) => {
@@ -196,6 +223,4 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
       )}
     </div>
   );
-}
-
-export type { AnnotationData }; 
+} 

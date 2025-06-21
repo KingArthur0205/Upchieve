@@ -1,0 +1,438 @@
+#,In cue,Out cue,Duration,Speaker,Language,Dialogue,Annotations,Error Type,Segment,Selectable
+1,,00:00:01:08,00:00:01:08,Student 1,English,Because we were on the field trip and you weren't there Tuesday.,,,a,
+2,00:00:01:10,00:00:02:13,00:00:01:03,Teacher,English,Tell me what page we're on.,,,a,
+3,00:00:03:13,00:00:04:13,00:00:01:00,Student 2,English,250,,,a,
+4,00:00:04:15,00:00:05:02,00:00:00:17,Student 3,English,250,,,a,
+5,00:00:05:04,00:00:05:25,00:00:00:21,Student 1,English,250,,,a,
+6,00:00:06:11,00:00:29:00,00:00:22:19,Teacher,English,"Excellent, get your stuff there and I want to hear you and your teammates talking what must be true, could be true and cannot possibly be true about the weighs of the triangles, squares and circles.",,,a,
+7,00:00:29:11,00:00:34:29,00:00:05:18,Student 4,English,It cannot possibly be one and one because it's not equal.,,,a,yes
+8,00:00:35:00,00:00:37:06,00:00:02:06,Student 1,English,The triangle has to be heavier than the square.,,,a,yes
+9,00:00:37:08,00:00:43:02,00:00:05:24,Student 4,English,"Yes, so it can't be one and one.",,,a,yes
+10,00:00:52:02,00:00:56:03,00:00:04:01,Student 4,English,So one thing that must be true is...,,,a,yes
+11,00:01:01:23,00:01:03:13,00:00:01:20,Student 1,English,[unintelligible],,,a,
+12,00:01:03:22,00:01:06:11,00:00:02:19,Student 3,English,I don't have them but [unintelligible].,,,a,
+13,00:01:11:17,00:01:13:15,00:00:01:28,Student 1,English,One thing that could be true...,,,a,yes
+14,00:01:13:26,00:01:15:02,00:00:01:06,Student 4,English,Could be true...,,,a,yes
+15,00:01:15:20,00:01:16:26,00:00:01:06,Student 1,English,"Wait, what is...",,,a,yes
+16,00:01:20:14,00:01:30:13,00:00:09:29,Student 4,English,"That the triangle equals 16, the square...",,,a,yes
+17,00:01:35:18,00:01:45:00,00:00:09:12,Student 4,English,"It could be that the triangle is 16, the square is 5 because 5 times 3 is 15 plus 1.",,,a,yes
+18,00:01:48:23,00:01:50:15,00:00:01:22,Student 1,English,"16, what?",,,a,yes
+19,00:01:52:08,00:02:02:00,00:00:09:20,Student 3,English,"The triangle could be 16 and each of these could be 5 so that 5 times 3, 15 plus this could be 1, so it's 16.",,,a,yes
+20,00:02:13:03,00:02:14:26,00:00:01:23,Student 1,English,Where is what?,,,a,yes
+21,00:02:15:21,00:02:16:04,00:00:00:13,Student 4,English,What?,,,a,yes
+22,00:02:19:00,00:02:19:25,00:00:00:25,Student 4,English,It could be...,,,a,yes
+23,00:02:19:28,00:02:20:17,00:00:00:19,Student 1,English,It's equals.,,,a,yes
+24,00:02:21:20,00:02:22:18,00:00:00:28,Student 2,English,[Student 2].,,,a,
+25,00:02:36:05,00:02:37:00,00:00:00:25,Student 1,English,[Student 1].,,,a,
+26,00:02:38:05,00:02:38:23,00:00:00:18,Student 4,English,[Student 4].,,,a,
+27,00:02:43:11,00:02:45:11,00:00:02:00,Student 3,English,It could weigh 16 pounds?,,,a,yes
+28,00:02:46:29,00:02:49:04,00:00:02:05,Student 4,English,"I don't know, I just think equals 16.",,,a,yes
+29,00:02:51:27,00:02:54:05,00:00:02:08,Student 1,English,The circle is the heaviest.,,,a,yes
+30,00:03:32:26,00:03:34:13,00:00:01:17,Student 3,English,[unintelligible],,,a,
+31,00:03:34:16,00:03:35:12,00:00:00:26,Student 4,English,No.,,,a,yes
+32,00:03:38:16,00:03:39:23,00:00:01:07,Student 3,English,But like...,,,a,yes
+33,00:03:39:25,00:03:45:01,00:00:05:06,Student 4,English,"No, because if it's the heaviest then it's already heavier than that.",,,a,yes
+34,00:03:48:08,00:03:59:25,00:00:11:17,Teacher,English,"Alright, that was such a long set of announcements and I don't want to cut off your conversations if you ended them, so how many more minutes do we feel like we need for this warm-up?",,,a,
+35,00:04:00:08,00:04:00:18,00:00:00:10,Speaker 2,English,Two.,,,a,
+36,00:04:00:20,00:04:03:00,00:00:02:10,Teacher,English,Give me a thumbs up if you think you're cool.,,,a,
+37,00:04:03:02,00:04:15:17,00:00:12:15,Teacher,English,"Okay, I saw some of you writing quietly while the announcements were happening so why don't you also share your thoughts and ideas with your team.",,,a,
+38,00:04:15:19,00:04:20:15,00:00:04:26,Teacher,English,"Once you've all shared, I want you guys to come up with one more thing for any one of those.",,,a,
+39,00:04:20:23,00:04:21:04,00:00:00:11,Student 4,English,Okay.,,,a,yes
+40,00:04:21:24,00:04:28:02,00:00:06:08,Student 4,English,I wrote one thing that must be true: triangle heavier than the square.,,,a,yes
+41,00:04:29:16,00:04:37:05,00:00:07:19,Student 3,English,"I said one that could be true is triangle is 16, square is 5 and circle is 1.",,,a,yes
+42,00:04:37:26,00:04:38:11,00:00:00:15,Student 4,English,One thing...,,,a,yes
+43,00:04:38:22,00:04:39:09,00:00:00:17,Student 1,English,That what?,,,a,yes
+44,00:04:39:17,00:04:40:28,00:00:01:11,Student 4,English,That could not possibly be true.,,,a,yes
+45,00:04:41:01,00:04:41:26,00:00:00:25,Student 1,English,That could not?,,,a,yes
+46,00:04:41:29,00:04:42:07,00:00:00:08,Student 4,English,Yes.,,,a,yes
+47,00:04:42:09,00:04:44:05,00:00:01:26,Student 1,English,The circle is the heaviest.,,,a,yes
+48,00:04:45:05,00:04:46:00,00:00:00:25,Student 4,English,What did you write?,,,a,yes
+49,00:04:48:00,00:04:52:10,00:00:04:10,Student 2,English,I said that something that could not possibly be true is triangles equals squares.,,,a,yes
+50,00:04:53:02,00:05:00:10,00:00:07:06,Student 4,English,"Okay, so now let's come up with one for cannot be possibly or could be or must be.",,,a,yes
+51,00:05:01:10,00:05:01:24,00:00:00:14,Student 3,English,"Wait, what?",,,a,yes
+52,00:05:01:26,00:05:09:05,00:00:07:09,Student 1,English,"Well, we could do could be because for could be it could be the square equals...",,,a,yes
+53,00:05:09:07,00:05:16:19,00:00:07:12,Student 4,English,It could be that equals twenty three.,,,a,yes
+54,00:05:16:20,00:05:17:19,00:00:00:29,Student 1,English,Square equals...,,,a,yes
+55,00:05:17:20,00:05:18:23,00:00:01:03,Student 3,English,Do we make another one?,,,a,yes
+56,00:05:19:04,00:05:25:24,00:00:06:20,Student 4,English,"Yes, so it could be that the triangle equals twenty three, I mean...",,,a,yes
+57,00:05:25:27,00:05:26:18,00:00:00:21,Student 4,English,"Wait, sorry.",,,a,yes
+58,00:05:27:16,00:05:29:28,00:00:02:12,Student 1,English,"Wait, are we finally coming up with another one for each one?",,,a,yes
+59,00:05:29:29,00:05:30:18,00:00:00:19,Student 4,English,Equals...,,,a,yes
+60,00:05:30:26,00:05:31:25,00:00:00:29,Student 4,English,"No, just for one.",,,a,yes
+61,00:05:31:26,00:05:32:20,00:00:00:24,Teacher,English,"Alright, waterfall.",,,a,
+62,00:05:32:21,00:05:35:07,00:00:02:16,Student 4,English,Triangle could equal twenty four.,,,a,yes
+63,00:05:35:09,00:05:35:27,00:00:00:18,Teacher,English,Thank you.,,,a,
+64,00:05:35:29,00:05:38:09,00:00:02:10,Teacher,English,I would like to call on random students.,,,a,
+65,00:05:38:25,00:05:39:16,00:00:00:21,Student 4,English,Square...,,,a,yes
+66,00:05:39:26,00:05:41:01,00:00:01:05,Student 1,English,"That would be 16, right?",,,a,yes
+67,00:05:41:09,00:05:45:02,00:00:03:23,Teacher,English,Give me a thumbs down if you are [unintelligible].,,,a,
+68,00:05:46:11,00:05:47:10,00:00:00:29,Student 1,English,"For could be, right?",,,a,
+69,00:05:48:07,00:05:49:23,00:00:01:16,Student 4,English,It doesn't have to be this one.,,,a,
+70,00:05:49:24,00:05:50:09,00:00:00:15,Student 3,English,"Wait, Student 4.",,,a,
+71,00:05:50:11,00:05:55:06,00:00:04:25,Teacher,English,"Well, nobody cries, it's a safe space here, but I want to give you a chance to [unintelligible].",,,a,
+72,00:05:55:24,00:06:01:05,00:00:05:09,Teacher,English,"Everybody said it's kind of cool for me to call on you for one of these, so...",,,a,
+1,00:00:01:28,00:00:03:23,00:00:01:25,Teacher,English,"[Unknown Person 2] knows, who else knows?",,,b,
+2,00:00:03:25,00:00:05:04,00:00:01:09,Teacher,English,Give me a thumbs up if you know.,,,b,
+3,00:00:05:15,00:00:10:28,00:00:05:13,Teacher,English,Because I'm going to do the thing when I'm counting down and you all tell me at the same time.,,,b,
+4,00:00:11:06,00:00:12:06,00:00:01:00,Teacher,English,Who knows?,,,b,
+5,00:00:12:08,00:00:12:28,00:00:00:20,Unknown Person 1,English,I do.,,,b,
+6,00:00:13:02,00:00:13:24,00:00:00:22,Student 3,English,I think I do.,,,b,
+7,00:00:14:00,00:00:19:05,00:00:05:05,Teacher,English,"Alright, I have one, two, three, four, five, six, seven.",,,b,
+8,00:00:19:07,00:00:20:11,00:00:01:04,Teacher,English,Do I have one here?,,,b,
+9,00:00:20:13,00:00:28:04,00:00:07:21,Teacher,English,"Okay, I'm going to count down, you are going to tell me and then you are going to turn and talk to your neighbors and explain why it is that one and how you can tell.",,,b,
+10,00:00:28:06,00:00:29:03,00:00:00:27,Student 4,English,Is it Z?,,,b,
+11,00:00:29:05,00:00:29:14,00:00:00:09,Student 3,English,Yes.,,,b,
+12,00:00:29:16,00:00:29:27,00:00:00:11,Teacher,English,Ready?,,,b,
+13,00:00:29:29,00:00:31:04,00:00:01:05,Teacher,English,"Three, two, one.",,,b,
+14,00:00:31:06,00:00:32:00,00:00:00:24,All Students,English,Z!,,,b,
+15,00:00:33:02,00:00:37:19,00:00:04:17,Student 4,English,Because there's two plus three plus five.,,,b,yes
+16,00:00:37:21,00:00:38:02,00:00:00:11,Student 3,English,Yes.,,,b,yes
+17,00:00:38:28,00:00:41:14,00:00:02:16,Student 3,English,Two plus three equals five.,,,b,yes
+18,00:00:41:16,00:00:45:01,00:00:03:15,Teacher,English,Turn and explain to your neighbors how you can tell that it has to be Z.,,,b,
+19,00:00:45:08,00:00:45:26,00:00:00:18,Teacher,English,Go.,,,b,
+20,00:00:46:02,00:00:55:15,00:00:09:13,Student 4,English,Because there is two Z and then like one so it's three and then five one so it's five.,,,b,yes
+21,00:00:55:17,00:00:59:22,00:00:04:05,Student 4,English,It cannot be this because that is six.,,,b,yes
+22,00:00:59:24,00:01:03:28,00:00:04:02,Student 4,English,So I would start with six and then go to two which would be that one.,,,b,yes
+23,00:01:04:19,00:01:05:10,00:00:00:21,Student 1,English,What?,,,b,yes
+24,00:01:05:16,00:01:07:21,00:00:02:05,Student 4,English,So Z...,,,b,yes
+25,00:01:07:24,00:01:08:26,00:00:01:02,Student 1,English,Do you understand this?,,,b,yes
+26,00:01:09:05,00:01:09:24,00:00:00:19,Student 2,English,Yes.,,,b,yes
+27,00:01:09:26,00:01:10:16,00:00:00:20,Student 1,English,My gosh.,,,b,yes
+28,00:01:11:11,00:01:11:24,00:00:00:13,Student 4,English,W...,,,b,yes
+29,00:01:11:26,00:01:12:24,00:00:00:28,Student 1,English,Do you understand this?,,,b,yes
+30,00:01:13:01,00:01:13:17,00:00:00:16,Student 3,English,Yes.,,,b,yes
+31,00:01:13:19,00:01:16:17,00:00:02:28,Student 4,English,"Okay, so it's ZXYW, ZXYW.",,,b,yes
+32,00:01:16:19,00:01:17:27,00:00:01:08,Student 1,English,Can somebody help me?,,,b,yes
+33,00:01:17:29,00:01:19:02,00:00:01:03,Student 4,English,"So, you go like this.",,,b,yes
+34,00:01:20:08,00:01:25:04,00:00:04:26,Student 4,English,I'll draw it upside down but then you turn it around to see it.,,,b,yes
+35,00:01:25:06,00:01:27:07,00:00:02:01,Student 4,English,So that's like...,,,b,yes
+36,00:01:30:05,00:01:31:05,00:00:01:00,Student 1,English,Are you drawing a face?,,,b,yes
+37,00:01:31:09,00:01:31:26,00:00:00:17,Student 4,English,Yes.,,,b,yes
+38,00:01:33:04,00:01:35:11,00:00:02:07,Student 1,English,"Wait, what the heck?",,,b,yes
+39,00:01:35:12,00:01:36:11,00:00:00:29,Student 4,English,I'll try it.,,,b,yes
+40,00:01:36:28,00:01:38:24,00:00:01:26,Student 1,English,But what's going on for this?,,,b,yes
+41,00:01:42:04,00:01:45:11,00:00:03:07,Student 4,English,"Okay, see and then you have to have the head sticking out of the hair.",,,b,yes
+42,00:01:45:15,00:01:46:19,00:00:01:04,Student 1,English,I'm so confused.,,,b,yes
+43,00:01:46:24,00:01:48:17,00:00:01:23,Student 4,English,"So, look.",,,b,yes
+44,00:01:50:17,00:01:54:06,00:00:03:19,Student 4,English,It's two and then we have to write XYZ.,,,b,yes
+45,00:01:54:08,00:01:56:07,00:00:01:29,Student 4,English,We have to match it up with one of these.,,,b,yes
+46,00:01:56:11,00:02:04:04,00:00:07:21,Student 4,English,"We know it's not this one because like there's no two separate, you know?",,,b,yes
+47,00:02:04:14,00:02:09:14,00:00:05:00,Student 4,English,How many is there on this?,,,b,yes
+48,00:02:10:20,00:02:13:27,00:00:03:07,Student 1,English,"There is one, two, three, four, five, six, seven.",,,b,yes
+49,00:02:13:29,00:02:14:14,00:00:00:15,Student 4,English,Seven.,,,b,yes
+50,00:02:14:16,00:02:20:09,00:00:05:23,Student 4,English,"So the equation has to start with seven because this is on this side, the starting side.",,,b,yes
+51,00:02:20:11,00:02:21:00,00:00:00:19,Student 1,English,So this one?,,,b,yes
+52,00:02:21:03,00:02:21:27,00:00:00:24,Student 4,English,It would be that one.,,,b,yes
+53,00:02:22:05,00:02:30:00,00:00:07:25,Student 4,English,I'd make sense if it were because there's three...,,,b,yes
+54,00:02:30:02,00:02:31:04,00:00:01:02,Student 1,English,"There's three W, ",,,b,yes
+55,00:02:31:06,00:02:34:01,00:00:02:25,Student 4,English,"So W go there, plus one.",,,b,yes
+56,00:02:34:06,00:02:35:24,00:00:01:18,Student 4,English,W would go there.,,,b,yes
+57,00:02:37:26,00:02:39:17,00:00:01:21,Student 1,English,Why wouldn't W...,,,b,yes
+58,00:02:39:21,00:02:41:19,00:00:01:28,Student 1,English,Because there is no W in all the other ones.,,,b,yes
+59,00:02:41:21,00:02:42:01,00:00:00:10,Student 4,English,Yes.,,,b,yes
+60,00:02:43:18,00:02:53:13,00:00:09:25,Student 4,English,"Okay, then here it starts with two Zs, so whatever one we do it has to be...",,,b,yes
+61,00:02:53:15,00:02:55:26,00:00:02:11,Student 1,English,"One, two, three, four, five.",,,b,yes
+62,00:02:55:28,00:02:56:11,00:00:00:13,Student 4,English,Yes.,,,b,yes
+63,00:02:57:06,00:02:59:06,00:00:02:00,Student 1,English,So are these two the same?,,,b,yes
+64,00:02:59:11,00:03:02:07,00:00:02:24,Student 4,English,"No, it's like...",,,b,yes
+65,00:03:02:10,00:03:05:01,00:00:02:21,Student 4,English,Don't worry about the balance of it right now.,,,b,yes
+66,00:03:05:07,00:03:13:14,00:00:08:07,Student 4,English,So it starts with two and then it goes to separate things but we know it has to start with two.,,,b,yes
+67,00:03:13:16,00:03:15:24,00:00:02:08,Student 1,English,So this one would be Z?,,,b,yes
+68,00:03:15:26,00:03:16:08,00:00:00:12,Student 4,English,Yes.,,,b,yes
+69,00:03:17:11,00:03:18:16,00:00:01:05,Student 4,English,And then we know...,,,b,yes
+70,00:03:18:19,00:03:27:23,00:00:09:04,Student 1,English,"This one starts with three so it'd go there, x, and then starts with six...",,,b,yes
+71,00:03:27:25,00:03:28:25,00:00:01:00,Student 1,English,"Thank you, [Student 4].",,,b,
+72,00:03:29:11,00:03:31:24,00:00:02:13,Student 4,English,[unintelligible],,,b,
+73,00:03:34:03,00:03:43:10,00:00:09:07,Teacher,English,"I want you, guys, also in addition to writing the answers up here, I want you to write your equations under.",,,b,
+74,00:03:43:12,00:03:47:05,00:00:03:23,Teacher,English,"So let's just get these answers out of the way, because that's the not important  part.",,,b,
+75,00:03:48:08,00:03:49:07,00:00:00:29,Teacher,English,Exactly.,,,b,
+76,00:03:49:19,00:03:52:26,00:00:03:07,Teacher,English,"The important part is the understanding, so let's get the answers, ready?",,,b,
+77,00:03:52:28,00:03:54:04,00:00:01:06,Teacher,English,What goes here?,,,b,
+78,00:03:55:20,00:03:56:17,00:00:00:27,Teacher,English,"X, thank you.",,,b,
+1,00:00:00:20,00:00:13:16,00:00:12:26,Teacher,English,"Manipulate the actual hangers and I want for B, C and D, I want you guys to work in partners and make sure your hangers are at [unintelligible].",,,c,
+2,00:00:13:24,00:00:15:27,00:00:02:03,Teacher,English,So talk to your partner.,,,c,
+3,00:00:18:14,00:00:19:00,00:00:00:16,Teacher,English,Cool.,,,c,
+4,00:00:19:01,00:00:21:18,00:00:02:17,Teacher,English,I want to see you guys...,,,c,
+5,00:00:25:27,00:00:26:17,00:00:00:20,Student 1,English,Yes.,,,c,
+6,00:00:26:19,00:00:31:10,00:00:04:21,Teacher,English,"You can check in as a team but I do want you explaining it one by one with your partner, okay?",,,c,
+7,00:00:31:11,00:00:33:25,00:00:02:14,Teacher,English,Go ahead and do this for B.,,,c,
+8,00:00:33:26,00:00:34:08,00:00:00:12,Teacher,English,Go.,,,c,
+9,00:00:34:10,00:00:38:11,00:00:04:01,Student 1,English,Why don't we just do it all and then just check all of us together?,,,c,yes
+10,00:00:40:05,00:00:41:00,00:00:00:25,Student 4,English,"Yes, let's do that.",,,c,yes
+11,00:00:41:05,00:00:43:11,00:00:02:06,Student 1,English,So everybody do it and then we'll just check at the end.,,,c,yes
+12,00:00:43:25,00:00:45:00,00:00:01:05,Student 3,English,And when she comes down we would be like...,,,c,yes
+13,00:00:45:02,00:00:45:24,00:00:00:22,Student 1,English,I mean...,,,c,yes
+14,00:00:53:20,00:00:56:17,00:00:02:27,Student 4,English,I forgot there's a camera!,,,c,yes
+15,00:01:01:24,00:01:02:22,00:00:00:28,Student 3,English,"Okay, what do we do?",,,c,yes
+16,00:01:02:23,00:01:04:06,00:00:01:13,Student 1,English,"Okay, everybody just do B.",,,c,yes
+17,00:01:06:23,00:01:07:07,00:00:00:14,Student 1,English,So...,,,c,yes
+18,00:01:07:10,00:01:12:14,00:00:05:04,Student 4,English,"So, one and one go together, one and one go together, one and one go together.",,,c,yes
+19,00:01:12:15,00:01:13:19,00:00:01:04,Student 1,English,So each Z is one.,,,c,yes
+20,00:01:13:21,00:01:14:03,00:00:00:12,Student 4,English,Yes.,,,c,yes
+21,00:01:15:01,00:01:16:04,00:00:01:03,Student 1,English,Z equals one.,,,c,yes
+22,00:01:16:28,00:01:18:11,00:00:01:13,Student 4,English,But we don't know that yet.,,,c,yes
+23,00:01:18:13,00:01:21:08,00:00:02:25,Student 4,English,"I mean we do know that, it's obvious, but it has to be our last thing.",,,c,yes
+24,00:01:21:27,00:01:22:17,00:00:00:20,Student 1,English,Seven...,,,c,yes
+25,00:01:23:09,00:01:24:05,00:00:00:26,Student 3,English,[unintelligible],,,c,
+26,00:01:25:00,00:01:25:17,00:00:00:17,Student 1,English,"I know, same.",,,c,yes
+27,00:01:27:00,00:01:29:20,00:00:02:20,Student 4,English,So we have...,,,c,yes
+28,00:01:29:29,00:01:32:02,00:00:02:03,Student 1,English,"Seven, no, not seven.",,,c,yes
+29,00:01:32:04,00:01:33:15,00:00:01:11,Student 4,English,So...,,,c,yes
+30,00:01:34:01,00:01:34:20,00:00:00:19,Student 3,English,Three equals...,,,c,yes
+31,00:01:34:22,00:01:35:07,00:00:00:15,Student 1,English,"Guys, what the heck?",,,c,yes
+32,00:01:35:27,00:01:36:10,00:00:00:13,Student 4,English,No.,,,c,yes
+33,00:01:37:01,00:01:37:23,00:00:00:22,Student 1,English,Two equals...,,,c,yes
+34,00:01:37:24,00:01:40:16,00:00:02:22,Student 4,English,Two Z plus 3 equals 6.,,,c,yes
+35,00:01:41:21,00:01:42:03,00:00:00:12,Student 3,English,What?,,,c,yes
+36,00:01:43:07,00:01:44:11,00:00:01:04,Student 1,English,"I don't get it either, but...",,,c,yes
+37,00:01:46:24,00:01:49:03,00:00:02:09,Student 1,English,Why can't I try two equals one?,,,c,yes
+38,00:01:49:23,00:01:50:24,00:00:01:01,Student 1,English,"I mean, Z equals...",,,c,yes
+39,00:01:52:01,00:01:53:25,00:00:01:24,Student 3,English,"Wait, two Z plus three equals...",,,c,yes
+40,00:01:53:28,00:01:55:14,00:00:01:16,Student 3,English,That makes sense.,,,c,yes
+41,00:01:57:22,00:01:59:02,00:00:01:10,Student 4,English,Equals five.,,,c,yes
+42,00:02:00:05,00:02:03:10,00:00:03:05,Student 4,English,And then we have to do the thing where -1...,,,c,yes
+43,00:02:03:12,00:02:04:07,00:00:00:25,Student 3,English,Why do we -1?,,,c,yes
+44,00:02:04:13,00:02:05:25,00:00:01:12,Student 4,English,I don't know.,,,c,yes
+45,00:02:06:09,00:02:08:11,00:00:02:02,Student 3,English,-1 from the answer?,,,c,yes
+46,00:02:09:06,00:02:10:01,00:00:00:25,Student 3,English,And then...,,,c,yes
+47,00:02:10:03,00:02:10:18,00:00:00:15,Student 4,English,"Wait, that's not...",,,c,yes
+48,00:02:11:18,00:02:12:14,00:00:00:26,Student 3,English,And this...,,,c,yes
+49,00:02:16:00,00:02:18:16,00:00:02:16,Student 4,English,So it's one Z...,,,c,yes
+50,00:02:22:20,00:02:23:08,00:00:00:18,Student 4,English,The heck...,,,c,yes
+51,00:02:24:06,00:02:25:11,00:00:01:05,Student 1,English,What the heck?,,,c,yes
+52,00:02:27:07,00:02:29:02,00:00:01:25,Student 3,English,Why don't I cross this one...,,,c,yes
+53,00:02:29:05,00:02:30:13,00:00:01:08,Student 1,English,"I'm just writing the answers, I don't know the rest.",,,c,yes
+54,00:02:30:16,00:02:37:28,00:00:07:12,Student 4,English,"You cross that out because it was one minus one, so there's nothing there.",,,c,yes
+55,00:02:42:07,00:02:47:00,00:00:04:23,Student 4,English,"In this equation, you minus one from minus one, so it's zero.",,,c,yes
+56,00:02:50:05,00:02:51:19,00:00:01:14,Student 4,English,"Okay, let's just do C now.",,,c,yes
+57,00:02:51:20,00:02:52:16,00:00:00:26,Student 1,English,I was singing that song this morning and [unintelligible].,,,c,
+58,00:02:52:17,00:02:53:15,00:00:00:28,Student 3,English,"Wait, wait, wait.",,,c,yes
+59,00:02:53:16,00:02:54:14,00:00:00:28,Student 4,English,3x...,,,c,yes
+60,00:02:54:16,00:02:56:06,00:00:01:20,Student 3,English,"So now, what is it now?",,,c,yes
+61,00:02:56:08,00:02:59:25,00:00:03:17,Student 4,English,3x plus 2 equals three.,,,c,yes
+62,00:03:03:24,00:03:06:09,00:00:02:15,Student 3,English,"Wait, why did you write one equals seven?",,,c,yes
+63,00:03:09:05,00:03:10:26,00:00:01:21,Student 4,English,I don't know why I wrote that.,,,c,yes
+64,00:03:12:17,00:03:13:16,00:00:00:29,Student 4,English,I've no idea why...,,,c,yes
+65,00:03:13:17,00:03:14:16,00:00:00:29,Student 3,English,Z equals 1?,,,c,yes
+66,00:03:16:04,00:03:22:19,00:00:06:15,Student 1,English,"I just wrote what they all equal, I don't know how to explain the other stuff.",,,c,yes
+67,00:03:23:13,00:03:25:01,00:00:01:18,Student 3,English,"Yes, I just understand it.",,,c,yes
+68,00:03:25:02,00:03:28:21,00:00:03:19,Student 1,English,"Yes, I don't know how to write all of this.",,,c,yes
+69,00:03:30:10,00:03:35:25,00:00:05:15,Student 3,English,"Wait, so each X is 0.33?",,,c,yes
+70,00:03:36:14,00:03:38:28,00:00:02:14,Student 4,English,"I don't know the math, but... ",,,c,yes
+71,00:03:39:00,00:03:39:18,00:00:00:18,Student 1,English,I did one third.,,,c,yes
+72,00:03:40:21,00:03:41:11,00:00:00:20,Student 4,English,One third.,,,c,yes
+73,00:03:44:13,00:03:45:14,00:00:01:01,Student 4,English,What is it?,,,c,yes
+74,00:03:45:20,00:03:47:24,00:00:02:04,Student 1,English,"I did one third, I didn't do anything else.",,,c,yes
+75,00:03:48:24,00:03:55:09,00:00:06:15,Student 1,English,"I just wrote one equals 1.5, x equals one third and Z equals one.",,,c,yes
+76,00:03:55:11,00:03:57:22,00:00:02:11,Student 3,English,Two equals W...,,,c,yes
+77,00:03:57:24,00:04:02:19,00:00:04:23,Student 1,English,"I don't care anymore because I don't know how to do it, so I'm just not gonna.",,,c,yes
+78,00:04:03:13,00:04:07:05,00:00:03:22,Student 1,English,"I don't care, I'm being rebel and going against the cameras.",,,c,yes
+79,00:04:07:26,00:04:20:01,00:00:12:05,Student 4,English,"Okay, six equals two y plus three.",,,c,yes
+80,00:04:22:13,00:04:24:02,00:00:01:19,Student 1,English,How are you guys getting all this?,,,c,yes
+81,00:04:27:04,00:04:33:24,00:00:06:20,Student 1,English,So this is six and there's three and two left.,,,c,yes
+82,00:04:34:09,00:04:35:24,00:00:01:15,Student 3,English,So it's three divided by two.,,,c,yes
+83,00:04:35:28,00:04:37:16,00:00:01:18,Student 1,English,Six equals...,,,c,yes
+84,00:04:37:27,00:04:39:09,00:00:01:12,Student 3,English,"Wait, is it three divided by two?",,,c,yes
+85,00:04:49:09,00:04:50:25,00:00:01:16,Student 4,English,So y equals one and a half.,,,c,yes
+86,00:04:51:06,00:04:51:28,00:00:00:22,Student 4,English,One...,,,c,yes
+87,00:04:52:09,00:04:52:27,00:00:00:18,Student 1,English,It's like half...,,,c,yes
+88,00:04:58:03,00:04:59:05,00:00:01:02,Student 1,English,And I'm wearing a Barcelona shirt.,,,c,
+89,00:04:59:07,00:04:59:18,00:00:00:11,Student 4,English,Guys!,,,c,
+90,00:04:59:27,00:05:00:29,00:00:01:00,Student 1,English,It's actually my brother's.,,,c,
+91,00:05:01:07,00:05:02:24,00:00:01:17,Student 4,English,"Look, look, look!",,,c,
+92,00:05:03:01,00:05:06:08,00:00:03:07,Student 1,English,My brother has two Barcelona jerseys so I just took one from him.,,,c,
+93,00:05:06:12,00:05:09:17,00:00:03:05,Student 1,English,"Yes, I just did 1.5 because...",,,c,yes
+94,00:05:09:19,00:05:10:23,00:00:01:04,Student 3,English,"Wait, how did you get that?",,,c,yes
+95,00:05:11:09,00:05:17:25,00:00:06:16,Student 4,English,"Because I just kept going, one and one.",,,c,yes
+96,00:05:23:05,00:05:23:18,00:00:00:13,Student 3,English,Got it.,,,c,yes
+97,00:05:25:23,00:05:26:28,00:00:01:05,Student 3,English,Now I need to do the equation.,,,c,yes
+98,00:05:27:00,00:05:28:02,00:00:01:02,Student 4,English,Why do you have to complicate it?,,,c,yes
+99,00:05:28:11,00:05:29:01,00:00:00:20,Student 3,English,I don't know.,,,c,yes
+100,00:05:29:09,00:05:30:01,00:00:00:22,Student 1,English,This is perfect.,,,c,yes
+101,00:05:37:15,00:05:40:01,00:00:02:16,Student 4,English,Why is it so more complicated than the others?,,,c,yes
+102,00:05:41:15,00:05:43:27,00:00:02:12,Teacher,English,You're upset it's complicated for...,,,c,
+103,00:05:43:29,00:05:44:09,00:00:00:10,Student 4,English,Yes.,,,c,
+104,00:05:44:10,00:05:45:27,00:00:01:17,Student 1,English,I just understand this top part.,,,c,
+105,00:05:45:29,00:05:49:24,00:00:03:25,Student 4,English,We get it but then we do that thing and it makes no sense.,,,c,
+106,00:05:50:04,00:05:52:20,00:00:02:16,Teacher,English,"I know, I understand that.",,,c,
+107,00:05:53:18,00:05:56:11,00:00:02:23,Teacher,English,You're not always going to be able to see it this way.,,,c,
+108,00:05:56:13,00:06:02:29,00:00:06:14,Teacher,English,"You're going to start getting equations with crazy numbers, positives and negatives, fractions.",,,c,
+109,00:06:03:01,00:06:07:02,00:00:04:01,Teacher,English,So you wanna start making the connections.,,,c,
+110,00:06:07:04,00:06:09:05,00:00:02:01,Teacher,English,"So, here, what did you do?",,,c,
+111,00:06:09:28,00:06:11:28,00:00:02:00,Teacher,English,"You didn't get rid of one, what did you get rid of?",,,c,
+112,00:06:13:08,00:06:15:17,00:00:02:09,Student 4,English,You get rid of three!,,,c,
+113,00:06:15:18,00:06:17:00,00:00:01:12,Teacher,English,"You get rid of three, excellent.",,,c,
+114,00:06:17:02,00:06:17:20,00:00:00:18,Teacher,English,Do you see that?,,,c,
+115,00:06:17:27,00:06:21:07,00:00:03:10,Teacher,English,So start making those connections to what...,,,c,
+116,00:06:21:08,00:06:22:04,00:00:00:26,Student 4,English,So that's negative.,,,c,
+117,00:06:22:10,00:06:23:08,00:00:00:28,Teacher,English,"No, it's not.",,,c,
+118,00:06:23:10,00:06:24:27,00:00:01:17,Teacher,English,You have two Z...,,,c,
+119,00:06:24:29,00:06:25:12,00:00:00:13,Teacher,English,"No, no.",,,c,
+120,00:06:26:09,00:06:32:01,00:00:05:22,Teacher,English,"You got rid of these 3 and these 3, so 3 and 3 on both sides of the equation.",,,c,
+121,00:06:33:22,00:06:37:24,00:00:04:02,Teacher,English,How heavy is two Z?,,,c,
+122,00:06:37:27,00:06:38:07,00:00:00:10,Student 2,English,Two.,,,c,
+123,00:06:38:08,00:06:38:20,00:00:00:12,Teacher,English,Two.,,,c,
+124,00:06:40:12,00:06:43:16,00:00:03:04,Teacher,English,"So that one Z is 1, right?",,,c,
+125,00:06:43:19,00:06:45:13,00:00:01:24,Student 4,English,So then it's...,,,c,yes
+126,00:06:45:14,00:06:46:16,00:00:01:02,Student 1,English,"Is it -3, -3?",,,c,yes
+127,00:06:46:25,00:06:47:11,00:00:00:16,Student 4,English,Yes.,,,c,yes
+128,00:06:49:22,00:06:51:21,00:00:01:29,Student 1,English,It makes more sense now.,,,c,yes
+129,00:06:51:22,00:06:54:01,00:00:02:09,Student 3,English,Does it make more sense?,,,c,yes
+130,00:06:54:03,00:06:55:00,00:00:00:27,Student 4,English,So then it's...,,,c,yes
+131,00:06:55:14,00:06:56:11,00:00:00:27,Student 1,English,So then it's...,,,c,yes
+132,00:06:56:13,00:06:57:05,00:00:00:22,Student 4,English,It's...,,,c,yes
+133,00:06:57:07,00:06:58:24,00:00:01:17,Student 1,English,Two is here.,,,c,yes
+134,00:06:59:02,00:07:03:17,00:00:04:13,Student 4,English,Three divided by three.,,,c,yes
+135,00:07:03:25,00:07:04:25,00:00:01:00,Student 4,English,"Wait, I don't know.",,,c,yes
+136,00:07:09:23,00:07:10:18,00:00:00:25,Student 1,English,I understand this part.,,,c,yes
+137,00:07:10:20,00:07:12:09,00:00:01:19,Student 4,English,Can you say it on the microphone?,,,c,yes
+138,00:07:26:29,00:07:28:08,00:00:01:09,Student 4,English,Do a concert.,,,c,yes
+139,00:07:45:07,00:07:46:18,00:00:01:11,Student 3,English,"Okay, wait guys, we need to finish.",,,c,yes
+140,00:07:46:20,00:07:47:16,00:00:00:26,Student 3,English,I don't get this.,,,c,yes
+141,00:07:48:06,00:07:50:01,00:00:01:25,Teacher,English,Waterfall.,,,c,
+142,00:08:02:27,00:08:03:19,00:00:00:22,Teacher,English,Great.,,,c,
+143,00:08:06:13,00:08:08:22,00:00:02:09,Teacher,English,I said waterfall.,,,c,
+144,00:08:12:17,00:08:15:25,00:00:03:08,Teacher,English,I saw students showing the work on...,,,c,
+1,00:00:01:11,00:00:07:11,00:00:06:00,Teacher,English,"Whoever is in this corner is A, B, C, D.",,,d,
+2,00:00:08:01,00:00:11:27,00:00:03:26,Teacher,English,"So whichever corner you're on, you're going to be telling what you write.",,,d,
+3,00:00:12:00,00:00:13:28,00:00:01:28,Student 1,English,I think I'm A and you'd be B?,,,d,
+4,00:00:14:18,00:00:15:13,00:00:00:25,Student 1,English,"A, B...",,,d,
+5,00:00:15:21,00:00:17:09,00:00:01:18,Teacher,English,If you have a table of three...,,,d,
+6,00:00:17:12,00:00:17:21,00:00:00:09,Student 4,English,"C, D.",,,d,
+7,00:00:17:23,00:00:18:04,00:00:00:11,Student 4,English,You're C.,,,d,
+8,00:00:18:08,00:00:23:16,00:00:05:08,Teacher,English,Or it's not perfect so like [Student 1] you'll be A and [Student 4] you'll be B.,,,d,
+9,00:00:26:02,00:00:29:06,00:00:03:04,Teacher,English,"Write the equation, show the work on the hanger...",,,d,
+10,00:00:38:16,00:00:39:29,00:00:01:13,Student 1,English,She can tell I wrote that.,,,d,yes
+11,00:00:41:00,00:00:42:13,00:00:01:13,Student 1,English,"Look, I'll even sign it.",,,d,yes
+12,00:00:44:26,00:00:45:14,00:00:00:18,Student 1,English,Better?,,,d,yes
+13,00:00:51:07,00:00:53:14,00:00:02:07,Student 1,English,She's definitely not getting anything of that.,,,d,yes
+14,00:00:58:23,00:01:00:05,00:00:01:10,Student 4,English,I don't know what we are taking away because this is...,,,d,yes
+15,00:01:00:07,00:01:01:18,00:00:01:11,Student 1,English,Are we on the next page?,,,d,yes
+16,00:01:01:20,00:01:04:07,00:00:02:17,Student 4,English,Yes!,,,d,yes
+17,00:01:06:11,00:01:07:22,00:00:01:11,Student 1,English,"One, two, three, four.",,,d,yes
+18,00:01:10:26,00:01:12:04,00:00:01:08,Student 1,English,I'm D.,,,d,yes
+19,00:01:12:06,00:01:13:23,00:00:01:17,Student 4,English,I'm so happy I'm B.,,,d,yes
+20,00:01:14:17,00:01:16:24,00:00:02:07,Student 4,English,C and D look hard.,,,d,yes
+21,00:01:17:17,00:01:21:06,00:00:03:19,Student 1,English,"Okay, so we're just going to connect those two.",,,d,yes
+22,00:01:30:05,00:01:31:28,00:00:01:23,Student 3,English,We just write the equation?,,,d,yes
+23,00:01:35:23,00:01:37:22,00:00:01:29,Student 1,English,"Okay, guys, I got it.",,,d,yes
+24,00:01:47:26,00:01:49:23,00:00:01:27,Student 3,English,"Okay, I got the equation.",,,d,yes
+25,00:01:50:26,00:01:53:20,00:00:02:24,Student 4,English,"Yes, same, I got the equation and what Y equals but I don't have...",,,d,yes
+26,00:01:53:22,00:01:55:12,00:00:01:20,Student 1,English,How did you write the equation again?,,,d,yes
+27,00:01:57:02,00:01:57:23,00:00:00:21,Student 3,English,Look.,,,d,yes
+28,00:02:01:15,00:02:02:29,00:00:01:14,Student 3,English,3x...,,,d,yes
+29,00:02:04:13,00:02:08:17,00:00:04:04,Student 4,English,What if the guys that are recording this think that we are saying [unintelligible]?,,,d,yes
+30,00:02:08:27,00:02:13:19,00:00:04:22,Student 1,English,The song we're singing is from In the heights by Lin-Manuel Miranda and it's like a musical.,,,d,yes
+31,00:02:14:17,00:02:21:12,00:00:06:25,Student 3,English,3x plus 1 equals 7.,,,d,yes
+32,00:02:24:03,00:02:25:00,00:00:00:27,Student 1,English,Okay.,,,d,yes
+33,00:02:25:19,00:02:29:10,00:00:03:21,Student 4,English,"I've actually never watched it but they have, and they sing it a lot so I know it.",,,d,
+34,00:02:29:11,00:02:31:12,00:00:02:01,Student 1,English,You need to watch it!,,,d,
+35,00:02:31:14,00:02:33:23,00:00:02:09,All Students,English,[crosstalk],,,d,
+36,00:02:35:21,00:02:39:02,00:00:03:11,Student 1,English,This weekend or are you free on Sunday?,,,d,
+37,00:02:39:10,00:02:40:00,00:00:00:20,Student 3,English,Maybe.,,,d,
+38,00:02:40:08,00:02:47:15,00:00:07:07,Student 1,English,On Sunday we're going to have people over like you and [Unknown Person 5] because neither of you have ever seen it and we're going to watch it.,,,d,
+39,00:02:47:22,00:02:50:05,00:00:02:13,Student 3,English,"[Unknown Person 5] loves Hamilton, so it's like...",,,d,
+40,00:02:50:08,00:02:52:10,00:00:02:02,Student 1,English,"Exactly, and we're going to watch it.",,,d,
+41,00:02:52:24,00:02:53:13,00:00:00:19,Student 4,English,Okay.,,,d,yes
+42,00:02:55:19,00:02:56:13,00:00:00:24,Student 1,English,3x...,,,d,yes
+43,00:02:56:15,00:02:58:06,00:00:01:21,Student 4,English,Depends on when on Sunday.,,,d,yes
+44,00:02:59:22,00:03:01:21,00:00:01:27,Student 3,English,"Wait, do we just write the equation?",,,d,yes
+45,00:03:01:22,00:03:02:18,00:00:00:26,Student 3,English,"Write the equation, explain why...",,,d,yes
+46,00:03:02:20,00:03:03:24,00:00:01:04,Student 1,English,3x plus 1...,,,d,yes
+47,00:03:08:02,00:03:11:03,00:00:03:01,Student 1,English,"Then, do I break it out more after I do that?",,,d,yes
+48,00:03:45:14,00:03:46:28,00:00:01:14,Student 1,English,[Student 2].,,,d,
+49,00:03:48:26,00:03:51:10,00:00:02:14,Student 1,English,"[Student 2], have you seen In the heights?",,,d,
+50,00:03:51:29,00:03:53:01,00:00:01:02,Student 1,English,The musical.,,,d,
+51,00:03:53:27,00:03:54:16,00:00:00:19,Student 2,English,No.,,,d,
+52,00:03:56:05,00:03:58:06,00:00:02:01,Student 1,English,Is it like not a big thing?,,,d,
+53,00:03:58:08,00:03:58:24,00:00:00:16,Student 3,English,"Yes, I think...",,,d,
+54,00:03:58:26,00:04:00:21,00:00:01:23,Student 4,English,I had never heard of it.,,,d,
+55,00:04:00:26,00:04:02:10,00:00:01:14,Student 1,English,Have you heard of In the Heights?,,,d,
+56,00:04:03:05,00:04:03:17,00:00:00:12,Student 2,English,No.,,,d,
+57,00:04:03:22,00:04:05:07,00:00:01:15,Student 4,English,[Unknown Person 4] watched it.,,,d,
+58,00:04:06:06,00:04:07:20,00:00:01:14,Student 1,English,[Unknown Person 4] watched it.,,,d,
+59,00:04:11:22,00:04:12:24,00:00:01:02,Student 3,English,What are we doing?,,,d,yes
+60,00:04:18:11,00:04:20:28,00:00:02:17,Student 1,English,"Hi, have you seen In the heights?",,,d,yes
+61,00:04:21:28,00:04:23:00,00:00:01:02,Student 1,English,Have you seen In the heights?,,,d,yes
+62,00:04:23:16,00:04:25:13,00:00:01:27,Student 1,English,"Okay, we need to invite her.",,,d,yes
+63,00:04:25:15,00:04:27:02,00:00:01:17,Student 4,English,"Help me, how do I get from there to there?",,,d,yes
+64,00:04:27:08,00:04:29:08,00:00:02:00,Student 4,English,How do I do this step?,,,d,yes
+65,00:04:30:06,00:04:31:24,00:00:01:18,Student 4,English,How did I do this step?,,,d,yes
+66,00:04:31:27,00:04:33:07,00:00:01:10,Student 4,English,Middle step!,,,d,yes
+67,00:04:35:10,00:04:38:05,00:00:02:25,Student 1,English,I'm pretty sure [Unknown Person 3] has seen it.,,,d,yes
+68,00:04:42:26,00:04:43:22,00:00:00:26,Student 2,English,Is this correct?,,,d,yes
+69,00:04:48:17,00:04:50:27,00:00:02:10,Student 2,English,I found the thing...,,,d,yes
+70,00:04:56:22,00:04:57:21,00:00:00:29,Student 2,English,This one was there.,,,d,yes
+71,00:05:05:07,00:05:11:10,00:00:06:03,Student 2,English,Maybe 2.6 equals 2.2...,,,d,yes
+72,00:05:12:29,00:05:14:05,00:00:01:06,Student 2,English,"Wait, how do I...",,,d,yes
+73,00:05:15:27,00:05:19:15,00:00:03:18,Student 2,English,2.2 plus 2 Z.,,,d,yes
+74,00:05:19:16,00:05:22:06,00:00:02:20,Unknown Person 2,English,"Yes, that is what is says right there, right?",,,d,
+75,00:05:22:08,00:05:24:08,00:00:02:00,Student 1,English,Forty one divided by...,,,d,
+76,00:05:24:14,00:05:28:13,00:00:03:29,Unknown Person 2,English,It looks like you've already made an decision about what you can take off of each side.,,,d,
+77,00:05:28:15,00:05:30:04,00:00:01:19,Unknown Person 2,English,What are you going to take from each side?,,,d,
+78,00:05:30:12,00:05:31:09,00:00:00:27,Student 2,English,2.2.,,,d,
+79,00:05:31:12,00:05:31:24,00:00:00:12,Unknown Person 2,English,Okay.,,,d,
+80,00:05:32:13,00:05:34:08,00:00:01:25,Student 4,English,Ten dollars and fifty cents?,,,d,
+81,00:05:34:10,00:05:35:06,00:00:00:26,Unknown Person 1,English,"Yes, how did you get that?",,,d,
+82,00:05:35:10,00:05:37:15,00:00:02:05,Student 1,English,I got 10.5 minus...,,,d,
+83,00:05:39:19,00:05:40:19,00:00:01:00,Student 1,English,It equals?,,,d,
+84,00:05:40:21,00:05:44:16,00:00:03:25,Student 2,English,2 and then 2.2 subtract.,,,d,
+85,00:05:45:21,00:05:56:15,00:00:10:24,Unknown Person 2,English,"Yes, because if you have 2 Zs, then you are actually going to [unintelligible] back to 2 Z, so this side is going to be [unintelligible].",,,d,
+86,00:05:56:18,00:05:58:00,00:00:01:12,Unknown Person 2,English,What is the other side going to be?,,,d,
+87,00:06:01:13,00:06:03:01,00:00:01:18,Student 2,English,This side...,,,d,
+88,00:06:03:25,00:06:05:17,00:00:01:22,Student 4,English,3x plus 1.,,,d,
+89,00:06:05:19,00:06:07:16,00:00:01:27,Unknown Person 2,English,You can write it underneath here to show...,,,d,
+90,00:06:07:18,00:06:11:04,00:00:03:16,All Students,English,[crosstalk],,,d,
+91,00:06:11:08,00:06:14:16,00:00:03:08,Student 2,English,On this side I'll have...,,,d,
+92,00:06:14:20,00:06:18:02,00:00:03:12,All Students,English,[crosstalk],,,d,
+93,00:06:18:06,00:06:22:07,00:00:04:01,Student 2,English,A 4.6 on this side but then on that side I'll have 0.,,,d,
+94,00:06:23:17,00:06:25:04,00:00:01:17,Student 2,English,On that side.,,,d,
+95,00:06:27:06,00:06:33:09,00:00:06:03,Unknown Person 2,English,"2.2 minus 2.2 is 0, but there is still [unintelligible] on this side.",,,d,
+96,00:06:34:22,00:06:38:28,00:00:04:06,All Students,English,[crosstalk],,,d,
+97,00:06:39:00,00:06:40:17,00:00:01:17,Student 2,English,By 3.,,,d,
+98,00:06:40:23,00:06:45:16,00:00:04:23,All Students,English,[crosstalk],,,d,
+99,00:06:49:04,00:06:52:18,00:00:03:14,Unknown Person 2,English,You got 2.2 and you're taking it away.,,,d,
+100,00:06:53:22,00:06:55:13,00:00:01:21,Unknown Person 2,English,"Here, you cut 2.2 off.",,,d,
+101,00:06:55:16,00:06:58:14,00:00:02:28,Student 4,English,"Oh my God, [Student 1], yours is so easy.",,,d,yes
+102,00:06:58:19,00:07:00:08,00:00:01:17,Student 1,English,"Yes, I know it was easy.",,,d,yes
+103,00:07:00:10,00:07:06:09,00:00:05:29,All Students,English,[crosstalk],,,d,
+104,00:07:06:11,00:07:07:22,00:00:01:11,Student 2,English,It's equal to 2Z.,,,d,yes
+105,00:07:07:24,00:07:12:16,00:00:04:22,All Students,English,[crosstalk],,,d,
+106,00:07:12:19,00:07:15:15,00:00:02:26,Student 1,English,I don't really know how to write the equations.,,,d,yes
+107,00:07:15:18,00:07:27:15,00:00:11:27,All Students,English,[crosstalk],,,d,
+108,00:07:27:17,00:07:31:24,00:00:04:07,Other Student 5,English,"No, you have the equation; all you have to do it solve it.",,,d,yes
+109,00:07:32:24,00:07:33:21,00:00:00:27,Other Student 5,English,Let's put it down again.,,,d,yes
+110,00:07:34:00,00:07:35:03,00:00:01:03,Other Student 5,English,2Z....,,,d,yes
+111,00:07:37:07,00:07:46:02,00:00:08:25,Student 1,English,"[Student 4], [Student 4], this is what [unintelligible] for the equation I do 6 so I take away 2.2 from 6.8.",,,d,yes
+112,00:07:46:05,00:07:48:05,00:00:02:00,Student 1,English,"2 minus 8, 6.",,,d,yes
+113,00:07:48:07,00:07:51:07,00:00:03:00,Student 4,English,"So 7 equals, because it's equal...",,,d,yes
+114,00:07:51:09,00:07:51:26,00:00:00:17,Student 1,English,4.6?,,,d,yes
+115,00:07:51:28,00:07:53:18,00:00:01:20,Student 4,English,3x plus 1.,,,d,yes
+116,00:07:53:20,00:07:56:17,00:00:02:27,Student 1,English,And then divide 4.6 by 2 because that's what Z equals.,,,d,yes
+117,00:07:57:11,00:08:02:13,00:00:05:00,Student 3,English,"For this we just take away 1 and then we take, so this is six.",,,d,yes
+118,00:08:05:20,00:08:11:19,00:00:05:29,Other Student 5,English,So first we subtract the numbers from this side.,,,d,yes
+119,00:08:11:25,00:08:13:05,00:00:01:10,Student 1,English,From this side too?,,,d,yes
+120,00:08:13:09,00:08:13:18,00:00:00:09,Other Student 5,English,Yes.,,,d,yes
+121,00:08:15:15,00:08:18:24,00:00:03:09,Student 4,English,"Yes, because we subtracted 1.",,,d,yes
+122,00:08:20:03,00:08:24:00,00:00:03:27,Other Student 5,English,"Yes, 4.6 and this is just 2Z.",,,d,yes
+123,00:08:25:11,00:08:27:14,00:00:02:03,Other Student 5,English,What if I only want to buy 1 ticket?,,,d,yes
+124,00:08:27:21,00:08:28:29,00:00:01:08,Student 1,English,Ticket?,,,d,yes
+125,00:08:30:03,00:08:33:01,00:00:02:28,Other Student 5,English,I can buy two tickets for [unintelligible] dollars.,,,d,yes
+126,00:08:33:07,00:08:35:05,00:00:01:28,Other Student 5,English,What happens if I only want 1?,,,d,yes
+127,00:08:35:07,00:08:37:14,00:00:02:07,Student 1,English,You would take away...,,,d,yes
+128,00:08:37:18,00:08:39:29,00:00:02:11,All Students,English,[crosstalk],,,d,
+129,00:08:40:02,00:08:41:20,00:00:01:18,Student 1,English,Divide this by two and then...,,,d,yes
+130,00:08:43:27,00:08:45:11,00:00:01:14,Student 1,English,Subtract...,,,d,yes
+131,00:08:46:28,00:08:49:07,00:00:02:09,Other Student 5,English,So Z equals [unintelligible],,,d,yes
+132,00:08:49:10,00:08:52:02,00:00:02:22,Student 4,English,And 3 divided by 3 is...,,,d,yes
+133,00:08:52:04,00:08:53:22,00:00:01:18,Student 3,English,1,,,d,yes
+134,00:08:53:27,00:08:54:21,00:00:00:24,Other Student 5,English,You got it!,,,d,yes
+135,00:08:56:14,00:08:58:18,00:00:02:04,Student 1,English,It's fractions...,,,d,yes
+136,00:08:59:16,00:09:01:06,00:00:01:18,Other Student 5,English,"No, no, look at the...",,,d,yes
+137,00:09:02:03,00:09:03:09,00:00:01:06,Student 4,English,What's six divided by three?,,,d,yes
+138,00:09:05:11,00:09:07:26,00:00:02:15,Student 1,English,Take away three from seventy?,,,d,yes
+139,00:09:10:18,00:09:11:27,00:00:01:09,Teacher,English,I said waterfall.,,,d,
+140,00:09:13:14,00:09:14:11,00:00:00:27,Teacher,English,"Thank you, guys.",,,d,
+141,00:09:20:22,00:09:22:26,00:00:02:04,Teacher,English,I want to see you be able to do this.,,,d,
+142,00:09:26:28,00:09:31:17,00:00:04:19,Teacher,English,"So I'm seeing some resistance, [unintelligible] our equations.",,,d,
+143,00:09:31:20,00:09:34:25,00:00:03:05,Teacher,English,Instead of coming around and checking your workbooks...,,,d,
