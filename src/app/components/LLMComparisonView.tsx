@@ -50,6 +50,7 @@ export default function LLMComparisonView({
   const [isStatsCollapsed, setIsStatsCollapsed] = useState<boolean>(true);
   const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(0);
   const [definitionPopup, setDefinitionPopup] = useState<{code: string, definition: string} | null>(null);
+  const [showAllRows, setShowAllRows] = useState<boolean>(false);
 
   // Helper function to get feature value for any code in a feature
   const getFeatureValue = (data: AnnotationData | null, feature: string, lineNumber: number): boolean => {
@@ -299,8 +300,8 @@ export default function LLMComparisonView({
     }
   }) : [];
 
-  // Filter out rows that are entirely unannotable (all "-")
-  const displayTableData = baseTableData.filter(row => isTableRowSelectable(row));
+  // Filter out rows that are entirely unannotable (all "-") unless showAllRows is true
+  const displayTableData = showAllRows ? baseTableData : baseTableData.filter(row => isTableRowSelectable(row));
 
   const availableFeatures = getAvailableFeatures();
 
@@ -603,9 +604,23 @@ export default function LLMComparisonView({
                 Clear
                   </button>
                 )}
+                
+                {/* Toggle to show all rows */}
+                <button
+                  onClick={() => setShowAllRows(!showAllRows)}
+                  className={`px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2 ${
+                    showAllRows
+                      ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                  title={showAllRows ? 'Currently showing all rows' : 'Currently showing only annotatable rows'}
+                >
+                  <span className="text-xs">{showAllRows ? '👁️' : '🔍'}</span>
+                  {showAllRows ? 'Show All' : 'Annotated Only'}
+                </button>
               </div>
           <div className="text-xs text-gray-500 mt-2">
-            Tip: Enter a number to search by line, or text to search utterances. {searchTerm ? `Found ${searchResults.length} result${searchResults.length !== 1 ? 's' : ''}.` : `Showing ${displayTableData.length} total rows.`}
+            Tip: Enter a number to search by line, or text to search utterances. Use the toggle to show all rows or only annotatable ones. {searchTerm ? `Found ${searchResults.length} result${searchResults.length !== 1 ? 's' : ''}.` : `Showing ${displayTableData.length} ${showAllRows ? 'total' : 'annotatable'} rows.`}
             </div>
             </div>
       )}
@@ -709,26 +724,40 @@ export default function LLMComparisonView({
                               const humanValue = getCodeValue(humanAnnotations, selectedFeature, code, row.col2);
                               const llmValue = getCodeValue(llmAnnotations, selectedFeature, code, row.col2);
                               const isMatch = humanValue === llmValue;
+                              const isRowAnnotatable = isTableRowSelectable(row);
                               
                               return (
                                 <td key={code} className={`p-1 border text-center text-xs font-medium transition-colors ${
+                                  !isRowAnnotatable ? 'border-gray-300 bg-gray-50' :
                                   !isMatch ? 'border-red-400 border-2 bg-red-50' : 'border-gray-300 hover:bg-gray-50'
                                 }`}>
-                                  {/* Stacked layout */}
-                                  <div className="flex flex-col gap-1">
-                                    {/* Human value on top */}
-                                    <div className={`px-2 py-1 rounded transition-colors ${
-                                      humanValue ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-200 text-gray-600'
-                                    }`}>
-                                      {humanValue ? 'Yes' : 'No'}
-              </div>
-                                    {/* LLM value on bottom */}
-                                    <div className={`px-2 py-1 rounded transition-colors ${
-                                      llmValue ? 'bg-green-600 text-white shadow-sm' : 'bg-gray-200 text-gray-600'
-                                    }`}>
-                                      {llmValue ? 'Yes' : 'No'}
-        </div>
-      </div>
+                                  {isRowAnnotatable ? (
+                                    /* Stacked layout for annotatable rows */
+                                    <div className="flex flex-col gap-1">
+                                      {/* Human value on top */}
+                                      <div className={`px-2 py-1 rounded transition-colors ${
+                                        humanValue ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-200 text-gray-600'
+                                      }`}>
+                                        {humanValue ? 'Yes' : 'No'}
+                                      </div>
+                                      {/* LLM value on bottom */}
+                                      <div className={`px-2 py-1 rounded transition-colors ${
+                                        llmValue ? 'bg-green-600 text-white shadow-sm' : 'bg-gray-200 text-gray-600'
+                                      }`}>
+                                        {llmValue ? 'Yes' : 'No'}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    /* Non-annotatable rows show N/A */
+                                    <div className="flex flex-col gap-1">
+                                      <div className="px-2 py-1 rounded bg-gray-100 text-gray-400 text-xs">
+                                        N/A
+                                      </div>
+                                      <div className="px-2 py-1 rounded bg-gray-100 text-gray-400 text-xs">
+                                        N/A
+                                      </div>
+                                    </div>
+                                  )}
                                 </td>
                               );
                             })}
@@ -790,16 +819,21 @@ export default function LLMComparisonView({
                                  // Get LLM value as integer
                                  const llmValue = llmAnnotations?.[selectedFeature]?.annotations[row.col2 - 1]?.[code] ?? 0;
                                  const intValue = typeof llmValue === 'number' ? Math.round(llmValue) : parseInt(String(llmValue)) || 0;
+                                 const isRowAnnotatable = isTableRowSelectable(row);
                       
                       return (
-                                   <td key={code} className="p-3 border border-gray-300 text-center">
-                                     {intValue > 0 ? (
-                                       <div className="text-black font-normal text-base">
-                                         {intValue}
-                            </div>
-                          ) : (
-                                       <div className="h-8"></div>
-                          )}
+                                   <td key={code} className={`p-3 border border-gray-300 text-center ${!isRowAnnotatable ? 'bg-gray-50' : ''}`}>
+                                     {isRowAnnotatable ? (
+                                       intValue > 0 ? (
+                                         <div className="text-black font-normal text-base">
+                                           {intValue}
+                                         </div>
+                                       ) : (
+                                         <div className="h-8"></div>
+                                       )
+                                     ) : (
+                                       <div className="text-gray-400 text-sm">N/A</div>
+                                     )}
                         </td>
                       );
                     })}
@@ -1028,13 +1062,19 @@ export default function LLMComparisonView({
                     const humanValue = getFeatureValue(humanAnnotations, selectedFeature, row.col2);
                     const llmValue = getFeatureValue(llmAnnotations, selectedFeature, row.col2);
                     const isMatch = humanValue === llmValue;
+                    const isRowAnnotatable = isTableRowSelectable(row);
                     
                     // Use the same speaker colors as main transcript page
                     let rowBgColor = speakerColors[row.col5] || 'bg-gray-100';
                     
-                    // Override with disagreement color if values don't match
-                    if (!isMatch) {
+                    // Override with disagreement color if values don't match (only for annotatable rows)
+                    if (isRowAnnotatable && !isMatch) {
                       rowBgColor = 'bg-red-50';
+                    }
+                    
+                    // Add gray background for non-annotatable rows
+                    if (!isRowAnnotatable) {
+                      rowBgColor = 'bg-gray-50';
                     }
                     
                     // Highlight current search result
@@ -1063,23 +1103,39 @@ export default function LLMComparisonView({
                         </td>
                         <td className={`p-3 border border-gray-300 max-w-xs truncate sticky left-32 z-10 ${rowClass} border-r-2 border-r-gray-400 shadow-sm text-gray-900`}>{row.col6}</td>
                         <td className="p-3 border border-gray-300">
-                          <span className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                            humanValue ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {humanValue ? 'Yes' : 'No'}
-                          </span>
+                          {isRowAnnotatable ? (
+                            <span className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                              humanValue ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {humanValue ? 'Yes' : 'No'}
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded text-xs font-medium bg-gray-100 text-gray-400">
+                              N/A
+                            </span>
+                          )}
                         </td>
                         <td className="p-3 border border-gray-300">
-                          <span className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                            llmValue ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {llmValue ? 'Yes' : 'No'}
-                          </span>
+                          {isRowAnnotatable ? (
+                            <span className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                              llmValue ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {llmValue ? 'Yes' : 'No'}
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded text-xs font-medium bg-gray-100 text-gray-400">
+                              N/A
+                            </span>
+                          )}
                         </td>
                         <td className="p-3 border border-gray-300 text-center">
-                          <span className={`text-lg ${isMatch ? 'text-green-600' : 'text-red-600'}`}>
-                            {isMatch ? '✓' : '✗'}
-                          </span>
+                          {isRowAnnotatable ? (
+                            <span className={`text-lg ${isMatch ? 'text-green-600' : 'text-red-600'}`}>
+                              {isMatch ? '✓' : '✗'}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
                         </td>
                       </tr>
                     );
