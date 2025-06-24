@@ -1,0 +1,135 @@
+#,In cue,Out cue,Duration,Speaker,Dialogue,Annotations,Error Type,Segment,Selectable,ASSENT,CAUSE,CERTITUDE,COGNITION,COGPROC,FOCUSFUTURE,FOCUSPAST,FOCUSPRESENT,PRONOUN,SOCIAL,TENTAT,TIME
+1,00:00:00:05,00:00:01:13,00:00:01:08,Student 3,we're going to do a little ASMR.,,,a,yes,0,0,0,0,0,1,0,1,1,1,0,0
+2,00:00:02:11,00:00:04:26,00:00:02:15,Student 4,That's the first thing that all the middle school students say when they,,,a,yes,0,0,0,1,0,0,0,0,2,2,0,1
+3,00:00:04:26,00:00:05:10,00:00:00:14,Student 3,Right.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+4,00:00:06:04,00:00:07:07,00:00:01:03,Student 3,Like...,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+5,00:00:08:04,00:00:10:04,00:00:02:00,Student 1,And then and then all the microphones are just tic tic tic tic tic tic tic.,,,a,yes,0,0,0,1,0,0,0,1,0,0,0,2
+6,00:00:11:21,00:00:16:11,00:00:04:20,Teacher,"Yeah, you can just put it face down right where it was. Um, and then if you can say your names into your mic.",,,a,,0,0,0,3,3,0,0,2,6,6,1,1
+7,00:00:16:21,00:00:18:03,00:00:01:12,Student 1,My name is Carrie Mollica.,,,a,yes,0,0,0,0,0,0,0,1,0,1,0,0
+8,00:00:18:18,00:00:19:15,00:00:00:27,Student 2,My name is Rachel Beverly.,,,a,yes,0,0,0,0,0,0,0,1,0,1,0,0
+9,00:00:19:22,00:00:21:04,00:00:01:12,Student 3,My name is Gwen Faulkner.,,,a,yes,0,0,0,0,0,0,0,1,0,1,0,0
+10,00:00:22:12,00:00:23:28,00:00:01:16,Student 3,Do we have to say that every time we speak?,,,a,yes,0,0,0,1,0,0,0,0,3,3,0,0
+11,00:00:24:03,00:00:25:07,00:00:01:04,Student 1,"I don't know, just right now.",,,a,yes,0,0,0,0,0,0,0,1,0,0,0,0
+12,00:00:25:07,00:00:36:26,00:00:11:19,Student 2,"I think it's because it should recognize your vocal patterns cuz I know like when I did the research study that threw all them, like it could pick up on each individual student cuz it recognized that that voice was that student even though it didn't listen to it.",,,a,yes,0,3,0,12,11,0,5,1,10,1,0,1
+13,00:00:36:26,00:00:38:22,00:00:01:26,Student 3,"We don't have to say our name each time we speak, do we?",,,a,yes,0,0,0,0,0,0,0,1,2,4,0,0
+14,00:00:38:25,00:00:39:27,00:00:01:02,Teacher,"No, just the just the first time.",,,a,,0,0,0,0,0,0,0,0,0,0,0,0
+15,00:00:39:27,00:00:40:07,00:00:00:10,Student 3,Okay.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+16,00:00:40:15,00:00:43:29,00:00:03:14,Student 3,Cuz I would be doing that embarrassing thing of Gwen Faulkner.,,,a,yes,0,0,0,1,1,0,0,0,1,1,0,0
+17,00:00:41:20,00:00:42:21,00:00:01:01,Student 4,You'd wrap them in.,,,a,yes,0,0,0,0,0,0,0,0,1,1,0,0
+18,00:00:44:17,00:00:48:26,00:00:04:09,Student 1,This is... I think also like it'll say like it came from this microphone so it's that person. Yeah.,,,a,yes,0,0,0,1,1,1,1,1,5,1,0,0
+19,00:00:50:04,00:00:52:00,00:00:01:26,Student 3,Does anyone know how to say something in a different language?,,,a,yes,0,1,0,3,3,0,0,0,0,1,0,0
+20,00:00:53:11,00:00:56:29,00:00:03:18,Student 1,"Um, you can say thank you in Arabic is shukran.",,,a,yes,0,0,0,1,1,0,0,2,2,4,0,0
+21,00:00:57:08,00:00:57:24,00:00:00:16,Student 3,Shukran.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+22,00:00:58:05,00:00:58:21,00:00:00:16,Student 1,Shukran.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+23,00:00:59:03,00:00:59:16,00:00:00:13,Teacher,Okay.,,,a,,0,0,0,0,0,0,0,0,0,0,0,0
+24,01:00:09,01:01:17,00:00:01:08,Student 1,And you're welcome is afwan.,,,a,yes,0,0,0,0,0,0,0,2,1,1,0,0
+25,01:02:18,01:03:02,00:00:00:14,Student 3,Why do you know that?,,,a,yes,0,0,0,1,1,0,0,0,1,1,0,0
+26,01:03:22,01:05:17,00:00:01:25,Student 1,I teach at a school for immigrants and refugees.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+27,01:05:17,01:05:27,00:00:00:10,Student 3,Nice.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+28,01:06:21,01:07:08,00:00:00:17,Teacher,Nice.,,,a,,0,0,0,0,0,0,0,0,0,0,0,0
+29,01:07:18,01:11:29,00:00:04:11,Student 1,"So I know, I'm not fluent in many languages, but I know bits and pieces of lots of different things.",,,a,yes,0,0,0,4,4,0,0,0,0,0,0,0
+30,01:12:08,01:21:23,00:00:09:15,Student 3,"My nephew has been asking a lot of questions about just he loves different countries and he'll even be like, ""what is the second most popular country?"" So I know like the second, third, and fourth of a lot of things.",,,a,yes,0,0,0,3,3,1,1,3,2,5,1,0
+31,01:22:15,01:28:22,00:00:06:07,Student 3,"Anyways, we were talking about Dubai and so we were looking at the different languages that are spoken there and then he wanted to know how to say hi.",,,a,yes,0,1,0,4,4,0,3,1,4,6,0,1
+32,01:28:24,01:29:21,00:00:00:27,Teacher,Here's the here's the task.,,,a,,0,0,0,0,0,0,0,1,0,0,0,0
+33,01:29:21,01:30:11,00:00:00:20,Student 3,In Arabic?,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+34,01:30:18,01:34:04,00:00:03:16,Teacher,This task comes from Illustrative Mathematics grade seven. So you were looking at recognition of...,,,a,,0,0,0,1,1,0,1,1,1,1,0,0
+35,01:34:10,01:35:10,00:00:01:00,Student 3,Hindi. That's Hindi.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+36,01:35:10,01:36:20,00:00:01:10,Student 1,We were talking about India.,,,a,yes,0,0,0,0,0,0,1,0,0,1,0,0
+37,01:36:21,01:38:15,00:00:01:24,Student 3,Okay. So they...,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+38,01:38:15,01:38:22,00:00:00:07,Teacher,In these two...,,,a,,0,0,0,0,0,0,0,0,1,0,0,0
+39,01:39:13,01:41:09,00:00:01:26,Student 4,You also talk about Dubai another time.,,,a,yes,0,0,0,1,1,0,0,0,1,1,0,0
+40,01:41:15,01:46:25,00:00:05:10,Teacher,"In these two diagrams, all triangles weigh the same as each other. All squares weigh the same as each other.",,,a,,0,0,0,3,2,0,0,0,1,0,0,0
+41,01:46:25,01:47:19,00:00:00:24,Student 3,She just recorded.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+42,01:48:10,01:59:22,00:00:11:12,Teacher,"So you want to come up at your tables with one thing that must be true, one thing that could be true, and one thing that can't possibly be true about each of these diagrams. And they're up here and I'm going to pass out paper for you as well.",,,a,,0,0,0,6,6,1,0,2,8,4,1,0
+43,02:00:13,02:01:28,00:00:01:15,Student 3,"I was like, this is Illustrative math.",,,a,yes,0,0,0,0,0,0,1,1,1,0,0,0
+44,02:02:13,02:03:07,00:00:00:24,Student 1,Yeah. That's a...,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+45,02:03:13,02:05:07,00:00:01:24,Student 3,Have you ever done the Math Mobiles?,,,a,yes,0,0,0,1,0,0,1,0,1,1,0,1
+46,02:06:17,02:07:11,00:00:00:24,Student 3,Huh? Math Mobiles?,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+47,02:07:22,02:10:28,00:00:03:06,Student 1,"Yeah, there's like a website where you can have them. I have my kids do it to practice.",,,a,yes,0,0,0,1,1,0,0,2,3,1,0,0
+48,02:08:29,02:09:12,00:00:00:13,Student 3,"Yeah, there's a thing.",,,a,yes,0,0,0,0,0,0,0,1,0,0,0,0
+49,02:11:03,02:12:12,00:00:01:09,Student 3,And they can like make their own. Yeah.,,,a,yes,0,1,0,2,2,0,0,1,2,2,0,0
+50,02:12:15,02:13:00,00:00:00:15,Student 1,Mmm.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+51,02:14:04,02:15:21,00:00:01:17,Student 3,Yeah. I love having my kids do that to practice.,,,a,yes,0,0,0,0,0,0,0,0,2,1,0,0
+52,02:15:21,02:22:15,00:00:06:24,Student 1,I can't believe I just said a lot of Namaste and then it's India. I know this.,,,a,yes,0,0,0,3,3,0,1,2,1,1,0,1
+53,02:22:15,02:22:29,00:00:00:14,Student 3,Yes.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+54,02:25:06,02:27:21,00:00:02:15,Student 3,I'm gonna turn it off and back on and then we're going to start over.,,,a,yes,0,0,0,0,0,2,0,1,2,1,0,2
+55,02:28:10,02:29:26,00:00:01:16,Student 1,My name is Al.,,,a,yes,0,0,0,0,0,0,0,1,0,1,0,0
+56,02:30:17,02:32:00,00:00:01:13,Student 4,No.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+57,02:33:10,02:34:23,00:00:01:13,Student 4,What's one thing that must be true?,,,a,yes,0,0,0,1,1,0,0,0,1,0,0,0
+58,02:35:16,02:38:29,00:00:03:13,Student 1,The triangle must weigh more than the square.,,,a,yes,0,0,0,2,2,0,0,0,0,0,0,0
+59,02:40:05,02:41:22,00:00:01:17,Student 4,Did are the...,,,a,yes,0,0,0,0,0,0,0,1,0,0,0,0
+60,02:41:22,02:42:07,00:00:00:15,Student 1,"than one square, right?",,,a,yes,0,0,0,1,1,0,0,0,0,0,0,0
+61,02:42:07,02:44:17,00:00:02:10,Student 4,Then we have one triangle must weigh more than one square.,,,a,yes,0,0,0,2,2,0,0,0,1,1,0,0
+62,02:44:27,02:52:03,00:00:07:06,Student 4,Only if the point from the triangle to the what we are going to assume is the midpoint is equidistant to the midpoint to the...,,,a,yes,0,0,0,1,1,1,0,3,2,1,1,0
+63,02:52:13,02:53:02,00:00:00:19,Student 3,Yeah.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+64,02:53:02,02:54:10,00:00:01:08,Student 4,"Only, yeah we have to assume.",,,a,yes,1,0,0,0,0,0,0,0,1,1,0,0
+65,02:54:17,02:55:09,00:00:00:22,Student 3,That must be true.,,,a,yes,0,0,0,1,1,0,0,0,0,0,0,0
+66,02:55:12,03:05:07,00:00:09:25,Student 1,"If we if we can assume that it's a if it's a balanced hanger, then the items placed on it, the square has to be weigh less than the triangle.",,,a,yes,0,0,0,4,4,0,1,4,5,2,2,1
+67,03:05:25,03:07:11,00:00:01:16,Student 4,"That's our like our conjecture, right?",,,a,yes,0,0,0,0,0,0,0,0,2,2,0,0
+68,03:07:18,03:08:08,00:00:00:20,Student 1,"Yes, right.",,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+69,03:08:14,03:10:04,00:00:01:20,Student 4,Our unproven statement.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+70,03:10:08,03:14:02,00:00:03:24,Student 1,Unproven statement. They didn't they didn't tell us that the diagram was balanced.,,,a,yes,0,0,0,2,2,0,3,0,3,3,0,0
+71,03:14:14,03:14:26,00:00:00:12,Student 4,Yeah.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+72,03:15:02,03:16:03,00:00:01:01,Student 1,We're going to assume that.,,,a,yes,0,0,0,0,0,1,0,0,0,0,0,0
+73,03:16:15,03:17:01,00:00:00:16,Student 4,Gotcha.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+74,03:18:03,03:19:07,00:00:01:04,Student 1,"in the same way,",,,a,yes,0,0,0,1,1,0,0,0,0,0,0,0
+75,03:19:10,03:20:10,00:00:01:00,Teacher,Be clear about your assumptions.,,,a,,0,0,0,0,0,0,0,0,1,1,0,0
+76,03:20:15,03:20:25,00:00:00:10,Student 1,Okay.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+77,03:21:04,03:34:04,00:00:13:00,Student 1,"In the same way, a circle has to weigh less than a square or weigh way less than a triangle because the circle is with three additional squares to equal to a triangle if the balance is balanced.",,,a,yes,0,1,0,6,6,0,0,3,0,0,2,0
+78,03:34:21,03:45:00,00:00:10:09,Student 4,"Here's a question I have. How do we know that the plane, what way the plane is going? Cuz that can actually be the triangle and the square weighing the same if the plane is this way.",,,a,yes,0,0,1,6,6,0,0,3,5,2,2,0
+79,03:45:11,03:45:26,00:00:00:15,Student 1,Right.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+80,03:46:16,03:48:02,00:00:01:16,Student 4,If we're if we're assuming that we're just...,,,a,yes,0,0,0,1,1,0,0,3,4,3,1,0
+81,03:48:09,03:48:26,00:00:00:17,Student 1,Say that again?,,,a,yes,0,0,0,0,0,0,0,0,1,0,0,0
+82,03:49:10,03:59:22,00:00:10:12,Student 4,"The plane where the um, the line that is adjacent to the... Like you're your viewpoint of it. Like if you're looking at it straight on, they're not balanced if you're looking...",,,a,yes,0,0,0,3,3,0,0,5,7,5,2,0
+83,04:00:01,04:01:18,00:00:01:17,Student 3,"Yeah, so we're assuming that it's balanced.",,,a,yes,0,0,0,0,0,0,0,2,3,1,0,0
+84,04:01:18,04:18:10,00:00:16:22,Student 1,"So, our the pre-made assumption is that we are look if we make the pre-made assumption that we are looking at it straight on and that they are balanced diagrams, like the hanger itself is balanced, then the triangle weighs more than a square and the triangle weighs more than a circle.",,,a,yes,0,1,0,4,4,0,0,5,10,5,1,1
+85,04:18:18,04:22:25,00:00:04:07,Student 4,"if that is a fact, then the triangle and the square will never be equal. They will never be equal.",,,a,yes,0,0,0,3,1,2,0,1,1,0,1,3
+86,04:23:18,04:38:00,00:00:14:12,Student 4,"Well, yeah, it depends if we're looking at it through one one dimension, right? Yeah, so like if we make the pre- pre- uh pre-assumption that it's one dimensional, we're looking at it straight on, and the balance the hanger diagrams themselves are balanced, then those thoughts must be true.",,,a,yes,0,2,0,6,6,0,0,5,9,3,3,1
+87,04:41:21,04:51:14,00:00:09:23,Student 4,"Yeah, but if we're looking at it in a three-dimensional um in a three-dimensional perspective down the line, then they are equal.",,,a,yes,0,0,0,2,2,0,0,2,3,2,1,1
+88,04:51:24,04:52:11,00:00:00:17,Student 3,Right?,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+89,04:52:11,04:52:16,00:00:00:05,Student 4,Yeah.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+90,04:52:20,04:56:06,00:00:03:16,Student 3,"Yeah, I mean yeah, if we look at it from a different viewpoint.",,,a,yes,0,0,0,3,3,0,0,0,2,1,1,0
+91,04:56:09,04:56:29,00:00:00:20,Student 4,What do you mean?,,,a,yes,0,0,0,0,0,0,0,0,1,1,0,0
+92,04:57:04,05:06:29,00:00:09:25,Student 4,"Cuz if I was looking at it from the triangle, looking down at the square, the viewpoint, like this. Okay, so we're seeing it flat. But if I'm looking at it at an angle, then they're the same.",,,a,yes,0,0,0,2,2,0,1,2,5,2,2,1
+93,05:07:06,05:12:12,00:00:05:06,Student 1,"Like if you think of perspective, like if somebody's if somebody's standing in front of something and looking at it versus somebody standing further away for",,,a,yes,0,0,0,5,5,0,0,0,2,1,3,0
+94,05:12:20,05:17:15,00:00:04:25,Student 4,"So we're looking at it like this right now, right? What if you were looking at it like this? Then they would be the same.",,,a,yes,0,0,0,2,2,0,1,1,6,3,1,0
+95,05:17:21,05:18:24,00:00:01:03,Student 3,Mmm hmm.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+96,05:18:28,05:19:14,00:00:00:16,Student 4,Right?,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+97,05:19:22,05:20:00,00:00:00:08,Student 1,Yeah.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+98,05:20:06,05:21:00,00:00:00:24,Student 3,I agree with that.,,,a,yes,1,0,0,0,0,0,0,0,0,1,0,0
+99,05:24:12,05:47:28,00:00:23:16,Student 1,"So, if we're going with the premise that it's balanced and we're looking at it one-dimensional straightforward, something that has to be, basically what we've said is true, must be true. Something that could be true is that the circle weighs more than the square.",,,a,yes,0,0,0,5,5,1,2,6,10,4,1,0
+100,05:48:15,06:02:29,00:00:14:14,Student 1,"Cuz we can make that assumption because there's one circle and three squares. However, we don't have something that shows just the square and circle. So without further investigation, we can't know 100% for sure. We can just assume that it could be true.",,,a,yes,0,2,0,8,8,0,0,5,7,3,0,0
+101,06:03:22,06:13:16,00:00:09:24,Student 1,"And then we can also have, like what you're saying, if we um we could say something could be true if we're looking at it from a different viewpoint that they could be equal depending on your viewpoint of things.",,,a,yes,0,1,0,9,9,0,0,3,10,8,3,1
+102,06:13:21,06:21:16,00:00:07:25,Student 3,It also could be true. I mean we're assuming that the square has weight. It's possible that the square does not have weight,,,a,yes,0,0,0,4,4,0,0,3,3,1,1,0
+103,06:22:04,06:24:26,00:00:02:22,Student 1,and that the triangle and the circle are equal.,,,a,yes,0,0,0,0,0,0,0,1,1,0,0,0
+104,06:25:01,06:25:21,00:00:00:20,Student 3,Yeah.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+105,06:25:21,06:26:07,00:00:00:16,Student 1,It could be.,,,a,yes,0,0,0,1,1,0,0,0,0,0,0,0
+106,06:26:11,06:27:06,00:00:00:25,Student 4,get the triangle...,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+107,06:27:11,06:28:22,00:00:01:11,Student 3,"Yeah. Yeah, that's true.",,,a,yes,0,0,0,0,0,0,0,1,1,0,0,0
+108,06:31:06,06:31:29,00:00:00:23,Student 4,That would that could be possible.,,,a,yes,0,0,0,2,2,0,0,0,1,0,0,0
+109,06:32:15,06:41:22,00:00:09:07,Student 1,Um something that cannot be true? Two squares cannot be equal to one square because it tells us that they all weigh the same.,,,a,yes,0,1,0,4,3,0,0,3,5,3,0,0
+110,06:42:25,06:47:27,00:00:05:02,Student 3,"Well, unless two squares weigh nothing and one square weighs nothing.",,,a,yes,0,0,0,2,1,0,0,0,0,0,0,0
+111,06:47:27,06:53:23,00:00:05:26,Student 1,So then we could say two triangles cannot weigh one triangle because we know the triangle has weight.,,,a,yes,0,1,0,4,4,0,0,2,2,3,0,1
+112,06:54:21,06:56:07,00:00:01:16,Student 3,Unless the triangles are zero.,,,a,yes,0,0,0,0,0,0,0,1,0,0,0,0
+113,06:56:16,07:00:07,00:00:03:21,Student 1,"Well, if the triangle was zero, then the squares would have to be negative.",,,a,yes,0,0,0,2,2,0,1,0,0,0,1,1
+114,07:01:14,07:10:14,00:00:09:00,Student 1,So in some at some uh in some way the triangle has weight because it unless it's like I was saying where it's...,,,a,yes,0,1,0,2,2,0,1,2,2,1,0,0
+115,07:10:14,07:13:00,00:00:02:16,Student 4,"Yeah, cuz that line right there could be like perpendicular.",,,a,yes,0,1,0,2,2,0,0,0,1,0,0,0
+116,07:13:08,07:22:15,00:00:09:07,Student 4,"Right? The intersection for the box on the left, if you're viewing it as the intersection is perpendicular, right? Then they would be",,,a,yes,0,0,0,2,2,0,0,2,3,2,1,0
+117,07:23:08,07:25:10,00:00:02:02,Student 4,"that's when they would be in the same plane, right?",,,a,yes,0,0,0,2,2,0,0,1,2,1,0,1
+118,07:25:21,07:26:02,00:00:00:11,Student 1,Yeah.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+119,07:26:05,07:27:07,00:00:01:02,Teacher,Maybe giving you a hint on this.,,,a,,0,0,0,0,0,0,0,0,1,1,0,0
+120,07:27:14,07:28:02,00:00:00:18,Student 4,"You just, yeah.",,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+121,07:30:17,07:53:05,00:00:22:18,Student 1,"Really, we need we would need more and like I, like you were saying, it's from Illustrative Math. I know this is from like a seventh grade, eighth grade level, so like I know where they're coming at with things. But like if you're coming at it from the viewpoint of we're all different levels, we don't know what level, like we really need some more information on things. Like they need to tell us that, you know, it's one-dimensional or two multi-dimensional or whatever, so we can know what we're looking at.",,,a,yes,0,0,1,17,16,0,1,9,19,14,3,0
+122,07:53:20,08:06:17,00:00:12:27,Student 1,"Cuz otherwise everything is a possible truth because if we don't know those defining characteristics, then we can't we can't have a for sure statement or something that is true and is not true.",,,a,yes,0,1,0,11,11,0,0,6,5,3,3,1
+123,08:06:24,08:07:23,00:00:00:29,Student 3,Mmm hmm.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+124,08:08:14,08:11:29,00:00:03:15,Student 3,In seventh grade are they are thinking about 3D planes already?,,,a,yes,0,0,0,1,1,0,0,2,1,1,0,0
+125,08:12:12,08:13:21,00:00:01:09,Student 1,"No, see, that's the thing.",,,a,yes,0,0,0,0,0,0,0,1,1,0,0,0
+126,08:13:25,08:27:04,00:00:13:09,Student 1,"So in seventh grade and eighth grade, we're not thinking we are not thinking multi- multiple planes. We are thinking this is for introducing expressions and equations. And so they're literally just thinking of it as it's a balance, it's a hanger.",,,a,yes,0,0,0,6,6,0,0,7,7,3,0,0
+127,08:27:12,08:28:00,00:00:00:18,Student 3,Right. Okay.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+128,08:28:10,08:37:29,00:00:09:19,Student 1,"So, yeah, cuz like before they introduced these ones, they show a picture of a set of socks, and one set of socks is balanced and the other set of socks, one sock has something in it to make it unbalanced.",,,a,yes,0,2,0,3,3,0,0,2,5,2,0,1
+129,08:38:15,08:47:11,00:00:08:26,Student 1,"So, like, from my viewpoint having taught those lessons, I'm thinking of it straightforward, balanced hangers, whereas somebody who teaches higher level math... Yeah, exactly.",,,a,yes,0,0,0,2,2,0,1,1,4,1,0,0
+130,08:48:03,09:00:26,00:00:12:23,Student 1,"So, like, I never would have thought of the multiple planes thing until Al brought it up, but it's a valid, it's a valid thought if we don't know what the foundational like point of the lesson is or where the students are in the lesson.",,,a,yes,0,0,0,8,7,0,1,5,5,2,2,2
+131,09:01:09,09:11:28,00:00:10:19,Student 3,"Well, that brings up the interesting point of what must be true to a seventh grader might be different than what must be true to like a high school, a high school calculus student or something.",,,a,yes,0,0,0,8,8,1,0,1,3,1,2,0
+132,09:11:28,09:12:19,00:00:00:21,Student 1,Yeah.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+133,09:13:00,09:13:17,00:00:00:17,Student 3,Yeah.,,,a,yes,0,0,0,0,0,0,0,0,0,0,0,0
+134,09:13:21,09:22:18,00:00:08:27,Student 4,"Cuz even if we tilted that and looked at the direction, so the one the diagram on the right was in a 3D perspective, then it would still be true.",,,a,yes,0,0,0,2,2,0,2,0,3,1,1,1

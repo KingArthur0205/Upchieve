@@ -1,0 +1,154 @@
+#,In cue,Out cue,Duration,Speaker,Dialogue,Annotations,Error Type,Segment,Selectable
+1,00:00:00:10,00:00:00:23,00:00:00:13,Student 1,Yeah.,,,a,yes
+2,00:00:01:25,00:00:07:09,00:00:05:14,Student 1,I think I I watched all the the one that celebrity like,,,a,yes
+3,00:00:07:22,00:00:08:04,00:00:00:12,Student 2,Oh.,,,a,yes
+4,00:00:08:05,00:00:08:14,00:00:00:09,Student 1,Yes.,,,a,yes
+5,00:00:08:24,00:00:10:14,00:00:01:20,Teacher,"Oh, sorry, microphone check one, two, three.",,,a,
+6,00:00:10:24,00:00:11:13,00:00:00:19,Student 1,Are we?,,,a,yes
+7,00:00:11:13,00:00:12:08,00:00:00:25,Teacher,Right.,,,a,
+8,00:00:13:17,00:00:15:07,00:00:01:20,Student 1,"Did you say, did you say your name?",,,a,yes
+9,00:00:15:23,00:00:16:26,00:00:01:03,Student 2,No I just said Marlin. Okay.,,,a,yes
+10,00:00:20:11,00:00:27:14,00:00:07:03,Student 1,"The one where the the the B list celebrities tried to do the Navy SEALs test. Oh, my gosh. I love that one. Yeah.",,,a,yes
+11,00:00:27:14,00:00:29:16,00:00:02:02,Student 3,I love that. Yeah.,,,a,yes
+12,00:00:29:16,00:00:30:17,00:00:01:01,Student 1,"Anyway, yeah.",,,a,yes
+13,00:00:32:03,00:00:34:26,00:00:02:23,Student 1,They're like doing all these crazy jumps and stuff.,,,a,yes
+14,00:00:35:19,00:00:43:08,00:00:07:19,Teacher,"Alright, here's the, here's the task. This, these balance puzzles should have mathematics, pretty sure, because I can see you guys looking with recognition at the diagrams.",,,a,
+15,00:00:43:08,00:00:44:19,00:00:01:11,Student 1,fun. but yeah. Yes.,,,a,yes
+16,00:00:46:04,00:01:06:29,00:00:20:25,Teacher,"For those of you who are not familiar, in these two diagrams, all triangles weigh the same as each other, all squares weigh the same as each other. Um, so you want to come up at your tables with one thing that must be true, one thing that could be true, and one thing that can't possibly be true about each of these diagrams. And they're up here and I'm going to pass out a paper for you as well.",,,a,
+17,01:07:07,01:09:23,00:00:02:16,Student 1,"And triangles weigh the same, and all squares weigh the same.",,,a,yes
+18,01:09:23,01:12:12,00:00:02:19,Student 2,"Oh, interesting. Each diagram. Thank you.",,,a,yes
+19,01:14:02,01:17:15,00:00:03:13,Student 1,each diagram. One thing that it must be true.,,,a,yes
+20,01:27:16,01:28:28,00:00:01:12,Student 2,A triangle is heavier.,,,a,yes
+21,01:28:28,01:31:27,00:00:02:29,Student 1,The triangle is heavier. The value is greater.,,,a,yes
+22,01:31:28,01:33:14,00:00:01:16,Student 3,Triangle must be heavier. Yeah.,,,a,yes
+23,01:33:14,01:36:20,00:00:03:06,Student 2,So should we write that out? Do we Sure.,,,a,yes
+24,01:37:12,01:37:25,00:00:00:13,Student 3,Okay.,,,a,yes
+25,01:37:25,01:41:25,00:00:04:00,Student 1,Triangle must be heavier.,,,a,yes
+26,01:42:25,01:43:21,00:00:00:26,Student 3,But by how much?,,,a,yes
+27,01:44:09,01:44:26,00:00:00:17,Student 1,"Oh, there's the question.",,,a,yes
+28,01:45:10,01:47:04,00:00:01:24,Student 2,I think that's what this gets into the deeper stuff.,,,a,yes
+29,01:47:19,01:50:23,00:00:03:04,Student 3,By about three squares and a circle.,,,a,yes
+30,01:51:17,01:52:16,00:00:00:29,Student 2,One thing that could be true.,,,a,yes
+31,01:53:11,01:57:13,00:00:04:02,Student 3,"The three squares and the circle could, oh but that has to be true.",,,a,yes
+32,01:57:28,01:58:20,00:00:00:22,Student 1,I think it could be true.,,,a,yes
+33,01:58:20,01:59:26,00:00:01:06,Student 2,"No, no, could be.",,,a,yes
+34,01:59:26,02:00:10,00:00:00:14,Student 3,Could be?,,,a,yes
+35,02:00:17,02:05:01,00:00:04:14,Student 2,"Oh, the three could be true. The circle could be the same as the square.",,,a,yes
+36,02:05:01,02:05:15,00:00:00:14,Student 3,"Oh, three squares.",,,a,yes
+37,02:06:05,02:08:08,00:00:02:03,Student 1,Like a circle could be equal to a square.,,,a,yes
+38,02:08:08,02:09:16,00:00:01:08,Student 2,That was the first thing I thought too.,,,a,yes
+39,02:09:16,02:11:15,00:00:02:00,Student 1,"Circle, which could be equal to a green triangle.",,,a,yes
+40,02:11:15,02:13:17,00:00:02:02,Student 2,The circle could be heavier than a square.,,,a,yes
+41,02:13:17,02:15:24,00:00:02:07,Student 1,"Ah, uh-huh. Uh-huh. Two, three squares.",,,a,yes
+42,02:15:24,02:17:09,00:00:01:15,Student 2,Or a square. Yeah.,,,a,yes
+43,02:17:15,02:20:00,00:00:02:15,Student 1,"Like, no, like, sure.",,,a,yes
+44,02:20:25,02:22:04,00:00:01:09,Student 2,One thing that cannot be true.,,,a,yes
+45,02:22:20,02:23:00,00:00:00:10,Student 1,That's easy.,,,a,yes
+46,02:23:06,02:26:24,00:00:03:18,Student 3,"These two could be equal to and then that would be equal to this as well, no?",,,a,yes
+47,02:27:21,02:29:10,00:00:01:19,Student 2,one the circle.,,,a,yes
+48,02:29:17,02:29:26,00:00:00:09,Student 1,Could be.,,,a,yes
+49,02:30:17,02:39:07,00:00:08:20,Student 3,"These three squares and the circle could be half and half. They'd be equal to each other and that, in total, could be equal to the triangle as well, right?",,,a,yes
+50,02:39:07,02:41:26,00:00:02:19,Student 2,"Or it could just be this one's really, really heavy.",,,a,yes
+51,02:41:26,02:43:24,00:00:01:28,Student 1,"Okay. So could be. And those are so light, right?",,,a,yes
+52,02:44:11,02:44:27,00:00:00:16,Student 2,Yeah.,,,a,yes
+53,02:45:00,02:46:27,00:00:01:27,Student 1,Or vice Yeah. Or circle,,,a,yes
+54,02:48:07,02:51:24,00:00:03:17,Student 2,could be heavier.,,,a,yes
+55,02:54:09,02:55:18,00:00:01:09,Student 1,could possibly be heavier than it is.,,,a,yes
+56,02:56:06,02:58:04,00:00:02:00,Student 2,Is enough to balance it. Yeah.,,,a,yes
+57,02:58:19,03:01:26,00:00:03:07,Student 1,It could be heavier than the squares. Possibly the squares. Yeah.,,,a,yes
+58,03:02:26,03:07:22,00:00:04:26,Student 2,One thing that cannot be true is the squares cannot be heavier than the triangle.,,,a,yes
+59,03:07:26,03:08:14,00:00:00:18,Student 1,Mmm.,,,a,yes
+60,03:13:08,03:15:26,00:00:02:18,Student 1,One square is not heavier than the triangle.,,,a,yes
+61,03:15:26,03:17:15,00:00:01:19,Student 2,"That's true. Ah, uh-huh, one square.",,,a,yes
+62,03:17:23,03:20:13,00:00:02:20,Student 1,One square. We don't know how much is three squares.,,,a,yes
+63,03:20:13,03:23:26,00:00:03:13,Student 3,so establish the triangle heavier than the triangle.,,,a,yes
+64,03:25:05,03:30:17,00:00:05:12,Student 1,"But that could also be two squares isn't heavier, three squares isn't heavier than the triangle. So. Yeah.",,,a,yes
+65,03:31:02,03:32:19,00:00:01:17,Student 2,Or circle and square is not heavier.,,,a,yes
+66,03:32:21,03:33:14,00:00:00:23,Student 1,Could be. Yeah.,,,a,yes
+67,03:35:15,03:37:06,00:00:01:21,Student 2,"Both of them cannot be, cannot be.",,,a,yes
+68,03:37:16,03:38:23,00:00:01:07,Student 1,Both cannot be possible.,,,a,yes
+69,03:39:27,03:40:11,00:00:00:14,Student 2,Mm.,,,a,yes
+70,03:45:15,03:47:19,00:00:02:04,Student 2,I guess the circle cannot be heavier.,,,a,yes
+71,03:48:07,03:51:19,00:00:03:12,Student 1,Yeah. There's no one here. than the triangle. Than the triangle.,,,a,yes
+72,03:53:29,03:57:07,00:00:03:08,Student 2,circle cannot be heavier.,,,a,yes
+73,03:57:16,04:00:24,00:00:03:08,Student 1,And I'm like tempted to start assigning values to the numbers.,,,a,yes
+74,04:01:13,04:01:29,00:00:00:16,Student 2,I was going to say the same thing.,,,a,yes
+75,04:02:00,04:03:21,00:00:01:21,Student 1,Yeah. Like I'm wondering in my head too.,,,a,yes
+76,04:03:21,04:09:07,00:00:05:16,Student 2,"Like, um, we're making the assumption all the squares are equal weight.",,,a,yes
+77,04:10:14,04:13:00,00:00:02:16,Student 1,"Well, it said that, yeah, all the squares weigh the same. Yeah.",,,a,yes
+78,04:13:00,04:13:20,00:00:00:20,Student 2,"Okay, right.",,,a,yes
+79,04:14:14,04:18:00,00:00:03:16,Student 1,"Cuz I'm like, already I'm like, oh, if the triangle's 10 then each square is three.",,,a,yes
+80,04:18:00,04:22:15,00:00:04:15,Student 3,"We do that's what I thought. this is then, this is this would be two, two and two. Six and this would be four.",,,a,yes
+81,04:22:15,04:25:06,00:00:02:21,Student 1,and this would be four. three times something plus one equals that.,,,a,yes
+82,04:25:27,04:27:12,00:00:01:15,Student 2,"Oh, yeah. I see you just saying that.",,,a,yes
+83,04:27:12,04:29:21,00:00:02:09,Student 1,"I'm getting out of it. Could you make an, could you make an equation out of it?",,,a,yes
+84,04:30:02,04:31:21,00:00:01:19,Student 2,Which is wild cuz I never do that.,,,a,yes
+85,04:31:21,04:34:25,00:00:03:04,Student 1,"I'm like elementary all the way. Yeah, a triangle is the same.",,,a,yes
+86,04:35:10,04:37:28,00:00:02:18,Student 2,Triangle is equal to 3S plus C equals T.,,,a,yes
+87,04:38:09,04:39:13,00:00:01:04,Student 1,Yeah. Yeah. That could be.,,,a,yes
+88,04:40:02,04:42:25,00:00:02:23,Student 3,Right. Must be. I'm like influenced by middle school over here.,,,a,yes
+89,04:42:25,04:44:26,00:00:02:01,Student 1,That. Robs off.,,,a,yes
+90,04:44:26,04:45:10,00:00:00:14,Student 2,Right.,,,a,yes
+91,04:45:10,04:47:20,00:00:02:10,Student 1,And the second you go to stop throwing things at right.,,,a,yes
+92,04:48:29,04:51:17,00:00:02:18,Student 3,T is greater than S.,,,a,yes
+93,04:51:17,04:52:16,00:00:01:00,Student 1,Yeah. Yeah.,,,a,yes
+94,04:52:16,04:55:18,00:00:03:02,Student 3,T is greater than. Which would also mean S is less than T.,,,a,yes
+95,04:58:24,04:59:16,00:00:00:22,Student 1,This could be,,,a,yes
+96,04:59:26,05:07:05,00:00:07:09,Student 3,"This could also be, this this could this this could be greater than or equal to or less than or equal to. the ratio of the Because",,,a,yes
+97,05:08:14,05:09:09,00:00:00:25,Student 1,"Wait, say that again?",,,a,yes
+98,05:09:09,05:14:26,00:00:05:17,Student 3,"I mean, this could this this you could also have a an inequality here. It could be an equal to.",,,a,yes
+99,05:15:02,05:16:11,00:00:01:09,Student 1,"How? Yeah, how would that work?",,,a,yes
+100,05:16:11,05:19:07,00:00:02:26,Student 3,Cuz all of this is equal to the triangle.,,,a,yes
+101,05:19:15,05:19:25,00:00:00:10,Student 1,Okay.,,,a,yes
+102,05:20:09,05:23:25,00:00:03:16,Student 3,So what would it look like if you rewrote it with an inequality?,,,a,yes
+103,05:24:19,05:35:10,00:00:10:21,Student 1,"Uh. The triangle, triangle could be greater than or equal to or the triangle could be less than or equal to because it has it has an equal to value in it.",,,a,yes
+104,05:35:10,05:38:29,00:00:03:19,Student 3,Wouldn't it have to be equal though? Because the picture is balanced.,,,a,yes
+105,05:40:24,05:41:22,00:00:00:28,Student 1,Yeah.,,,a,yes
+106,05:42:24,05:45:26,00:00:03:02,Student 3,"I mean technically though, technically you could be a",,,a,yes
+107,05:46:25,05:51:17,00:00:04:22,Student 1,"You're saying it you could say you could have a you could have a true, maybe it could be a truth that this could be, this side could",,,a,yes
+108,05:53:23,05:56:19,00:00:02:26,Student 3,could be less than or equal to because it's equal to.,,,a,yes
+109,05:56:29,06:01:24,00:00:04:25,Student 1,"But if it was less than, wouldn't the triangle still be down lower?",,,a,yes
+110,06:02:18,06:07:23,00:00:05:05,Student 3,Because in the picture they're it's equal. The picture says it's equal to but you could also you could you could have an inequality that would,,,a,yes
+111,06:11:13,06:14:14,00:00:03:01,Student 1,suffice an equal you could equal values.,,,a,yes
+112,06:14:28,06:16:20,00:00:01:22,Student 3,If you're assigning values.,,,a,yes
+113,06:17:15,06:18:14,00:00:00:29,Student 1,Maybe.,,,a,yes
+114,06:18:29,06:24:24,00:00:05:25,Student 2,"I think that equation might work if we were saying, I don't know.",,,a,yes
+115,06:24:28,06:29:26,00:00:04:28,Student 1,"Like this, this one would would not have an equal value cuz it's not equal.",,,a,yes
+116,06:30:17,06:32:27,00:00:02:10,Student 2,I'm curious if we could do what you're talking about with just this side.,,,a,yes
+117,06:32:27,06:33:14,00:00:00:17,Student 1,giving you,,,a,yes
+118,06:33:14,06:39:23,00:00:06:09,Student 2,So like theoretically can we say three squares are greater than or equal to but we we don't know. We don't know.,,,a,yes
+119,06:39:23,06:44:27,00:00:05:04,Student 1,We don't know if they're greater than or equal to or less than or equal to the circle.,,,a,yes
+120,06:45:07,06:46:27,00:00:01:20,Student 3,circle.,,,a,yes
+121,06:50:24,06:51:19,00:00:00:25,Student 1,The side can,,,a,yes
+122,06:52:13,06:56:22,00:00:04:09,Student 3,"the side can have an inequality but the side is an equal, it has equality.",,,a,yes
+123,06:57:07,06:58:14,00:00:01:07,Student 1,Okay.,,,a,yes
+124,07:03:22,07:05:22,00:00:02:00,Student 2,One thing that must be true.,,,a,yes
+125,07:05:28,07:06:13,00:00:00:15,Student 1,We got that one.,,,a,yes
+126,07:06:13,07:08:08,00:00:01:25,Student 2,One thing that could must be true. Okay.,,,a,yes
+127,07:09:12,07:12:21,00:00:03:09,Student 1,And one thing that cannot possibly be true.,,,a,yes
+128,07:15:00,07:16:21,00:00:01:21,Student 2,The trapezoid equals a circle.,,,a,yes
+129,07:16:21,07:18:02,00:00:01:11,Student 1,Take about one more minute.,,,a,yes
+130,07:18:13,07:19:19,00:00:01:06,Student 3,there's no trapezoid.,,,a,yes
+131,07:20:00,07:23:05,00:00:03:05,Student 2,"Oh, I was like, wait a second.",,,a,yes
+132,07:23:29,07:31:21,00:00:07:22,Student 1,"That also could be like the triangle, if the triangle's 10, then the circle could be seven and these could each be one.",,,a,yes
+133,07:32:11,07:35:16,00:00:03:05,Student 2,Okay. Like any combination that makes.,,,a,yes
+134,07:35:16,07:37:25,00:00:02:09,Student 1,So the circle could be bigger than,,,a,yes
+135,07:37:25,07:40:24,00:00:02:29,Student 3,Yeah. And these could be two each and then you could have four for this.,,,a,yes
+136,07:40:24,07:41:20,00:00:00:26,Student 1,Uh-huh.,,,a,yes
+137,07:45:10,07:54:05,00:00:08:25,Student 3,"So you're saying that, um, you're saying that these have to these have to combine to an equal number. Yeah.",,,a,yes
+138,07:54:13,07:58:24,00:00:04:11,Student 1,whether it's 10 or whatever number. Yes. Whatever value you give the triangle. How do we know they're even integers?,,,a,yes
+139,07:58:24,08:00:23,00:00:01:29,Student 3,"I mean, that Well, there you go.",,,a,yes
+140,08:00:23,08:02:27,00:00:02:04,Student 1,they could be like decimals or something.,,,a,yes
+141,08:02:27,08:03:19,00:00:00:22,Student 3,"Could be, could be.",,,a,yes
+142,08:03:25,08:05:07,00:00:01:12,Student 1,Yeah. That could be true. It could be,,,a,yes
+143,08:05:13,08:07:12,00:00:01:29,Student 3,Are they positive or are they negative? We don't know.,,,a,yes
+144,08:08:06,08:08:25,00:00:00:19,Student 2,"Oh, that's interesting.",,,a,yes
+145,08:08:29,08:10:29,00:00:02:00,Student 1,Ooh. It just got interesting.,,,a,yes
+146,08:11:11,08:12:12,00:00:01:01,Student 2,That is very interesting.,,,a,yes
+147,08:12:21,08:16:04,00:00:03:13,Student 1,"Ooh. Well, the",,,a,yes
+148,08:18:03,08:22:28,00:00:04:25,Student 3,Do we know if they if they have to be positive? Do we know if the triangle has to be positive?,,,a,yes
+149,08:23:09,08:25:01,00:00:01:22,Student 1,"Oh, it doesn't say that. No, it doesn't say that.",,,a,yes
+150,08:25:17,08:30:08,00:00:04:21,Student 3,"So it could be true that they're all negative, or that some are negative and some are positive.",,,a,yes
+151,08:33:04,08:37:16,00:00:04:12,Student 2,"it has to be if the triangle is negative, that all of these triangle would be the same on the square.",,,a,yes
+152,08:38:09,08:41:09,00:00:03:00,Student 1,"If the triangle is negative, these all have to be negative.",,,a,yes
+153,08:42:06,08:42:25,00:00:00:19,Student 2,Mmm.,,,a,yes

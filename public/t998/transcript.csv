@@ -1,0 +1,106 @@
+#,In cue,Out cue,Duration,Speaker,Dialogue,Annotations,Error Type,Segment,Selectable
+1,00:00:00:26,00:01:06:11,1:05:15,Student 4,So is that the first thing that all the middle school students say when I right? Yeah. And then and then all the high school students say yep.,,,a,yes
+2,0:11:06,0:18:03,0:06:27,Student 1,"I got excited because the questions like put up on the board were what I've been, that's been my like situation scenario whatever, the whole day.",,,a,yes
+3,0:18:21,0:19:01,0:00:10,Student 3,"Oh, nice.",,,a,yes
+4,0:19:01,0:22:21,0:03:20,Student 1,"So I was like, finally, someone's saying the question I've been asking.",,,a,yes
+5,0:22:21,0:23:09,0:00:18,Student 3,Yay.,,,a,yes
+6,0:24:29,0:26:07,0:01:08,Teacher,Do you all say your name into your Not yet.,,,a,
+7,0:26:07,0:26:15,0:00:08,Student 1,Not yet.,,,a,yes
+8,0:27:27,0:29:10,0:01:13,Student 1,Do we need to turn on anything or no?,,,a,yes
+9,0:31:00,0:31:18,0:00:18,Teacher,We're on.,,,a,
+10,0:32:21,0:34:21,0:02:00,Student 2,Ashley Shinda Donitis.,,,a,yes
+11,0:35:10,0:35:28,0:00:18,Student 4,Michael Barrett.,,,a,yes
+12,0:36:26,0:37:25,0:01:00,Student 3,Tracey Shipman.,,,a,yes
+13,0:40:15,0:41:22,0:01:07,Student 4,There's so many Michaels. You got to,,,a,yes
+14,0:42:15,0:43:24,0:01:09,Student 2,Ashley Burch.,,,a,yes
+15,0:45:10,0:46:13,0:01:03,Student 4,I just went with the first one.,,,a,yes
+16,0:46:25,0:47:11,0:00:16,Student 1,I appreciate it.,,,a,yes
+17,0:48:15,0:50:23,0:02:08,Student 1,I'm I'm so curious what math we're going to do.,,,a,yes
+18,0:52:13,0:55:28,0:03:15,Student 1,It's always fun trying to find like the happy medium that everyone feels like they can,,,a,yes
+19,0:56:06,1:05:27,0:09:21,Student 3,"I know, because sometimes when you're so like, um Okay. Yeah, in lower grades like elementary school, it's hard to identify. I'm like, well I guess how do you teach the",,,a,yes
+20,1:06:21,1:07:05,0:00:14,Student 1,What do you teach?,,,a,yes
+21,1:07:22,1:18:14,0:10:22,Student 3,"I teach fifth grade math. Okay. Well, fifth grade, like all multiple subjects, but yeah, I don't know how I forgot everything that I learned like calculus. I don't know what that is anymore.",,,a,yes
+22,1:19:15,1:27:26,0:08:11,Student 2,"I teach high school math and I still if a kid came with an AP Calc tutoring question, I'd be like, well let me like look through that real quick. Let me reteach myself for a second.",,,a,yes
+23,1:29:07,1:36:23,0:07:16,Teacher,"All right, here's the, here's the task. This task comes from Illustrative Mathematics grade seven. Some of you were looking with recognition at the finger diagram.",,,a,
+24,1:37:02,1:37:21,0:00:19,Teacher,"Um, but yeah.",,,a,
+25,1:38:09,1:59:29,0:21:20,Teacher,"So, all, for those of you who are not familiar though, in these two diagrams, all triangles weigh the same as each other, all squares weigh the same as each other. Um so you want to come up at your tables with one thing that must be true, one thing that could be true, and one thing that can't possibly be true about each of these diagrams. And they're up here and I'm going to pass out a paper for you as well.",,,a,
+26,2:03:22,2:03:27,0:00:05,Student 4,Okay.,,,a,yes
+27,2:07:11,2:08:26,0:01:15,Student 3,Gravity works different.,,,a,yes
+28,2:10:20,2:15:02,0:04:12,Student 4,"Must be true, could be true, cannot possibly be true.",,,a,yes
+29,2:16:03,2:16:29,0:00:26,Student 4,Never done this before.,,,a,yes
+30,2:17:15,2:17:29,0:00:14,Student 1,Actually,,,a,yes
+31,2:18:24,2:30:26,0:12:02,Student 3,"Oh, so like, could it be that one thing that must be true? If we put one triangle on one side and one triangle, another triangle on the other side, it would be level.",,,a,yes
+32,2:32:00,2:35:26,0:03:26,Student 1,"That must be true, that a triangle equals a triangle, or a triangle equals a triangle.",,,a,yes
+33,2:36:26,2:42:06,0:05:10,Student 4,We need to do three for this and three for this. Right? I think.,,,a,yes
+34,2:43:21,2:51:25,0:08:04,Student 3,"Oh, so this diagram has to have something that's true and something that could be true, and something that, okay, for this specific I can't make up my own.",,,a,yes
+35,2:52:13,2:57:24,0:05:11,Student 1,"Oh, see, I would think that it's I think what you're saying.",,,a,yes
+36,2:57:24,2:58:24,0:01:00,Student 2,"Oh, yeah.",,,a,yes
+37,2:58:24,3:00:20,0:01:26,Student 3,"Oh, because here we could say that",,,a,yes
+38,3:00:20,3:05:27,0:05:07,Student 2,a triangle must be heavier than a square.,,,a,yes
+39,3:05:27,3:06:06,0:00:09,Student 3,Yeah.,,,a,yes
+40,3:06:17,3:11:27,0:05:10,Student 1,But it could still be true on the right side. I think they do work together in that way.,,,a,yes
+41,3:11:27,3:12:12,0:00:15,Student 2,Yeah. Okay.,,,a,yes
+42,3:12:12,3:12:20,0:00:08,Student 1,Yep.,,,a,yes
+43,3:15:04,3:18:24,0:03:20,Student 3,Very simpler simply we know that a triangle does not equal a square.,,,a,yes
+44,3:19:07,3:20:00,0:00:23,Student 1,"Right, that's a must.",,,a,yes
+45,3:21:05,3:23:09,0:02:04,Student 3,"Yeah, you can just write it down we can keep track of it.",,,a,yes
+46,3:23:09,3:28:29,0:05:20,Student 4,"Although, is this distance greater than this distance?",,,a,yes
+47,3:29:12,3:36:23,0:07:11,Student 1,"Oh, so one thing that could be true? So could there be more bar here and that's adding to the weight?",,,a,yes
+48,3:37:11,3:38:00,0:00:19,Student 1,Or weight.,,,a,yes
+49,3:39:03,3:40:08,0:01:05,Student 1,Or Okay.,,,a,yes
+50,3:43:03,3:46:27,0:03:24,Student 2,So does the length of the bar influence the distribution?,,,a,yes
+51,3:47:24,3:50:24,0:03:00,Student 3,Are they drawn to scale?,,,a,yes
+52,3:52:03,3:54:21,0:02:18,Student 1,I feel like we have to assume that it is.,,,a,yes
+53,3:55:00,3:56:08,0:01:08,Student 2,We know.,,,a,yes
+54,3:59:22,4:02:11,0:02:19,Student 4,"So, three and three quarters.",,,a,yes
+55,4:07:29,4:09:21,0:01:22,Student 4,It's about the same. Okay.,,,a,yes
+56,4:11:15,4:14:26,0:03:11,Student 1,That That is a very supported piece of the puzzle to establish.,,,a,yes
+57,4:22:15,4:25:28,0:03:13,Student 2,So it cannot possibly be true that the square weighs more than the triangle.,,,a,yes
+58,4:26:14,4:26:27,0:00:13,Student 1,Right.,,,a,yes
+59,4:29:19,4:32:15,0:02:26,Student 3,And I don't think it's possible for them to be the same.,,,a,yes
+60,4:32:15,4:32:22,0:00:07,Student 2,Yeah.,,,a,yes
+61,4:34:04,4:37:25,0:03:21,Student 2,It could be true that a square and a circle are the same.,,,a,yes
+62,4:38:21,4:39:15,0:00:24,Student 3,Mmmhmm.,,,a,yes
+63,4:40:02,4:41:22,0:01:20,Student 1,The circle cannot... trying to fill in the...,,,a,yes
+64,4:41:22,4:45:22,0:04:00,Student 3,"Yeah, there's no mention of circles up there, so, yeah, I think that could be true.",,,a,yes
+65,4:46:01,4:47:24,0:01:23,Student 4,There's no circle at all in this one.,,,a,yes
+66,4:47:24,4:48:07,0:00:13,Student 1,Mhm.,,,a,yes
+67,4:51:24,4:52:26,0:01:02,Student 1,be equal parts.,,,a,yes
+68,4:52:26,4:53:05,0:00:09,Student 2,Yeah.,,,a,yes
+69,4:53:29,5:10:20,0:16:21,Student 3,"Like it's an It could be true that the circle weighs the same as a square, then it could be possible for the triangle to weigh the same amount as four squares or four circles, I mean four circles.",,,a,yes
+70,5:11:00,5:14:26,0:03:26,Student 1,The triangle could then weigh the same as four squares and a triangle to equal to four circles.,,,a,yes
+71,5:21:26,5:28:29,0:07:03,Student 4,"So, since we don't know what the circle weighs, it could be true that a circle weighs the same as a square.",,,a,yes
+72,5:34:04,5:41:19,0:07:15,Student 3,"To cla- it's been a while since I've worked with hanger diagrams. There is no element of subtraction like this circle is being a negative value, right?",,,a,yes
+73,5:42:09,5:50:06,0:07:27,Student 1,"I was gonna say that the triangle is definitely more than three squares, because it's three squares and then something else, but what if the circle represents",,,a,yes
+74,5:50:23,5:54:14,0:03:21,Student 3,something negative and then that's not necessarily true. I don't know.,,,a,yes
+75,5:54:14,6:04:22,0:10:08,Student 1,"I think with hanger diagrams though cuz this is based on weight, it has to be all positive. I don't think that it could be like pushing up. Yeah. I think it has to be all positive since it's a hanger since it's like weight based.",,,a,yes
+76,6:04:22,6:05:29,0:01:07,Student 4,Can something have a negative weight?,,,a,yes
+77,6:06:17,6:06:26,0:00:09,Student 1,No.,,,a,yes
+78,6:07:07,6:10:17,0:03:10,Student 3,Right? No. Unless there's another force up here that's,,,a,yes
+79,6:11:15,6:13:09,0:01:24,Student 4,Unless it's a helium balloon.,,,a,yes
+80,6:16:11,6:18:14,0:02:03,Student 4,"I've never, ever done a hanger diagram.",,,a,yes
+81,6:19:28,6:21:25,0:01:27,Student 4,"It's beyond my grade level, so...",,,a,yes
+82,6:25:00,6:33:04,0:08:04,Student 2,"Yeah, I'm trying to think this is lower than mine but I'm trying to think of what this would be the warm up for. Like, what are they learning that's right? Like measurement?",,,a,yes
+83,6:34:00,6:46:27,0:12:27,Student 3,"I could see it connecting measurements for fifth grade. But like, I think, like, I don't know if it would be this wordy, but like, I I've seen Kinder also work with like balancing objects.",,,a,yes
+84,6:47:20,6:56:28,0:09:08,Student 1,"So this would be like inequality related. Like you could write an inequality based on this, and this would be an equivalency, so some type of equation would be generated from this.",,,a,yes
+85,7:01:21,7:06:06,0:04:15,Student 4,So the weight of a triangle is greater than the weight of a square.,,,a,yes
+86,7:06:06,7:14:02,0:07:26,Student 1,And it's like are they going to be for variable representation? Right? So are they going to eventually we could replace with X and Y and Z potentially.,,,a,yes
+87,7:14:26,7:19:22,0:04:26,Student 4,Then is it as simple for the what cannot possibly be true is just to flip that around and say that it,,,a,yes
+88,7:19:22,7:22:25,0:03:03,Student 1,Right. Like we know that,,,a,yes
+89,7:23:00,7:25:21,0:02:21,Student 4,the square cannot weigh more than the triangle.,,,a,yes
+90,7:25:21,7:26:07,0:00:16,Student 1,Uh-huh.,,,a,yes
+91,7:27:07,7:28:10,0:01:03,Student 4,I can give you anything.,,,a,yes
+92,7:33:19,7:33:29,0:00:10,Student 1,So must not.,,,a,yes
+93,7:34:11,7:36:20,0:02:09,Student 4,But the could be. What would the could be be? square,,,a,yes
+94,7:37:16,7:41:25,0:04:09,Student 2,The could be was what we were saying with like a circle could be the same as a square.,,,a,yes
+95,7:42:15,7:46:23,0:04:08,Student 1,"Or a circle could be greater than a square, they see? So what's what's the could be for this one?",,,a,yes
+96,7:47:04,7:47:11,0:00:07,Student 4,Oh.,,,a,yes
+97,7:48:19,7:51:14,0:02:25,Student 2,"I think they just go together, no? I don't know.",,,a,yes
+98,7:51:27,7:54:21,0:02:24,Student 4,"Oh, I was I was reading, yeah, I was reading it a different way.",,,a,yes
+99,7:58:24,8:04:22,0:05:28,Student 2,Well it could be that the triangle weighs twice as much as the square.,,,a,yes
+100,8:04:22,8:05:13,0:00:21,Student 4,Okay.,,,a,yes
+101,8:05:13,8:05:27,0:00:14,Student 1,Mmmhmm.,,,a,yes
+102,8:06:21,8:12:21,0:06:00,Student 3,Would it the angle be affected by like twice versus one minute.,,,a,yes
+103,8:14:14,8:18:23,0:04:09,Student 1,"I think in general with the balance beams that kind of applies, yes.",,,a,yes
+104,8:19:10,8:19:19,0:00:09,Student 3,Very.,,,a,yes
+105,8:20:13,8:29:21,0:09:08,Student 1,"Yeah, so there was like some kind of association with angle and and um, the weight, the uh net weight.",,,a,yes

@@ -327,7 +327,9 @@ export default function UnifiedComparisonView({
   const [currentSearchMatch, setCurrentSearchMatch] = useState<number>(0);
   const [floatingWindows, setFloatingWindows] = useState<FloatingWindowData[]>([]);
   const [nextZIndex, setNextZIndex] = useState<number>(1000);
-  const [showExperts, setShowExperts] = useState<boolean>(true);
+  // Hide Expert columns by default for new transcripts (t996-t999) since they don't have Expert Notes
+  const shouldHideExpertsByDefault = ['996', '997', '998', '999'].includes(number);
+  const [showExperts, setShowExperts] = useState<boolean>(!shouldHideExpertsByDefault);
   const [showLLM, setShowLLM] = useState<boolean>(true);
   const [showOnlyWithNotes, setShowOnlyWithNotes] = useState<boolean>(false);
 
@@ -908,7 +910,11 @@ export default function UnifiedComparisonView({
                               className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mr-1 mb-1 cursor-pointer"
                               title={`${note.title}: ${note.content_1?.substring(0, 100)}${(note.content_1?.length || 0) > 100 ? '...' : ''}`}
                             >
-                              {note.title.length > 15 ? note.title.substring(0, 15) + '...' : note.title}
+                              {/* Show more text when other columns are hidden */}
+                              {(() => {
+                                const maxLength = (showExperts && showLLM) ? 15 : 30;
+                                return note.title.length > maxLength ? note.title.substring(0, maxLength) + '...' : note.title;
+                              })()}
                             </div>
                           ))}
                         </div>
@@ -924,6 +930,9 @@ export default function UnifiedComparisonView({
                           const expertNote = getExpertNoteForLine(rowData.col2, expertCol);
                           const noteContent = expertNote ? getExpertNoteContent(expertNote, expertCol) : null;
                           
+                          // Show more text when LLM columns are hidden
+                          const maxLength = showLLM ? 20 : 50;
+                          
                           return (
                             <td key={expertCol} className="px-4 py-2 border border-gray-300 text-sm">
                               {noteContent?.abstract ? (
@@ -931,7 +940,7 @@ export default function UnifiedComparisonView({
                                   className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full cursor-pointer"
                                   title={noteContent.fullContent}
                                 >
-                                  {noteContent.abstract.length > 20 ? noteContent.abstract.substring(0, 20) + '...' : noteContent.abstract}
+                                  {noteContent.abstract.length > maxLength ? noteContent.abstract.substring(0, maxLength) + '...' : noteContent.abstract}
                                 </div>
                               ) : (
                                 <span className="text-gray-400 text-xs">-</span>
@@ -949,6 +958,9 @@ export default function UnifiedComparisonView({
                           const llmNote = getLLMNoteForLine(rowData.col2, llm.col);
                           const noteContent = llmNote ? getLLMNoteContent(llmNote, llm.col) : null;
                           
+                          // Show more text when Expert columns are hidden
+                          const maxLength = showExperts ? 20 : 60;
+                          
                           return (
                             <td key={llm.col} className="px-4 py-2 border border-gray-300 text-sm">
                               {noteContent?.abstract ? (
@@ -956,7 +968,7 @@ export default function UnifiedComparisonView({
                                   className="inline-block bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded-full cursor-pointer"
                                   title={noteContent.fullContent}
                                 >
-                                  {noteContent.abstract.length > 20 ? noteContent.abstract.substring(0, 20) + '...' : noteContent.abstract}
+                                  {noteContent.abstract.length > maxLength ? noteContent.abstract.substring(0, maxLength) + '...' : noteContent.abstract}
                                 </div>
                               ) : (
                                 <span className="text-gray-400 text-xs">-</span>
