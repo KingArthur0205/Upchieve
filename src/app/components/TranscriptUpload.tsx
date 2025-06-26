@@ -34,24 +34,7 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileUpload(files[0]);
-    }
-  }, []);
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      handleFileUpload(files[0]);
-    }
-  }, []);
-
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = useCallback(async (file: File) => {
     // Validate file type
     if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls') && !file.name.endsWith('.csv')) {
       setUploadStatus({
@@ -107,7 +90,24 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
     } finally {
       setIsUploading(false);
     }
-  };
+  }, [router, onUploadSuccess]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  }, [handleFileUpload]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  }, [handleFileUpload]);
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -141,7 +141,7 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
                 </svg>
                 <div className="text-xs text-blue-700">
                   <p className="font-medium mb-1">💡 Annotation Tip:</p>
-                  <p>For annotation features to work, include a <strong>"Selectable"</strong> column with "yes" values for rows you want to annotate. Only rows marked as selectable will allow feature annotations.</p>
+                  <p>For annotation features to work, include a <strong>&quot;Selectable&quot;</strong> column with &quot;yes&quot; values for rows you want to annotate. Only rows marked as selectable will allow feature annotations.</p>
                 </div>
               </div>
             </div>

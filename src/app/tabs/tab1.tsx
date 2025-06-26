@@ -72,7 +72,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
     loadImages();
   }, [number, selectedSegment, loadImages]);
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = useCallback(async (file: File) => {
     if (!number) return;
 
     // Validate file type
@@ -137,14 +137,14 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
     } finally {
       setIsUploading(false);
     }
-  };
+  }, [number, loadImages]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       handleImageUpload(files[0]);
     }
-  }, []);
+  }, [handleImageUpload]);
 
   const handleDeleteImage = async (index: number, image: { isLegacy?: boolean; filename?: string; originalName?: string }) => {
     if (!number) return;

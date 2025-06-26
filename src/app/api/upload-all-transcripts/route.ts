@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { Storage } from '@google-cloud/storage';
 import fs from 'fs';
 import path from 'path';
@@ -23,7 +23,7 @@ try {
 // Specify the name of your bucket
 const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'mol_summit';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     if (!storage) {
       return NextResponse.json(

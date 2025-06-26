@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface FeatureDefinitionsViewerProps {
   isOpen: boolean;
@@ -29,31 +29,7 @@ export default function FeatureDefinitionsViewer({ isOpen, onClose }: FeatureDef
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
-  // Load feature definitions when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      loadFeatureDefinitions();
-    }
-  }, [isOpen]);
-
-  // Close modal when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isOpen, onClose]);
-
-  const loadFeatureDefinitions = async () => {
+  const loadFeatureDefinitions = useCallback(async () => {
     setLoading(true);
     try {
       // First get the categories
@@ -93,7 +69,31 @@ export default function FeatureDefinitionsViewer({ isOpen, onClose }: FeatureDef
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Load feature definitions when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadFeatureDefinitions();
+    }
+  }, [isOpen, loadFeatureDefinitions]);
+
+  // Close modal when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
 
   const parseXLSXFeatureData = async (arrayBuffer: ArrayBuffer, categories: string[]): Promise<FeatureData> => {
     // Import XLSX dynamically to avoid SSR issues

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 interface ContentData {
   grade_level: string;
@@ -29,13 +29,7 @@ export default function ContentEditor({ transcriptId, isOpen, onClose, onSave }:
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && transcriptId) {
-      loadContent();
-    }
-  }, [isOpen, transcriptId]);
-
-  const loadContent = async () => {
+  const loadContent = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -54,7 +48,13 @@ export default function ContentEditor({ transcriptId, isOpen, onClose, onSave }:
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [transcriptId]);
+
+  useEffect(() => {
+    if (isOpen && transcriptId) {
+      loadContent();
+    }
+  }, [isOpen, transcriptId, loadContent]);
 
   const handleSave = async () => {
     setIsSaving(true);
