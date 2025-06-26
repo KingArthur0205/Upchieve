@@ -1,6 +1,6 @@
 # Transcript Annotation Tool
 
-A comprehensive web application for annotating and analyzing classroom transcripts with educational features and teacher-student discourse analysis.
+This tool is designed for educational researchers to annotate and analyze student discourse transcripts. It supports true/false annotations, note-taking, annotator comparison, and provides visualizations for cross-annotator results.
 
 ## Table of Contents
 
@@ -12,10 +12,6 @@ A comprehensive web application for annotating and analyzing classroom transcrip
 - [File Formats](#file-formats)
 - [Google Cloud Integration](#google-cloud-integration)
 - [Troubleshooting](#troubleshooting)
-
-## Overview
-
-This tool is designed for educational researchers and teachers to analyze classroom discourse through transcript annotation. It supports multiple annotation frameworks, comparison with expert annotations and LLM analysis, and provides comprehensive visualization of teaching and learning patterns.
 
 ### Key Capabilities
 
