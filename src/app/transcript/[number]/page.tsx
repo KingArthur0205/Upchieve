@@ -319,8 +319,8 @@ export default function TranscriptPage() {
   };
 
   // Function to create a new learning goal note with specific rows
-  const handleCreateNoteWithRows = (rowCol2Values: number[]) => {
-    if (rowCol2Values.length === 0) return;
+  const handleCreateNoteWithRows = (rowIndices: number[]) => {
+    if (rowIndices.length === 0) return;
     
     // Use an available ID if one exists, otherwise use nextNoteId
     let noteId: number;
@@ -335,10 +335,8 @@ export default function TranscriptPage() {
       setNextNoteId(noteId + 1);
     }
     
-    // Convert rowCol2Values to array indices for storage
-    const rowIndices = rowCol2Values.map(col2Value => 
-      tableData.findIndex(row => row.col2 === col2Value)
-    ).filter(index => index !== -1);
+    // Get the line numbers (col2 values) for the selected row indices
+    const lineNumbers = rowIndices.map(index => tableData[index]?.col2).filter(lineNum => lineNum !== undefined);
     
     // Create new learning goal note with empty title (will be named in edit window)
     const updatedNotes = [...notes, {
@@ -347,13 +345,13 @@ export default function TranscriptPage() {
       content_1: "",
       content_2: "",
       rowIndices: rowIndices,
-      lineNumbers: rowCol2Values
+      lineNumbers: lineNumbers
     }];
     
     // Update table data learning goal note IDs
-    const updatedTableData = tableData.map(row => ({
+    const updatedTableData = tableData.map((row, index) => ({
       ...row,
-      noteIds: rowCol2Values.includes(row.col2) 
+      noteIds: rowIndices.includes(index) 
         ? [...parseNoteIds(row.noteIds), noteId].join(', ')
         : row.noteIds
     }));
@@ -3803,7 +3801,7 @@ export default function TranscriptPage() {
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => {
-                  handleCreateNoteWithRows([learningGoalNotePopup.rowData.col2]);
+                  handleCreateNoteWithRows([learningGoalNotePopup.rowIndex]);
                   setLearningGoalNotePopup(null);
                 }}
                 className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center gap-2"
@@ -3817,8 +3815,8 @@ export default function TranscriptPage() {
                   <div className="text-sm font-medium text-gray-700 mb-2">Assign to Existing Note:</div>
                   <div className="max-h-48 overflow-y-auto">
                     {notes.map(note => {
-                      const rowIndex = tableData.findIndex(row => row.col2 === learningGoalNotePopup.rowData.col2);
-                      const isAssigned = rowIndex !== -1 && note.rowIndices.includes(rowIndex);
+                      const rowIndex = learningGoalNotePopup.rowIndex;
+                      const isAssigned = note.rowIndices.includes(rowIndex);
                       
                       return (
                         <div 
