@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@google-cloud/storage": "^7.15.2",
+    "@types/archiver": "^6.0.3",
     "@types/lodash": "^4.17.17",
+    "archiver": "^7.0.1",
     "googleapis": "^144.0.0",
     "next": "^15.2.2",
     "papaparse": "^5.5.2",
@@ -26,6 +28,7 @@
     "@types/react": "19.0.10",
     "@types/react-dom": "^19",
     "@types/sbd": "^1.0.5",
+    "@types/xlsx": "^0.0.35",
     "eslint": "^9",
     "eslint-config-next": "15.1.6",
     "postcss": "^8",

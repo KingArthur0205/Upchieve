@@ -28,7 +28,8 @@ interface Props {
   onAnnotationChange?: (data: AnnotationData) => void;
 }
 
-const ALLOWED_SHEETS = ["Talk", "Conceptual", "Discursive", "Lexical"];
+// ALLOWED_SHEETS will be loaded dynamically from API
+let ALLOWED_SHEETS = ["Talk", "Conceptual", "Discursive", "Lexical"]; // Default fallback
 
   // Function to parse XLSX annotation data (extracted from existing logic)
 const parseXLSXAnnotationData = (arrayBuffer: ArrayBuffer, numRows: number, savedData?: AnnotationData): AnnotationData => {
@@ -98,8 +99,18 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadAnnotationData = async () => {
+    const loadFeatureCategoriesAndAnnotationData = async () => {
       try {
+        // First, load the feature categories dynamically
+        console.log('AnnotationPanel: Loading feature categories...');
+        const categoriesResponse = await fetch('/api/get-feature-categories');
+        const categoriesData = await categoriesResponse.json();
+        
+        if (categoriesData.success) {
+          ALLOWED_SHEETS = categoriesData.categories;
+          console.log('AnnotationPanel: Loaded feature categories:', ALLOWED_SHEETS, 'from', categoriesData.source);
+        }
+        
         console.log('AnnotationPanel: Starting to load annotation data from XLSX');
         
         console.log('AnnotationPanel: Loading XLSX file /MOL Roles Features.xlsx');
@@ -127,7 +138,7 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
       }
     };
     
-    loadAnnotationData();
+    loadFeatureCategoriesAndAnnotationData();
   }, [numRows, savedData, onAnnotationChange]);
 
   const handleAnnotationChange = (lineNumber: number, code: string, value: boolean) => {

@@ -25,13 +25,14 @@ import LLMAnalysisComparisonView from "../../components/LLMAnalysisComparisonVie
 import ExpertsComparisonView from "../../components/ExpertsComparisonView";
 import UnifiedComparisonView from "../../components/UnifiedComparisonView";
 
+
 interface CsvRow {
   "#": string;
   "In cue": string;
   "Out cue": string;
   "Speaker": string;
   "Dialogue": string;
-  "Segment": string;
+  "Segment"?: string;
   "selectable"?: string;
   "Selectable"?: string;
   [key: string]: string | undefined; // For any other columns that might exist
@@ -49,7 +50,7 @@ interface Note {
 
 // Updated table row interface
 interface TableRow {
-  col1: string;
+  col1: string | null; // Segment (optional)
   col2: number;
   col3: string;
   col4: string;
@@ -57,6 +58,7 @@ interface TableRow {
   col6: string;
   col7: string; // Selectable field
   noteIds: string; // This will store the comma-separated learning goal note IDs (read-only)
+  [key: string]: string | number | null; // For extra columns
 }
 
 // Types for the feature columns component
@@ -82,10 +84,13 @@ export default function TranscriptPage() {
   const [speakerColors, setSpeakerColors] = useState<{ [key: string]: string }>({});
   const [availableSegment, setAvailableSegment] = useState<string []>([]);
   const [whichSegment, setWhichSegment] = useState<string>("full_transcript");
+  const [speakerFilter, setSpeakerFilter] = useState<string>("full_transcript"); // "full_transcript", "student_only", "teacher_only", or specific speaker
+  const [showSpeakerDropdown, setShowSpeakerDropdown] = useState(false);
+  const [showSegmentDropdown, setShowSegmentDropdown] = useState(false);
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [columnVisibility, setColumnVisibility] = useState({
-    lessonSegmentId: true,
+    segment: true,
     lineNumber: true,
     start: false,
     end: false,
@@ -93,6 +98,9 @@ export default function TranscriptPage() {
     utterance: true,
     notes: true
   });
+  const [extraColumns, setExtraColumns] = useState<string[]>([]);
+  const [extraColumnVisibility, setExtraColumnVisibility] = useState<{[key: string]: boolean}>({});
+  const [hasSegmentColumn, setHasSegmentColumn] = useState(false);
 
   // CRITICAL FIX: Move dropdown states to parent level to persist across re-renders
   const [expandedDropdowns, setExpandedDropdowns] = useState<{[key: string]: boolean}>({});
@@ -114,9 +122,42 @@ export default function TranscriptPage() {
   const [showUnifiedComparison, setShowUnifiedComparison] = useState(false);
 
   // Add these state variables at the top of your component
-  const [leftPanelWidth, setLeftPanelWidth] = useState("33.33%"); // Default 2/6
-  const [centerPanelWidth, setcenterPanelWidth] = useState("66.67%"); // Default 4/6 - right panel removed
+  const [leftPanelWidth, setLeftPanelWidth] = useState("33.33%");
+  const [centerPanelWidth, setCenterPanelWidth] = useState("66.67%");
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+
+  // Add state for in-place editing
+  const [isEditingGradeLevel, setIsEditingGradeLevel] = useState(false);
+  const [isEditingLessonGoal, setIsEditingLessonGoal] = useState(false);
+  const [tempGradeLevel, setTempGradeLevel] = useState("");
+  const [tempLessonGoal, setTempLessonGoal] = useState("");
+
+  // Add state for hidden columns dropdown
+  const [showHiddenColumnsDropdown, setShowHiddenColumnsDropdown] = useState(false);
+  
+  // Add useEffect to handle click outside for dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      if (showSpeakerDropdown && !target.closest('[data-dropdown="speaker"]')) {
+        setShowSpeakerDropdown(false);
+      }
+      
+      if (showSegmentDropdown && !target.closest('[data-dropdown="segment"]')) {
+        setShowSegmentDropdown(false);
+      }
+    };
+
+    if (showSpeakerDropdown || showSegmentDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSpeakerDropdown, showSegmentDropdown]);
 
   // Search functionality state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -134,7 +175,7 @@ export default function TranscriptPage() {
         
         // Recalculate center panel width (no right panel)
         const remainingWidth = 100 - limitedWidth;
-        setcenterPanelWidth(`${remainingWidth}%`);
+        setCenterPanelWidth(`${remainingWidth}%`);
       }
     };
 
@@ -157,6 +198,13 @@ export default function TranscriptPage() {
     setColumnVisibility(prev => ({
       ...prev,
       [columnKey]: !prev[columnKey]
+    }));
+  };
+  
+  const toggleExtraColumnVisibility = (columnName: string) => {
+    setExtraColumnVisibility(prev => ({
+      ...prev,
+      [columnName]: !prev[columnName]
     }));
   };
   // Store learning goal notes separately from table data
@@ -720,7 +768,8 @@ export default function TranscriptPage() {
 
   const [showNotesColumn, setShowNotesColumn] = useState(true);
 
-  const ALLOWED_SHEETS = ["Conceptual", "Discursive"];
+  // ALLOWED_SHEETS will be loaded dynamically from API
+let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
 
   // Function to save all annotations
   const saveAllAnnotations = (data: AnnotationData | null) => {
@@ -1277,14 +1326,24 @@ export default function TranscriptPage() {
   // Memoize the filtered table data
   const filteredTableData = React.useMemo(() => {
     return tableData.filter(rowData => {
-      // Handle student_only filter
-      if (whichSegment === 'student_only') {
-        return rowData.col5.includes('Student');
-      }
+        // Handle speaker filtering
+  if (speakerFilter === 'student_only') {
+    return rowData.col5.includes('Student');
+  } else if (speakerFilter === 'teacher_only') {
+    return rowData.col5.includes('Teacher') || (!rowData.col5.includes('Student') && !rowData.col5.includes('teacher'));
+  } else if (speakerFilter !== 'full_transcript') {
+    // Filter by specific speaker
+    return rowData.col5 === speakerFilter;
+  }
+  
+  // Handle segment filter (existing logic)
+  if (whichSegment === 'student_only') {
+    return rowData.col5.includes('Student');
+  }
       // Handle segment-based filtering
       return whichSegment === 'full_transcript' || rowData.col1 === whichSegment;
     });
-  }, [tableData, whichSegment]);
+      }, [tableData, whichSegment, speakerFilter]);
 
   // Optimize the debounced save to be less aggressive
   const debouncedSave = React.useCallback(
@@ -1320,7 +1379,10 @@ export default function TranscriptPage() {
     tempSelectedRows,
     toggleRowSelection,
     toggleTempRowSelection,
-    getNoteDisplayText
+    getNoteDisplayText,
+    hasSegmentColumn,
+    extraColumns,
+    extraColumnVisibility
   }: {
     rowData: TableRow;
     rowIndex: number;
@@ -1336,6 +1398,9 @@ export default function TranscriptPage() {
     toggleRowSelection: (col2Value: number) => void;
     toggleTempRowSelection: (col2Value: number) => void;
     getNoteDisplayText: (idsString: string, rowIndex: number) => React.ReactNode;
+    hasSegmentColumn: boolean;
+    extraColumns: string[];
+    extraColumnVisibility: {[key: string]: boolean};
   }) => {
     const hasNote = rowData.noteIds.trim() !== "";
     const isSelectedForLineEdit = editingLinesId !== null && tempSelectedRows.includes(+rowData.col2);
@@ -1442,7 +1507,7 @@ export default function TranscriptPage() {
         )}
 
         {/* Standard columns */}
-        {columnVisibility.lessonSegmentId && (
+        {hasSegmentColumn && columnVisibility.segment && (
           <td className="px-2 py-1 border border-black border-2 text-sm text-black w-24">
             {rowData.col1}
           </td>
@@ -1510,6 +1575,18 @@ export default function TranscriptPage() {
           onFeatureChange={onFeatureChange}
         />
         ))}
+
+        {/* Extra Columns */}
+        {extraColumns.map(colName => 
+          extraColumnVisibility[colName] && (
+            <td 
+              key={colName}
+              className="px-2 py-1 border border-black border-2 text-sm text-black w-24"
+            >
+              {rowData[colName]}
+            </td>
+          )
+        )}
       </tr>
     );
   }, (prevProps, nextProps) => {
@@ -1523,7 +1600,10 @@ export default function TranscriptPage() {
       prevProps.selectedRows === nextProps.selectedRows &&
       prevProps.tempSelectedRows === nextProps.tempSelectedRows &&
       prevProps.editingLinesId === nextProps.editingLinesId &&
-      prevProps.isCreatingNote === nextProps.isCreatingNote
+      prevProps.isCreatingNote === nextProps.isCreatingNote &&
+      prevProps.hasSegmentColumn === nextProps.hasSegmentColumn &&
+      prevProps.extraColumns === nextProps.extraColumns &&
+      prevProps.extraColumnVisibility === nextProps.extraColumnVisibility
     );
   });
 
@@ -1556,8 +1636,18 @@ export default function TranscriptPage() {
 
   // Add this useEffect to load annotation data when needed
   useEffect(() => {
-    const loadAnnotationData = async () => {
+    const loadFeatureCategoriesAndAnnotationData = async () => {
       try {
+        // First, load the feature categories dynamically
+        console.log('Loading feature categories...');
+        const categoriesResponse = await fetch('/api/get-feature-categories');
+        const categoriesData = await categoriesResponse.json();
+        
+        if (categoriesData.success) {
+          ALLOWED_SHEETS = categoriesData.categories;
+          console.log('Loaded feature categories:', ALLOWED_SHEETS, 'from', categoriesData.source);
+        }
+        
         console.log('Starting to load annotation data from XLSX');
         
         let newData = annotationData ? { ...annotationData } : {};
@@ -1580,7 +1670,7 @@ export default function TranscriptPage() {
     
     // Load annotation data when component mounts or tableData changes
     if (tableData.length > 0) {
-      loadAnnotationData();
+      loadFeatureCategoriesAndAnnotationData();
     }
   }, [tableData.length]);
 
@@ -1753,17 +1843,51 @@ export default function TranscriptPage() {
               return;
             }
             
+            // Get headers and detect extra columns
+            const headers = Object.keys((result.data as CsvRow[])[0] || {});
+            const coreColumns = ["#", "In cue", "Out cue", "Speaker", "Dialogue", "Segment", "selectable", "Selectable"];
+            const extraCols = headers.filter(header => !coreColumns.includes(header));
+            
+            // Check if Segment column exists
+            const hasSegment = headers.includes("Segment");
+            setHasSegmentColumn(hasSegment);
+            
+            // Ensure segment column is visible if it exists
+            if (hasSegment) {
+              setColumnVisibility(prev => ({
+                ...prev,
+                segment: true
+              }));
+            }
+            
+            // Setup extra columns
+            setExtraColumns(extraCols);
+            const initialExtraVisibility: {[key: string]: boolean} = {};
+            extraCols.forEach(col => {
+              initialExtraVisibility[col] = false; // Hidden by default
+            });
+            setExtraColumnVisibility(initialExtraVisibility);
+            
             // Add the type assertion here with updated schema
-            const updatedData = (result.data as CsvRow[]).map((row, index) => ({
-              col1: row["Segment"] || `Row ${index + 1} Col 1`,
-              col2: parseInt(row["#"], 10) || 10,
-              col3: row["In cue"] || `Row ${index + 1} Col 3`,
-              col4: row["Out cue"] || `Row ${index + 1} Col 4`,
-              col5: row["Speaker"] || `Row ${index + 1} Col 5`,
-              col6: row["Dialogue"] || `Row ${index + 1} Col 6`,
-              col7: row["selectable"] || row["Selectable"] || "false",
-              noteIds: "",
-            }));
+            const updatedData = (result.data as CsvRow[]).map((row, index) => {
+              const baseData: TableRow = {
+                col1: hasSegment ? (row["Segment"] || null) : null,
+                col2: parseInt(row["#"], 10) || 10,
+                col3: row["In cue"] || `Row ${index + 1} Col 3`,
+                col4: row["Out cue"] || `Row ${index + 1} Col 4`,
+                col5: row["Speaker"] || `Row ${index + 1} Col 5`,
+                col6: row["Dialogue"] || `Row ${index + 1} Col 6`,
+                col7: row["selectable"] || row["Selectable"] || "false",
+                noteIds: "",
+              };
+              
+              // Add extra columns
+              extraCols.forEach(col => {
+                baseData[col] = row[col] || "";
+              });
+              
+              return baseData;
+            });
             setTableData(updatedData);
             setLoading(false);
           },
@@ -1857,6 +1981,18 @@ export default function TranscriptPage() {
             
             setNotes(notesWithLineNumbers);
             setNextNoteId(parsedData.nextNoteId || Math.max(...parsedData.notes.map((n: Note) => n.id), 0) + 1);
+          }
+          
+          // Check if the loaded data has segment column and ensure it's visible
+          if (parsedData.tableData && parsedData.tableData.length > 0) {
+            const hasSegment = parsedData.tableData[0].col1 !== null && parsedData.tableData[0].col1 !== undefined;
+            setHasSegmentColumn(hasSegment);
+            if (hasSegment) {
+              setColumnVisibility(prev => ({
+                ...prev,
+                segment: true
+              }));
+            }
           }
           
 
@@ -2884,6 +3020,115 @@ export default function TranscriptPage() {
     );
   };
 
+  // Functions for in-place content editing
+  const startEditingGradeLevel = () => {
+    setTempGradeLevel(gradeLevel);
+    setIsEditingGradeLevel(true);
+  };
+
+  const startEditingLessonGoal = () => {
+    setTempLessonGoal(lessonGoal);
+    setIsEditingLessonGoal(true);
+  };
+
+  const saveGradeLevel = async () => {
+    try {
+      // Get current content first
+      const getResponse = await fetch(`/api/update-content?transcriptId=t${number}`);
+      const { content: currentContent } = await getResponse.json();
+      
+      // Update with new grade level
+      const updatedContent = {
+        ...currentContent,
+        gradeLevel: tempGradeLevel
+      };
+      
+      const response = await fetch('/api/update-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transcriptId: `t${number}`,
+          content: updatedContent,
+        }),
+      });
+
+      if (response.ok) {
+        setGradeLevel(tempGradeLevel);
+        setIsEditingGradeLevel(false);
+      } else {
+        alert('Failed to save grade level');
+      }
+    } catch (error) {
+      console.error('Error saving grade level:', error);
+      alert('Failed to save grade level');
+    }
+  };
+
+  const saveLessonGoal = async () => {
+    try {
+      // Get current content first
+      const getResponse = await fetch(`/api/update-content?transcriptId=t${number}`);
+      const { content: currentContent } = await getResponse.json();
+      
+      // Update with new lesson goal
+      const updatedContent = {
+        ...currentContent,
+        lessonGoal: tempLessonGoal
+      };
+      
+      const response = await fetch('/api/update-content', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transcriptId: `t${number}`,
+          content: updatedContent,
+        }),
+      });
+
+      if (response.ok) {
+        setLessonGoal(tempLessonGoal);
+        setIsEditingLessonGoal(false);
+      } else {
+        alert('Failed to save lesson goal');
+      }
+    } catch (error) {
+      console.error('Error saving lesson goal:', error);
+      alert('Failed to save lesson goal');
+    }
+  };
+
+  const cancelEditingGradeLevel = () => {
+    setTempGradeLevel("");
+    setIsEditingGradeLevel(false);
+  };
+
+  const cancelEditingLessonGoal = () => {
+    setTempLessonGoal("");
+    setIsEditingLessonGoal(false);
+  };
+
+  // Handle click outside to close hidden columns dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showHiddenColumnsDropdown) {
+        const target = event.target as Element;
+        const dropdown = target.closest('.relative');
+        if (!dropdown || !dropdown.contains(target)) {
+          setShowHiddenColumnsDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showHiddenColumnsDropdown]);
+
   if (!mounted) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-white">
@@ -2974,9 +3219,42 @@ export default function TranscriptPage() {
       <div className="w-full max-w-6xl p-4 mb-4">
         <div className="bg-gray-100 border rounded-lg p-4 mb-4">
           <div className="flex justify-between items-start mb-3">
-            <h1 className="text-xl text-gray-800 font-semibold">
-              {gradeLevel}
-        </h1>
+            {/* Editable Grade Level */}
+            <div className="flex-1 mr-4">
+              {isEditingGradeLevel ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={tempGradeLevel}
+                    onChange={(e) => setTempGradeLevel(e.target.value)}
+                    className="flex-1 text-xl text-gray-800 font-semibold bg-white border border-gray-300 rounded px-2 py-1"
+                    placeholder="Enter grade level..."
+                    autoFocus
+                  />
+                  <button
+                    onClick={saveGradeLevel}
+                    className="px-2 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={cancelEditingGradeLevel}
+                    className="px-2 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <h1 
+                  className="text-xl text-gray-800 font-semibold cursor-pointer hover:bg-gray-200 p-1 rounded"
+                  onClick={startEditingGradeLevel}
+                  title="Click to edit grade level"
+                >
+                  {gradeLevel || "Click to add grade level"}
+                </h1>
+              )}
+            </div>
+            
             <button
               onClick={() => setShowLessonGoal(!showLessonGoal)}
               className="px-3 py-1 text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-md transition-colors flex items-center gap-1"
@@ -3002,46 +3280,198 @@ export default function TranscriptPage() {
           
           {showLessonGoal && (
             <>
-              {lessonGoal && (
-                <div>
-                  <h2 className="text-lg text-gray-800 font-medium mb-2">Lesson Goal:</h2>
-                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                    {lessonGoal}
+              {/* Editable Lesson Goal */}
+              <div>
+                <h2 className="text-lg text-gray-800 font-medium mb-2">Lesson Goal:</h2>
+                {isEditingLessonGoal ? (
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      value={tempLessonGoal}
+                      onChange={(e) => setTempLessonGoal(e.target.value)}
+                      className="w-full text-gray-700 leading-relaxed bg-white border border-gray-300 rounded px-3 py-2 min-h-[100px]"
+                      placeholder="Enter lesson goal..."
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={saveLessonGoal}
+                        className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={cancelEditingLessonGoal}
+                        className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p 
+                    className="text-gray-700 leading-relaxed whitespace-pre-line cursor-pointer hover:bg-gray-200 p-2 rounded"
+                    onClick={startEditingLessonGoal}
+                    title="Click to edit lesson goal"
+                  >
+                    {lessonGoal || "Click to add lesson goal"}
                   </p>
-                </div>
-              )}
+                )}
+              </div>
             </>
           )}
         </div>
       </div>
 
       <div className="flex justify-between items-center mb-2">
-        <h2 className="text-xl font-semibold text-gray-800 text-center">Click the button to view a particular lesson segment (full_transcript shows the entire lesson)</h2>
+        <h2 className="text-xl font-semibold text-gray-800 text-center">Filter by lesson segment or speaker</h2>
       </div>
-      <div>
-        {availableSegment.map((segment) => (
-            <button
-              key={segment}
-              onClick={() => handleSegmentClick(segment)}
-            className={`px-3 py-1 rounded-md text-sm text-white mr-2 ${
-                whichSegment === segment ? 'bg-blue-500 hover:bg-blue-700' : 'bg-gray-400'
-              }`}
-            >
-              {segment}
-            </button>
-          ))}
+      <div className="flex gap-2">
+        {/* Segment Filter Dropdown */}
+        <div className="relative inline-block" data-dropdown="segment">
           <button
-          onClick={() => handleSegmentClick('student_only')}
-          className={`px-3 py-1 rounded-md text-sm text-white mr-2 ${
-            whichSegment === 'student_only' ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-400'
+            onClick={() => setShowSegmentDropdown(!showSegmentDropdown)}
+            className={`px-3 py-1 rounded-md text-sm text-white flex items-center gap-1 ${
+              whichSegment !== 'full_transcript' ? 'bg-blue-500 hover:bg-blue-700' : 'bg-gray-400 hover:bg-gray-500'
             }`}
-        >
-          student_only
+          >
+            {whichSegment === 'full_transcript' ? 'All Segments' : whichSegment}
+            <svg className={`w-4 h-4 transition-transform ${showSegmentDropdown ? 'rotate-180' : ''}`} 
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
           </button>
+
+          {showSegmentDropdown && (
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50 min-w-[200px]">
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    handleSegmentClick('full_transcript');
+                    setShowSegmentDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+                    whichSegment === 'full_transcript' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  📝 All Segments
+                </button>
+                
+                {/* Individual Segment Options */}
+                {availableSegment.length > 0 && (
+                  <>
+                    <div className="border-t border-gray-200 my-1"></div>
+                    <div className="px-3 py-1 text-xs text-gray-500 font-medium">Individual Segments:</div>
+                    {availableSegment.map(segment => (
+                      <button
+                        key={segment}
+                        onClick={() => {
+                          handleSegmentClick(segment);
+                          setShowSegmentDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+                          whichSegment === segment ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        📋 {segment}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Speaker Filter Dropdown */}
+        <div className="relative inline-block" data-dropdown="speaker">
+          <button
+            onClick={() => setShowSpeakerDropdown(!showSpeakerDropdown)}
+            className={`px-3 py-1 rounded-md text-sm text-white flex items-center gap-1 ${
+              speakerFilter !== 'full_transcript' ? 'bg-green-500 hover:bg-green-700' : 'bg-gray-400 hover:bg-gray-500'
+            }`}
+          >
+            {speakerFilter === 'full_transcript' ? 'All Speakers' : 
+             speakerFilter === 'student_only' ? 'Students Only' :
+             speakerFilter === 'teacher_only' ? 'Teachers Only' :
+             speakerFilter}
+            <svg className={`w-4 h-4 transition-transform ${showSpeakerDropdown ? 'rotate-180' : ''}`} 
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {showSpeakerDropdown && (
+            <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50 min-w-[200px]">
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setSpeakerFilter('full_transcript');
+                    setShowSpeakerDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+                    speakerFilter === 'full_transcript' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  🔊 All Speakers
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSpeakerFilter('student_only');
+                    setShowSpeakerDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+                    speakerFilter === 'student_only' ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  🎓 Students Only
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSpeakerFilter('teacher_only');
+                    setShowSpeakerDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+                    speakerFilter === 'teacher_only' ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-700'
+                  }`}
+                >
+                  👨‍🏫 Teachers Only
+                </button>
+                
+                {/* Individual Speaker Options */}
+                {Object.keys(speakerColors).length > 0 && (
+                  <>
+                    <div className="border-t border-gray-200 my-1"></div>
+                    <div className="px-3 py-1 text-xs text-gray-500 font-medium">Individual Speakers:</div>
+                    {Object.keys(speakerColors).map(speaker => (
+                      <button
+                        key={speaker}
+                        onClick={() => {
+                          setSpeakerFilter(speaker);
+                          setShowSpeakerDropdown(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 ${
+                          speakerFilter === speaker ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'
+                        }`}
+                      >
+                        <div 
+                          className="w-3 h-3 rounded-full border border-gray-300"
+                          style={{ backgroundColor: speakerColors[speaker] }}
+                        ></div>
+                        {speaker}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main 3-panel layout */}
-        <div className="flex w-full max-w-8xl h-[calc(100vh-200px)] mb-4 relative">
+        <div className="flex w-full h-[calc(100vh-200px)] mb-4 relative">
           {/* Left Panel - Prompt and Grade Level */}
           <div className={`p-4 flex flex-col overflow-y-auto border-r border-gray-300 transition-all duration-300 ${showPromptPanel ? '' : 'w-0 p-0 overflow-hidden'}`} style={{ width: showPromptPanel ? leftPanelWidth : '0' }}>
             <div className="bg-gray-100 border rounded-lg shadow-md p-4 mb-4">
@@ -3141,56 +3571,77 @@ export default function TranscriptPage() {
 
             {/* Split into two rows: column toggles and feature buttons */}
             <div className="flex justify-between items-center">
-              {/* Column toggle buttons on the left - only show for hidden columns */}
-              <div className="flex flex-wrap gap-2">
-                {!columnVisibility.lessonSegmentId && (
-              <button
-                    onClick={() => toggleColumnVisibility('lessonSegmentId')}
-                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  >
-                    Show Segment ID
-                  </button>
-                )}
-                {!columnVisibility.lineNumber && (
-                  <button
-                    onClick={() => toggleColumnVisibility('lineNumber')}
-                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  >
-                    Show Line #
-                  </button>
-                )}
-                {!columnVisibility.start && (
-                  <button
-                    onClick={() => toggleColumnVisibility('start')}
-                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  >
-                    Show Start Time
-                  </button>
-                )}
-                {!columnVisibility.end && (
-                  <button
-                    onClick={() => toggleColumnVisibility('end')}
-                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  >
-                    Show End Time
-                  </button>
-                )}
-                {!columnVisibility.speaker && (
-                  <button
-                    onClick={() => toggleColumnVisibility('speaker')}
-                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  >
-                    Show Speaker
-                  </button>
-                )}
-                {!columnVisibility.utterance && (
-                  <button
-                    onClick={() => toggleColumnVisibility('utterance')}
-                    className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300"
-                  >
-                    Show Utterance
-                  </button>
-                )}
+              {/* Hidden Columns Dropdown on the left */}
+              <div className="relative">
+                {(() => {
+                  // Check if there are any hidden columns
+                  const hiddenCoreColumns = [
+                    { key: 'segment', label: 'Segment', condition: hasSegmentColumn && !columnVisibility.segment },
+                    { key: 'lineNumber', label: 'Line #', condition: !columnVisibility.lineNumber },
+                    { key: 'start', label: 'Start Time', condition: !columnVisibility.start },
+                    { key: 'end', label: 'End Time', condition: !columnVisibility.end },
+                    { key: 'speaker', label: 'Speaker', condition: !columnVisibility.speaker },
+                    { key: 'utterance', label: 'Utterance', condition: !columnVisibility.utterance }
+                  ].filter(col => col.condition);
+
+                  const hiddenExtraColumns = extraColumns.filter(colName => !extraColumnVisibility[colName]);
+                  const hasHiddenColumns = hiddenCoreColumns.length > 0 || hiddenExtraColumns.length > 0;
+
+                  if (!hasHiddenColumns) return null;
+
+                  return (
+                    <>
+                      <button
+                        onClick={() => setShowHiddenColumnsDropdown(!showHiddenColumnsDropdown)}
+                        className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 flex items-center gap-1"
+                      >
+                        Hidden Columns
+                        <svg 
+                          className={`w-4 h-4 transition-transform ${showHiddenColumnsDropdown ? 'rotate-180' : ''}`} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {showHiddenColumnsDropdown && (
+                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-50 min-w-[200px]">
+                          <div className="py-1">
+                            {/* Core columns */}
+                            {hiddenCoreColumns.map(col => (
+                              <button
+                                key={col.key}
+                                onClick={() => {
+                                  toggleColumnVisibility(col.key as keyof typeof columnVisibility);
+                                  setShowHiddenColumnsDropdown(false);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                Show {col.label}
+                              </button>
+                            ))}
+                            
+                            {/* Extra columns */}
+                            {hiddenExtraColumns.map(colName => (
+                              <button
+                                key={colName}
+                                onClick={() => {
+                                  toggleExtraColumnVisibility(colName);
+                                  setShowHiddenColumnsDropdown(false);
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm text-blue-700 hover:bg-blue-50"
+                              >
+                                Show {colName}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Feature buttons on the right */}
@@ -3261,17 +3712,17 @@ export default function TranscriptPage() {
                       </th>
                     )}
 
-                    {/* Lesson Segment ID Column */}
-                    {columnVisibility.lessonSegmentId && (
-                      <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.lessonSegmentId ? 'w-24' : 'w-12'}`}>
+                    {/* Segment Column */}
+                    {hasSegmentColumn && columnVisibility.segment && (
+                      <th className={`px-2 py-2 border border-black border-2 text-black text-sm ${columnVisibility.segment ? 'w-24' : 'w-12'}`}>
                         <label className="flex items-center">
                           <input
                             type="checkbox"
-                            checked={columnVisibility.lessonSegmentId}
-                            onChange={() => toggleColumnVisibility('lessonSegmentId')}
+                            checked={columnVisibility.segment}
+                            onChange={() => toggleColumnVisibility('segment')}
                             className="mr-1"
                           />
-                          Segment ID
+                          Segment
                         </label>
                       </th>
                     )}
@@ -3378,6 +3829,26 @@ export default function TranscriptPage() {
                         </div>
                       </th>
                     ))}
+
+                    {/* Extra Columns */}
+                    {extraColumns.map(colName => 
+                      extraColumnVisibility[colName] && (
+                        <th 
+                          key={colName}
+                          className="px-2 py-2 border border-black border-2 text-black text-sm w-24"
+                        >
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={extraColumnVisibility[colName]}
+                              onChange={() => toggleExtraColumnVisibility(colName)}
+                              className="mr-1"
+                            />
+                            {colName}
+                          </label>
+                        </th>
+                      )
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -3398,6 +3869,9 @@ export default function TranscriptPage() {
                       toggleRowSelection={toggleRowSelection}
                       toggleTempRowSelection={toggleTempRowSelection}
                       getNoteDisplayText={getNoteDisplayText}
+                      hasSegmentColumn={hasSegmentColumn}
+                      extraColumns={extraColumns}
+                      extraColumnVisibility={extraColumnVisibility}
                     />
                   ))}
                 </tbody>
@@ -3874,6 +4348,8 @@ export default function TranscriptPage() {
           )}
         </div>
       )}
+
+
     </div>
   );
 }

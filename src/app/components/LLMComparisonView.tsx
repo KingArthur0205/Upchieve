@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { AnnotationData } from './AnnotationPanel';
 
 interface TableRow {
-  col1: string;
+  col1: string | null; // Segment (optional)
   col2: number;
   col3: string;
   col4: string;
@@ -12,6 +12,7 @@ interface TableRow {
   col6: string;
   col7: string;
   noteIds: string;
+  [key: string]: string | number | null; // For extra columns
 }
 
 interface FeatureStat {
