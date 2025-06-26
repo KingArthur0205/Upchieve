@@ -11,8 +11,6 @@ A comprehensive web application for annotating and analyzing classroom transcrip
 - [Usage Guide](#usage-guide)
 - [File Formats](#file-formats)
 - [Google Cloud Integration](#google-cloud-integration)
-- [API Documentation](#api-documentation)
-- [Technical Architecture](#technical-architecture)
 - [Troubleshooting](#troubleshooting)
 
 ## Overview
@@ -35,14 +33,11 @@ This tool is designed for educational researchers and teachers to analyze classr
 - **Real-time Annotation**: Click-to-annotate interface with instant visual feedback
 - **Feature Definitions**: Comprehensive definitions with examples and non-examples
 - **Learning Goal Notes**: Create and manage pedagogical observation notes
-- **Row Selection**: Multi-select transcript rows for detailed analysis
 - **Color-coded Speakers**: Automatic speaker identification with visual color coding
 
 ### 📊 Analysis & Comparison
 
-- **Expert Comparison**: Side-by-side comparison with expert annotations
-- **LLM Analysis**: Integration with AI analysis for transcript insights
-- **Unified Comparison**: Compare your annotations with multiple expert sources
+- **Cross-Annotator Comparison**: Side-by-side comparison with other annotators' results
 - **Statistical Reports**: Generate comprehensive annotation statistics
 
 ### 🔄 Data Management
@@ -51,14 +46,6 @@ This tool is designed for educational researchers and teachers to analyze classr
 - **Bulk Upload**: Upload multiple transcripts simultaneously via ZIP files
 - **Cloud Sync**: Automatic synchronization with Google Cloud Storage
 - **Export Functions**: Export annotations in multiple formats (XLSX, CSV)
-
-### 🎛️ User Interface
-
-- **Responsive Design**: Works on desktop, tablet, and mobile devices
-- **Advanced Filtering**: Filter by speakers (students, teachers, individuals) and lesson segments
-- **Resizable Panels**: Customizable three-panel layout with drag-to-resize
-- **Search Functionality**: Find specific content within transcripts
-- **Settings Management**: Configure Google Cloud credentials and preferences
 
 ## Installation
 
@@ -72,30 +59,13 @@ This tool is designed for educational researchers and teachers to analyze classr
 
 1. **Clone the Repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/KingArthur0205/summit_mol
    cd summit_mol
    ```
 
 2. **Install Dependencies**
    ```bash
    npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   ```
-
-3. **Environment Setup**
-   Create a `.env.local` file in the root directory:
-   ```bash
-   touch .env.local
-   ```
-
-4. **Configure Google Cloud (Optional)**
-   ```bash
-   # Add to .env.local
-   GOOGLE_CREDENTIALS_BASE64=<your-base64-encoded-credentials>
-   GOOGLE_CLOUD_PROJECT_ID=<your-project-id>
    ```
 
 ## Getting Started
@@ -104,12 +74,6 @@ This tool is designed for educational researchers and teachers to analyze classr
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser (or the port shown in terminal if 3000 is occupied).
@@ -168,7 +132,7 @@ Navigate to any transcript (e.g., `/transcript/t001`) to access the full annotat
 #### Annotation Workflow
 
 1. **Select Feature Category**: Choose from available annotation frameworks
-2. **Read Feature Definitions**: Click any feature code to view detailed definitions
+2. **Read Instructions and Feature Definitions**: Click any feature code to view detailed definitions
 3. **Annotate Transcript**: Click cells to toggle feature annotations
 4. **Create Learning Notes**: Select rows and create pedagogical observations
 5. **Save Progress**: Use "Save Annotations" to preserve your work
@@ -203,12 +167,6 @@ Navigate to any transcript (e.g., `/transcript/t001`) to access the full annotat
 - `#` - Line number or sequence
 - `Speaker` - Person speaking
 - `Dialogue` - Spoken content
-
-**Optional Columns:**
-- `In cue` - Start timestamp
-- `Out cue` - End timestamp  
-- `Segment` - Lesson segment identifier
-- `Selectable` - Mark rows available for annotation ("yes"/"no")
 
 **Example:**
 ```csv
@@ -272,70 +230,15 @@ GOOGLE_CLOUD_PROJECT_ID=<your-project-id>
 GOOGLE_CLOUD_KEY_FILE=<path-to-service-account-json> # Alternative to base64
 ```
 
-## API Documentation
+### Key Components
 
-### Core Endpoints
-
-#### Transcript Management
-- `POST /api/upload-transcript` - Upload single transcript file
-- `POST /api/upload-zip` - Upload ZIP archive with multiple transcripts
-- `POST /api/upload-all-transcripts` - Bulk upload all transcripts to cloud
-- `GET /api/list-transcripts` - Get list of available transcripts
-- `DELETE /api/delete-transcript` - Remove transcript from system
-
-#### Annotation Data
-- `POST /api/submit` - Save annotation data
-- `GET /api/sheets/[rater]` - Get rater-specific annotations
-- `POST /api/sheets/[rater]/annotate` - Save rater annotations
-
-#### Content Management
-- `POST /api/update-content` - Update transcript content and metadata
-- `POST /api/upload-feature-definition` - Upload annotation framework definitions
-- `GET /api/get-feature-categories` - Get available annotation categories
-
-#### Media Management
-- `POST /api/upload-image` - Upload images for transcripts
-- `DELETE /api/delete-image` - Remove images
-
-#### Settings
-- `POST /api/save-settings` - Save user preferences and cloud credentials
-
-### Response Formats
-
-**Success Response:**
-```json
-{
-  "success": true,
-  "data": {...},
-  "message": "Operation completed successfully"
-}
-```
-
-**Error Response:**
-```json
-{
-  "success": false,
-  "error": "Detailed error message",
-  "code": "ERROR_CODE"
-}
-```
-
-## Technical Architecture
-
-### Technology Stack
-
-- **Frontend**: React 19, Next.js 15, TypeScript
-- **Styling**: Tailwind CSS
-- **Data Processing**: 
-  - `xlsx` - Excel file processing
-  - `papaparse` - CSV parsing
-  - `sbd` - Sentence boundary detection
-- **Cloud Integration**: 
-  - `googleapis` - Google Sheets/Drive API
-  - `@google-cloud/storage` - Google Cloud Storage
-- **Utilities**: 
-  - `archiver` - ZIP file creation
-  - `lodash` - Data manipulation
+- **AnnotationPanel**: Main annotation interface
+- **ExpertsComparisonView**: Expert annotation comparison
+- **LLMComparisonView**: AI analysis comparison  
+- **UnifiedComparisonView**: Multi-source comparison
+- **TranscriptUpload**: File upload interface
+- **FeatureDefinitionsViewer**: Definition management
+- **Settings**: Configuration management
 
 ### Project Structure
 
@@ -352,16 +255,6 @@ summit_mol/
 ├── types/                  # TypeScript type definitions
 └── temp/                   # Temporary processing files
 ```
-
-### Key Components
-
-- **AnnotationPanel**: Main annotation interface
-- **ExpertsComparisonView**: Expert annotation comparison
-- **LLMComparisonView**: AI analysis comparison  
-- **UnifiedComparisonView**: Multi-source comparison
-- **TranscriptUpload**: File upload interface
-- **FeatureDefinitionsViewer**: Definition management
-- **Settings**: Configuration management
 
 ## Troubleshooting
 
@@ -400,38 +293,11 @@ summit_mol/
 - **Memory Usage**: Clear browser cache if experiencing slowdowns
 - **Network Issues**: Ensure stable internet connection for cloud features
 
-### Debug Mode
-
-Enable detailed logging by adding to `.env.local`:
-```bash
-NODE_ENV=development
-DEBUG=true
-```
-
 ### Getting Help
 
 1. **Check Browser Console**: Look for JavaScript errors and warnings
-2. **Review Server Logs**: Check terminal output for API errors
-3. **Validate File Formats**: Ensure uploaded files match required formats
-4. **Test Google Cloud Setup**: Use Settings panel to verify cloud connectivity
-
-## Contributing
-
-### Development Workflow
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/new-feature`)
-3. Make changes and test thoroughly
-4. Commit with descriptive messages
-5. Submit pull request with detailed description
-
-### Code Standards
-
-- **TypeScript**: All new code must be TypeScript
-- **ESLint**: Follow existing linting rules
-- **Component Structure**: Use functional components with hooks
-- **API Design**: Follow RESTful conventions
-- **Error Handling**: Implement comprehensive error handling
+2. **Validate File Formats**: Ensure uploaded files match required formats
+3. **Test Google Cloud Setup**: Use Settings panel to verify cloud connectivity
 
 ## License
 
