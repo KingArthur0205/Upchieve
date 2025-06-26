@@ -25,6 +25,8 @@ export default function Home() {
   const [showFeatureUpload, setShowFeatureUpload] = useState(false);
   const [showFeatureViewer, setShowFeatureViewer] = useState(false);
   const [showZipUpload, setShowZipUpload] = useState(false);
+  const [visitedTranscripts, setVisitedTranscripts] = useState<Set<string>>(new Set());
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
 
   const loadTranscripts = async () => {
     try {
@@ -51,9 +53,43 @@ export default function Home() {
     }
   };
 
+  // Load visited transcripts from localStorage
+  const loadVisitedTranscripts = () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('visitedTranscripts');
+      if (stored) {
+        try {
+          const visitedArray = JSON.parse(stored);
+          setVisitedTranscripts(new Set(visitedArray));
+        } catch (error) {
+          console.error('Error loading visited transcripts:', error);
+        }
+      }
+    }
+  };
+
+  // Mark transcript as visited
+  const markTranscriptAsVisited = (transcriptId: string) => {
+    const newVisited = new Set(visitedTranscripts);
+    newVisited.add(transcriptId);
+    setVisitedTranscripts(newVisited);
+    
+    // Save to localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('visitedTranscripts', JSON.stringify(Array.from(newVisited)));
+    }
+  };
+
+  // Handle transcript click with visit tracking
+  const handleTranscriptClick = (transcriptId: string) => {
+    markTranscriptAsVisited(transcriptId);
+    router.push(`/transcript/${transcriptId.replace('t', '')}`);
+  };
+
   useEffect(() => {
     setMounted(true);
     loadTranscripts();
+    loadVisitedTranscripts();
   }, []);
 
   const handleTranscriptUploaded = () => {
@@ -98,6 +134,36 @@ export default function Home() {
       alert('Error deleting transcript');
     } finally {
       setDeletingTranscript(null);
+    }
+  };
+
+  const handleGlobalCleanup = async () => {
+    if (!confirm('This will scan ALL transcripts and remove broken/placeholder images (< 100 bytes). Continue?')) {
+      return;
+    }
+    
+    setIsCleaningUp(true);
+    
+    try {
+      const response = await fetch('/api/cleanup-placeholders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Success! Cleaned up ${data.cleaned} broken image(s) across all transcripts.`);
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error during global cleanup:', error);
+      alert('Error during cleanup operation');
+    } finally {
+      setIsCleaningUp(false);
     }
   };
 
@@ -166,7 +232,7 @@ export default function Home() {
       
       {/* Action Buttons */}
       <div className="mb-8 text-center space-y-4">
-        <div className="flex justify-center space-x-4">
+        <div className="flex justify-center space-x-4 flex-wrap gap-2">
           <button
             onClick={() => setShowUpload(!showUpload)}
             className="px-6 py-3 bg-green-500 text-white font-semibold rounded-md hover:bg-green-600 transition flex items-center gap-2"
@@ -191,6 +257,27 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             <span>View Feature Definitions</span>
+          </button>
+          
+          <button
+            onClick={handleGlobalCleanup}
+            disabled={isCleaningUp}
+            className="px-6 py-3 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 transition flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {isCleaningUp ? (
+              <>
+                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Cleaning...</span>
+              </>
+            ) : (
+              <>
+                🗑️
+                <span>Clean All Broken Images</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -231,45 +318,100 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {transcripts.map(transcript => (
-              <div key={transcript.id} className="relative group">
-                <button 
-                  onClick={() => router.push(`/transcript/${transcript.id.replace('t', '')}`)}
-                  disabled={deletingTranscript === transcript.id}
-                  className={`w-full p-4 text-white font-semibold rounded-lg transition shadow-md text-center ${
-                    deletingTranscript === transcript.id 
-                      ? 'bg-gray-400 cursor-not-allowed' 
-                      : transcript.isNew 
-                        ? 'bg-green-500 hover:bg-green-600' 
-                        : 'bg-blue-500 hover:bg-blue-600'
-                  }`}
-                >
-                  <div className={`text-sm mb-1 ${
-                    deletingTranscript === transcript.id 
-                      ? 'text-gray-200'
-                      : transcript.isNew ? 'text-green-100' : 'text-blue-100'
-                  }`}>
-                    {transcript.id}
-                  </div>
-                  <div className="text-base">
-                    {deletingTranscript === transcript.id ? 'Deleting...' : transcript.displayName}
-                  </div>
-                </button>
-                
-                {/* Delete Button */}
-                <button
-                  onClick={(e) => handleDeleteTranscript(transcript.id, e)}
-                  disabled={deletingTranscript === transcript.id}
-                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Delete transcript"
-                >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {transcripts.map((transcript, index) => {
+              // Create a diverse color palette for each transcript
+              const colorVariants = [
+                'from-blue-500 via-purple-500 to-indigo-600',
+                'from-emerald-400 via-teal-500 to-cyan-600',
+                'from-rose-400 via-pink-500 to-purple-600',
+                'from-amber-400 via-orange-500 to-red-500',
+                'from-violet-500 via-purple-500 to-pink-500',
+                'from-green-400 via-emerald-500 to-teal-600',
+                'from-blue-600 via-indigo-500 to-purple-600',
+                'from-orange-400 via-red-500 to-pink-500',
+                'from-cyan-400 via-blue-500 to-indigo-600',
+                'from-lime-400 via-green-500 to-emerald-600',
+                'from-fuchsia-400 via-purple-500 to-violet-600',
+                'from-yellow-400 via-orange-500 to-red-500'
+              ];
+              
+              const gradientClass = colorVariants[index % colorVariants.length];
+              
+              // Check if this transcript should show the "New" badge
+              const isUnvisitedNew = transcript.isNew && !visitedTranscripts.has(transcript.id);
+              
+              return (
+                <div key={transcript.id} className="relative group">
+                  <button 
+                    onClick={() => handleTranscriptClick(transcript.id)}
+                    disabled={deletingTranscript === transcript.id}
+                    className={`w-full p-6 text-white font-medium rounded-xl transition-all duration-300 shadow-lg hover:shadow-2xl transform hover:scale-105 text-center relative overflow-hidden ${
+                      deletingTranscript === transcript.id 
+                        ? 'bg-gray-400 cursor-not-allowed scale-95' 
+                        : `bg-gradient-to-br ${gradientClass} hover:shadow-xl`
+                    }`}
+                  >
+                    {/* Background pattern overlay */}
+                    <div className="absolute inset-0 bg-white/10 bg-[radial-gradient(circle_at_50%_120%,rgba(255,255,255,0.1),transparent_50%)]"></div>
+                    
+                    {/* Content */}
+                    <div className="relative z-10">
+                      {/* Transcript ID */}
+                      <div className="text-xs font-semibold mb-2 opacity-90 tracking-wider uppercase">
+                        {transcript.id}
+                      </div>
+                      
+                      {/* Icon */}
+                      <div className="mb-3">
+                        <svg className="w-8 h-8 mx-auto opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      
+                      {/* Display Name */}
+                      <div className="text-sm font-medium leading-tight">
+                        {deletingTranscript === transcript.id ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Deleting...
+                          </div>
+                        ) : (
+                          transcript.displayName
+                        )}
+                      </div>
+                      
+                      {/* New badge for unvisited new transcripts */}
+                      {isUnvisitedNew && !deletingTranscript && (
+                        <div className="mt-2">
+                          <span className="inline-block px-2 py-1 text-xs font-semibold bg-white/20 rounded-full backdrop-blur-sm">
+                            ✨ New
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                  </button>
+                  
+                  {/* Delete Button */}
+                  <button
+                    onClick={(e) => handleDeleteTranscript(transcript.id, e)}
+                    disabled={deletingTranscript === transcript.id}
+                    className="absolute top-3 right-3 w-7 h-7 bg-red-500/80 backdrop-blur-sm hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-110 shadow-lg"
+                    title="Delete transcript"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

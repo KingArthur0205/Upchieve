@@ -36,10 +36,15 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check file size (limit to 5MB)
+    // Check file size (limit to 5MB, minimum 100 bytes to avoid placeholder images)
     if (file.size > 5 * 1024 * 1024) {
       console.log('File too large:', file.size);
       return NextResponse.json({ error: 'File size must be less than 5MB' }, { status: 400 });
+    }
+
+    if (file.size < 100) {
+      console.log('File too small (likely placeholder):', file.size);
+      return NextResponse.json({ error: 'File appears to be a placeholder or corrupted (too small)' }, { status: 400 });
     }
 
     // Convert file to buffer
