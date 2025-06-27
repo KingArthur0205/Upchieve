@@ -26,7 +26,7 @@ export default function Home() {
   const [showFeatureViewer, setShowFeatureViewer] = useState(false);
   const [showZipUpload, setShowZipUpload] = useState(false);
   const [visitedTranscripts, setVisitedTranscripts] = useState<Set<string>>(new Set());
-  const [isCleaningUp, setIsCleaningUp] = useState(false);
+
 
   const loadTranscripts = async () => {
     try {
@@ -137,35 +137,7 @@ export default function Home() {
     }
   };
 
-  const handleGlobalCleanup = async () => {
-    if (!confirm('This will scan ALL transcripts and remove broken/placeholder images (< 100 bytes). Continue?')) {
-      return;
-    }
-    
-    setIsCleaningUp(true);
-    
-    try {
-      const response = await fetch('/api/cleanup-placeholders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(`Success! Cleaned up ${data.cleaned} broken image(s) across all transcripts.`);
-      } else {
-        alert(`Error: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error during global cleanup:', error);
-      alert('Error during cleanup operation');
-    } finally {
-      setIsCleaningUp(false);
-    }
-  };
+
 
   if (!mounted) {
     return (
@@ -259,26 +231,7 @@ export default function Home() {
             <span>View Feature Definitions</span>
           </button>
           
-          <button
-            onClick={handleGlobalCleanup}
-            disabled={isCleaningUp}
-            className="px-6 py-3 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 transition flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {isCleaningUp ? (
-              <>
-                <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Cleaning...</span>
-              </>
-            ) : (
-              <>
-                🗑️
-                <span>Clean All Broken Images</span>
-              </>
-            )}
-          </button>
+
         </div>
       </div>
 

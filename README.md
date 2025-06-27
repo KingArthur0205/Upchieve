@@ -147,7 +147,85 @@ Navigate to any transcript (e.g., `/transcript/t001`) to access the full annotat
 
 - **Compare with Experts**: View side-by-side expert annotations
 - **Compare with LLM**: See AI-generated analysis
+- **Compare with Other Annotators**: Upload and compare multiple annotator data files
 - **Unified Comparison**: Comprehensive multi-source comparison
+
+#### Multi-Annotator Comparison
+
+Upload annotation data from multiple annotators for comprehensive row-level comparison and Inter-Rater Reliability (IRR) analysis.
+
+**Compatible Data Format:**
+
+*XLSX Format (same as this tool exports):*
+- Upload the XLSX files that this annotation tool exports
+- Each XLSX file represents one annotator
+- Multiple sheets for different categories (e.g., "Conceptual", "Discursive", "Lexical", "Talk")
+- Each sheet contains columns: "Line #", "Speaker", "Utterance", followed by feature columns
+- Feature values: 1 = true, 0 = false, empty = false (non-student speakers)
+- Filename (without extension) is used as the default annotator ID
+
+*Example XLSX Structure:*
+```
+Sheet: Conceptual
+| Line # | Speaker   | Utterance              | Language | Directions | Understanding |
+|--------|-----------|------------------------|----------|------------|---------------|
+| 1      | Teacher   | Let's start...         | true     | true       | false         |
+| 2      | Student 1 | I think the answer is  | false    | false      | true          |
+```
+
+**Enhanced Features:**
+
+*Expert Management:*
+- Custom naming for each annotator during upload
+- Add descriptions and role information for experts
+- Display expert names instead of filenames in comparisons
+- **Data Persistence**: Uploaded annotator data automatically saves and persists when you return to the page
+- Easy data management with individual or bulk removal options
+
+*Advanced Search & Filtering:*
+- Enhanced search: Simultaneously search Line # and Utterance content
+- Navigation controls: Previous/Next buttons to navigate through search results
+- Real-time filtering with instant results
+- "Show only differences" toggle for focused analysis
+- "Show only annotated" filter for rows with annotations
+- Collapsible upload section for cleaner interface
+
+*IRR Statistics Dashboard:*
+- Comprehensive Inter-Rater Reliability calculations
+- Feature-by-feature agreement percentages
+- Color-coded reliability indicators:
+  - Green: ≥80% agreement (Excellent)
+  - Yellow: 60-79% agreement (Good)
+  - Red: <60% agreement (Needs Review)
+- Total comparisons, agreements, and disagreements count
+
+*Visual Improvements:*
+- Black text for better readability (no more grey text)
+- Speaker color coding matching transcript annotation page
+- Scrollable table interface like main annotation page
+- Full transcript display with sticky headers and line numbers
+- Expert names displayed as column headers for each feature
+- Enhanced row styling with speaker-specific colors
+
+**Usage Workflow:**
+1. Click "Compare with Other Annotators" (orange button)
+2. Upload annotator XLSX files (one at a time for naming)
+3. Name each expert and add optional descriptions
+4. Select category and feature to compare
+5. Use search functionality to find specific content
+6. Enable "Show IRR Statistics" for reliability analysis
+7. Toggle "Show only differences" to focus on disagreements
+
+**Advanced Analysis:**
+- Row-level agreement indicators (Full/Partial)
+- Color-coded value matching (Green=Match, Red=Disagree, Gray=N/A)
+- Statistical summary with total rows analyzed
+- Automatic feature validation against current codebook
+- Support for boolean, numeric, and string annotation values
+
+**Sample Files:**
+- `public/sample_annotator_1.xlsx` - Basic Conceptual annotations
+- `public/sample_annotator_2.xlsx` - Conceptual + Discursive annotations
 
 #### Cloud Integration
 

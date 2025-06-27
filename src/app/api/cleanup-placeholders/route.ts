@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { readdir, readFile, writeFile, unlink, stat } from 'fs/promises';
 import { join } from 'path';
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   console.log('=== Cleanup placeholders request received ===');
   
   try {

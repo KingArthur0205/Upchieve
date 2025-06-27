@@ -24,6 +24,7 @@ import LLMComparisonView from "../../components/LLMComparisonView";
 import LLMAnalysisComparisonView from "../../components/LLMAnalysisComparisonView";
 import ExpertsComparisonView from "../../components/ExpertsComparisonView";
 import UnifiedComparisonView from "../../components/UnifiedComparisonView";
+import MultiAnnotatorComparisonView from "../../components/MultiAnnotatorComparisonView";
 
 
 interface CsvRow {
@@ -120,6 +121,7 @@ export default function TranscriptPage() {
     transcript: Record<string, unknown>[];
   } | null>(null);
   const [showUnifiedComparison, setShowUnifiedComparison] = useState(false);
+  const [showMultiAnnotatorComparison, setShowMultiAnnotatorComparison] = useState(false);
 
   // Add these state variables at the top of your component
   const [leftPanelWidth, setLeftPanelWidth] = useState("33.33%");
@@ -207,7 +209,7 @@ export default function TranscriptPage() {
       [columnName]: !prev[columnName]
     }));
   };
-  // Store learning goal notes separately from table data
+      // Store notes separately from table data
   const [notes, setNotes] = useState<Note[]>([]);
   const [nextNoteId, setNextNoteId] = useState(1);
   // Add this with your other state declarations
@@ -2101,13 +2103,13 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
 
       // Add data rows
       tableData.forEach((row, index) => {
-        const isStudent = row.col5.includes('Student');
+        const isSelectable = isTableRowSelectable(row);
         const rowData = [
           row.col2, // Line #
           row.col5, // Speaker
           row.col6, // Utterance
           ...sheetData.codes.map(code => {
-            if (!isStudent) return ''; // Empty for non-student speakers
+            if (!isSelectable) return ''; // Empty for non-selectable rows
             return sheetData.annotations[index]?.[code] ? '1' : '0';
           })
         ];
@@ -2180,13 +2182,13 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
         sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
 
         tableData.forEach((row, index) => {
-          const isStudent = row.col5.includes('Student');
+          const isSelectable = isTableRowSelectable(row);
           const rowData = [
             row.col2, // Line #
             row.col5, // Speaker
             row.col6, // Utterance
             ...sheetData.codes.map(code => {
-              if (!isStudent) return '';
+              if (!isSelectable) return '';
               return sheetData.annotations[index]?.[code] ? '1' : '0';
             })
           ];
@@ -3072,7 +3074,7 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
       const getResponse = await fetch(`/api/update-content?transcriptId=t${number}`);
       const { content: currentContent } = await getResponse.json();
       
-      // Update with new lesson goal
+      // Update with new instruction and context
       const updatedContent = {
         ...currentContent,
         lessonGoal: tempLessonGoal
@@ -3093,11 +3095,11 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
         setLessonGoal(tempLessonGoal);
         setIsEditingLessonGoal(false);
       } else {
-        alert('Failed to save lesson goal');
+        alert('Failed to save instruction and context');
       }
     } catch (error) {
-      console.error('Error saving lesson goal:', error);
-      alert('Failed to save lesson goal');
+              console.error('Error saving instruction and context:', error);
+              alert('Failed to save instruction and context');
     }
   };
 
@@ -3201,6 +3203,18 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
     );
   }
 
+  // Show Multi-Annotator comparison view if requested
+  if (showMultiAnnotatorComparison) {
+    return (
+      <MultiAnnotatorComparisonView 
+        tableData={tableData}
+        currentAnnotatorData={annotationData}
+        onBack={() => setShowMultiAnnotatorComparison(false)}
+        speakerColors={speakerColors}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col items-center min-h-screen w-full bg-white font-merriweather text-sm">
       {/* Navigation button - fixed in top left corner */}
@@ -3280,16 +3294,16 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
           
           {showLessonGoal && (
             <>
-              {/* Editable Lesson Goal */}
+                              {/* Editable Instruction and Context */}
               <div>
-                <h2 className="text-lg text-gray-800 font-medium mb-2">Lesson Goal:</h2>
+                <h2 className="text-lg text-gray-800 font-medium mb-2">Instruction and Context:</h2>
                 {isEditingLessonGoal ? (
                   <div className="flex flex-col gap-2">
                     <textarea
                       value={tempLessonGoal}
                       onChange={(e) => setTempLessonGoal(e.target.value)}
                       className="w-full text-gray-700 leading-relaxed bg-white border border-gray-300 rounded px-3 py-2 min-h-[100px]"
-                      placeholder="Enter lesson goal..."
+                                              placeholder="Enter instruction and context..."
                       autoFocus
                     />
                     <div className="flex gap-2">
@@ -3311,9 +3325,9 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
                   <p 
                     className="text-gray-700 leading-relaxed whitespace-pre-line cursor-pointer hover:bg-gray-200 p-2 rounded"
                     onClick={startEditingLessonGoal}
-                    title="Click to edit lesson goal"
+                                            title="Click to edit instruction and context"
                   >
-                    {lessonGoal || "Click to add lesson goal"}
+                                          {lessonGoal || "Click to add instruction and context"}
                   </p>
                 )}
               </div>
@@ -3476,7 +3490,7 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
           <div className={`p-4 flex flex-col overflow-y-auto border-r border-gray-300 transition-all duration-300 ${showPromptPanel ? '' : 'w-0 p-0 overflow-hidden'}`} style={{ width: showPromptPanel ? leftPanelWidth : '0' }}>
             <div className="bg-gray-100 border rounded-lg shadow-md p-4 mb-4">
               <div className="flex justify-between items-center mb-2">
-                <h2 className="text-xl font-semibold text-gray-800">Student-facing Lesson Prompts</h2>
+                <h2 className="text-xl font-semibold text-gray-800">Instructional Materials</h2>
                 <button
                   onClick={() => setShowPromptPanel(false)}
                   className="px-2 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded-md"
@@ -3556,13 +3570,19 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
                   onClick={handleCompareWithLLM}
                   className="px-3 py-1 bg-purple-500 text-white rounded-md hover:bg-purple-700 text-sm"
                 >
-                  Compare Talk Features
+                  Compare with LLM
+                </button>
+                <button
+                  onClick={() => setShowMultiAnnotatorComparison(true)}
+                  className="px-3 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-700 text-sm"
+                >
+                  Compare with Other Annotators
                 </button>
                 <button
                   onClick={handleUnifiedComparison}
                   className="px-3 py-1 bg-indigo-500 text-white rounded-md hover:bg-indigo-700 text-sm"
                 >
-                  Compare Learning Notes
+                  Compare with Notes
                 </button>
               </div>
             )}
@@ -3811,7 +3831,7 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
                             className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-sm font-medium"
                             title="Click to view annotation prompt"
                           >
-                            Learning Goal Notes
+                            Notes
                           </button>
                       </th>
                     )}

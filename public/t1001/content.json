@@ -3,5 +3,6 @@
   "lesson_title": "Lesson Title",
   "learning_goals": "Learning Goals",
   "materials": "Materials",
-  "instructions": "Instructions"
+  "instructions": "Instructions",
+  "customLessonTitle": "Click to add lesson title"
 }
