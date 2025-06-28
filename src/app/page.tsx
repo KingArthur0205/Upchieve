@@ -30,21 +30,51 @@ export default function Home() {
 
   const loadTranscripts = async () => {
     try {
-      // Load transcripts from localStorage instead of API
+      let allTranscripts: TranscriptInfo[] = [];
+      
+      // Load transcripts from localStorage
       if (typeof window !== 'undefined') {
         const storedTranscripts = localStorage.getItem('transcripts');
         if (storedTranscripts) {
           const parsedTranscripts = JSON.parse(storedTranscripts);
-          setTranscripts(parsedTranscripts);
+          allTranscripts.push(...parsedTranscripts);
           console.log('Loaded transcripts from localStorage:', parsedTranscripts);
-        } else {
-          // No transcripts in localStorage
-          setTranscripts([]);
-          console.log('No transcripts found in localStorage');
         }
       }
+      
+      // Also try to load existing transcripts from the API (public folder)
+      try {
+        const response = await fetch('/api/list-transcripts');
+        const data = await response.json();
+        
+        if (data.success && data.transcripts && data.transcripts.length > 0) {
+          // Add public folder transcripts that aren't already in localStorage
+          const localStorageIds = new Set(allTranscripts.map(t => t.id));
+          const publicTranscripts = data.transcripts.filter((t: TranscriptInfo) => !localStorageIds.has(t.id));
+          allTranscripts.push(...publicTranscripts);
+          console.log('Also found transcripts in public folder:', publicTranscripts);
+        }
+      } catch (apiError) {
+        console.log('API call failed (expected in local storage mode):', apiError);
+      }
+      
+      // If no transcripts found anywhere, show empty state
+      if (allTranscripts.length === 0) {
+        setTranscripts([]);
+        console.log('No transcripts found in localStorage or public folder');
+      } else {
+        // Sort transcripts properly
+        allTranscripts.sort((a, b) => {
+          const aNum = parseInt(a.id.replace('t', ''), 10);
+          const bNum = parseInt(b.id.replace('t', ''), 10);
+          return aNum - bNum;
+        });
+        
+        setTranscripts(allTranscripts);
+        console.log('Final transcript list:', allTranscripts);
+      }
     } catch (error) {
-      console.error('Error loading transcripts from localStorage:', error);
+      console.error('Error loading transcripts:', error);
       setTranscripts([]);
     } finally {
       setLoading(false);
@@ -113,22 +143,64 @@ export default function Home() {
     setDeletingTranscript(transcriptId);
     
     try {
-      const response = await fetch('/api/delete-transcript', {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ transcriptId }),
-      });
+      // Check if this is a localStorage transcript
+      const storedTranscripts = localStorage.getItem('transcripts');
+      let isLocalStorageTranscript = false;
       
-      const data = await response.json();
-      
-      if (data.success) {
-        // Refresh transcript list after successful deletion
-        await loadTranscripts();
-      } else {
-        alert(`Error deleting transcript: ${data.error}`);
+      if (storedTranscripts) {
+        const parsedTranscripts = JSON.parse(storedTranscripts);
+        isLocalStorageTranscript = parsedTranscripts.some((t: TranscriptInfo) => t.id === transcriptId);
       }
+      
+      if (isLocalStorageTranscript) {
+        // Delete from localStorage
+        if (storedTranscripts) {
+          const parsedTranscripts = JSON.parse(storedTranscripts);
+          const updatedTranscripts = parsedTranscripts.filter((t: TranscriptInfo) => t.id !== transcriptId);
+          localStorage.setItem('transcripts', JSON.stringify(updatedTranscripts));
+          
+          // Also delete all related localStorage data
+          const keysToDelete = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(`${transcriptId}-`)) {
+              keysToDelete.push(key);
+            }
+          }
+          keysToDelete.forEach(key => localStorage.removeItem(key));
+          
+          // Delete annotation data
+          localStorage.removeItem(`annotations-${transcriptId.replace('t', '')}`);
+          localStorage.removeItem(`tableData-${transcriptId.replace('t', '')}`);
+          localStorage.removeItem(`notes-${transcriptId.replace('t', '')}`);
+          localStorage.removeItem(`nextNoteId-${transcriptId.replace('t', '')}`);
+          localStorage.removeItem(`availableIds-${transcriptId.replace('t', '')}`);
+          
+          console.log(`Deleted localStorage transcript ${transcriptId} and related data`);
+        }
+      } else {
+        // Try to delete from server (public folder)
+        const response = await fetch('/api/delete-transcript', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ transcriptId }),
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+          alert(`Error deleting transcript: ${data.error}`);
+          return;
+        }
+        
+        console.log(`Deleted public folder transcript ${transcriptId}`);
+      }
+      
+      // Refresh transcript list after successful deletion
+      await loadTranscripts();
+      
     } catch (error) {
       console.error('Error deleting transcript:', error);
       alert('Error deleting transcript');

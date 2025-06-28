@@ -55,6 +55,17 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
     try {
       const formData = new FormData();
       formData.append('file', file);
+      
+      // Pass existing transcript numbers to help with sequential numbering
+      const existingTranscripts = JSON.parse(localStorage.getItem('transcripts') || '[]');
+      const existingNumbers = existingTranscripts.map((t: any) => {
+        const match = t.id.match(/^t(\d+)$/);
+        return match ? parseInt(match[1], 10) : 0;
+      }).filter((n: number) => n > 0);
+      
+      if (existingNumbers.length > 0) {
+        formData.append('existingNumbers', JSON.stringify(existingNumbers));
+      }
 
       const response = await fetch('/api/upload-transcript', {
         method: 'POST',

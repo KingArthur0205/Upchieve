@@ -60,15 +60,33 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
     if (!number) return;
     
     try {
-      // Load images from localStorage
-      const imagesData = localStorage.getItem(`t${number}-images.json`);
+      let imagesData = null;
+      
+      // First try to load from API (public folder)
+      try {
+        const response = await fetch(`/api/transcript/t${number}?file=images.json`);
+        if (response.ok) {
+          imagesData = await response.text();
+          console.log('Loaded images from public folder');
+        }
+      } catch (apiError) {
+        console.log('Images not found in public folder, trying localStorage');
+      }
+      
+      // Fallback to localStorage if API failed
+      if (!imagesData) {
+        imagesData = localStorage.getItem(`t${number}-images.json`);
+        if (imagesData) {
+          console.log('Loaded images from localStorage');
+        }
+      }
       
       if (imagesData) {
         const data = JSON.parse(imagesData);
         
         let newImages: ImageData[] = [];
         let newLegacyImages: string[] = [];
-        
+      
         // Handle both old format and new format
         if (data.images && Array.isArray(data.images)) {
           // New format with images array - validate each image
@@ -97,17 +115,17 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
         // Clear any previous error states for valid images
         setImageErrors({});
         
-        console.log('Loaded images from localStorage:', data);
+        console.log('Processed images data:', data);
       } else {
-        // No images data found
+        // No images data found anywhere
         setImages([]);
         setLegacyImages([]);
         setLessonSegmentIDs([]);
-        console.log('No images found in localStorage');
+        console.log('No images found anywhere');
       }
       
     } catch (err) {
-      console.error("Error loading images from localStorage:", err);
+      console.error("Error loading images:", err);
       setImages([]);
       setLegacyImages([]);
     }
@@ -116,32 +134,55 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
   useEffect(() => {
     if (!number || !selectedSegment) return;
 
-            // Load lesson link from localStorage
+    const loadContent = async () => {
+      // Load lesson link and title
+      try {
+        let contentData = null;
+        
+        // First try to load from API (public folder)
         try {
-          const contentData = localStorage.getItem(`t${number}-content.json`);
-          if (contentData) {
-            const data = JSON.parse(contentData);
-            setLessonLink(data.lessonLink);
-            // Load custom lesson title if it exists
-            if (data.customLessonTitle) {
-              setLessonTitle(data.customLessonTitle);
-            } else if (!data.lessonLink) {
-              // If no lesson link and no custom title, use default
-              setLessonTitle('Click to add lesson title');
-            }
-            console.log('Loaded content from localStorage:', data);
-          } else {
-            // If content doesn't exist in localStorage, set default title
-            setLessonTitle('Click to add lesson title');
-            console.log('No content found in localStorage, using default title');
+          const response = await fetch(`/api/transcript/t${number}?file=content.json`);
+          if (response.ok) {
+            contentData = await response.text();
+            console.log('Loaded content from public folder');
           }
-        } catch (err) {
-          console.error("Error loading content from localStorage:", err);
-          // If content loading fails, set default title
-          setLessonTitle('Click to add lesson title');
+        } catch (apiError) {
+          console.log('Content not found in public folder, trying localStorage');
         }
+        
+        // Fallback to localStorage if API failed
+        if (!contentData) {
+          contentData = localStorage.getItem(`t${number}-content.json`);
+          if (contentData) {
+            console.log('Loaded content from localStorage');
+          }
+        }
+        
+        if (contentData) {
+          const data = JSON.parse(contentData);
+          setLessonLink(data.lessonLink);
+          // Load custom lesson title if it exists
+          if (data.customLessonTitle) {
+            setLessonTitle(data.customLessonTitle);
+          } else if (!data.lessonLink) {
+            // If no lesson link and no custom title, use default
+            setLessonTitle('Click to add lesson title');
+          }
+          console.log('Processed content data:', data);
+        } else {
+          // If content doesn't exist anywhere, set default title
+          setLessonTitle('Click to add lesson title');
+          console.log('No content found anywhere, using default title');
+        }
+      } catch (err) {
+        console.error("Error loading content:", err);
+        // If content loading fails, set default title
+        setLessonTitle('Click to add lesson title');
+      }
+    };
 
-    // Load images
+    // Load content and images
+    loadContent();
     loadImages();
   }, [number, selectedSegment, loadImages]);
 
@@ -487,14 +528,14 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
       <div className="mb-4">
         {lessonLink ? (
           <h2 className="text-xl font-semibold text-black">
-            <a
-              href={lessonLink.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline"
-            >
-              {lessonLink.text}
-            </a>
+          <a
+            href={lessonLink.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline"
+          >
+            {lessonLink.text}
+          </a>
           </h2>
         ) : (
           <div className="text-xl font-semibold text-black">
@@ -559,7 +600,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
                 </span>
               )}
             </h3>
-                         <p className="text-sm text-gray-500">Hover over images to delete</p>
+            <p className="text-sm text-gray-500">Hover over images to delete</p>
           </div>
           <div className="space-y-6 mb-6">
             {allImages.map((image, index) => {
@@ -633,11 +674,11 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
                             </div>
                           </div>
                         )}
-                        <Image 
-                          src={image.url} 
-                          alt={`Problem ${index + 1}`} 
-                          width={500} 
-                          height={300}
+                    <Image 
+                      src={image.url} 
+                      alt={`Problem ${index + 1}`} 
+                      width={500} 
+                      height={300}
                           className="rounded-lg shadow-md transition-shadow group-hover/image:shadow-xl"
                           onLoadStart={() => {
                             setImageLoading(prev => ({ ...prev, [image.url]: true }));

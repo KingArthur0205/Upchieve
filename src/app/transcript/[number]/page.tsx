@@ -1871,7 +1871,22 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        // Try to load from localStorage first
+        // First try to load from API (public folder)
+        try {
+          const response = await fetch(`/api/transcript/t${number}?file=content.json`);
+          if (response.ok) {
+            const data = await response.json();
+            setGradeLevel(data.gradeLevel);
+            setLessonGoal(data.lessonGoal || "");
+            setAvailableSegment(data.segments || []);
+            console.log('Loaded content from public folder:', data);
+            return;
+          }
+        } catch (apiError) {
+          console.log('Content not found in public folder, trying localStorage');
+        }
+        
+        // Fallback to localStorage
         const contentData = localStorage.getItem(`t${number}-content.json`);
         if (contentData) {
           const data = JSON.parse(contentData);
@@ -1880,14 +1895,14 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           setAvailableSegment(data.segments || []);
           console.log('Loaded content from localStorage:', data);
         } else {
-          // Default values if no content found
+          // Default values if no content found anywhere
           setGradeLevel("Grade Level");
           setLessonGoal("Lesson Goal");
           setAvailableSegment([]);
-          console.log('No content found in localStorage, using defaults');
+          console.log('No content found anywhere, using defaults');
         }
       } catch (err) {
-        console.error("Error loading content from localStorage:", err);
+        console.error("Error loading content:", err);
         // Set defaults on error
         setGradeLevel("Grade Level");
         setLessonGoal("Lesson Goal");
@@ -1897,30 +1912,60 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
     const fetchSpeakers = async () => {
       try {
-        // Try to load from localStorage first
+        // First try to load from API (public folder)
+        try {
+          const response = await fetch(`/api/transcript/t${number}?file=speakers.json`);
+          if (response.ok) {
+            const data = await response.json();
+            setSpeakerColors(data);
+            console.log('Loaded speakers from public folder:', data);
+            return;
+          }
+        } catch (apiError) {
+          console.log('Speakers not found in public folder, trying localStorage');
+        }
+        
+        // Fallback to localStorage
         const speakersData = localStorage.getItem(`t${number}-speakers.json`);
         if (speakersData) {
           const data = JSON.parse(speakersData);
           setSpeakerColors(data);
           console.log('Loaded speakers from localStorage:', data);
         } else {
-          // Default speaker colors if no data found
+          // Default speaker colors if no data found anywhere
           setSpeakerColors({});
-          console.log('No speakers found in localStorage, using empty object');
+          console.log('No speakers found anywhere, using empty object');
         }
       } catch (err) {
-        console.error("Error loading speakers from localStorage:", err);
+        console.error("Error loading speakers:", err);
         setSpeakerColors({});
       }
     };
     
     const loadCSVData = async () => {
       try {
-        // Try to load from localStorage first
-        const csvData = localStorage.getItem(`t${number}-transcript.csv`);
+        let csvData = null;
+        
+        // First try to load from API (public folder)
+        try {
+          const response = await fetch(`/api/transcript/t${number}?file=transcript.csv`);
+          if (response.ok) {
+            csvData = await response.text();
+            console.log("Loaded CSV content from public folder: ", csvData.substring(0, 500));
+          }
+        } catch (apiError) {
+          console.log('CSV not found in public folder, trying localStorage');
+        }
+        
+        // Fallback to localStorage if API failed
+        if (!csvData) {
+          csvData = localStorage.getItem(`t${number}-transcript.csv`);
+          if (csvData) {
+            console.log("Loaded CSV content from localStorage: ", csvData.substring(0, 500));
+          }
+        }
+        
         if (csvData) {
-          console.log("Loaded CSV content from localStorage: ", csvData.substring(0, 500));
-          
           Papa.parse(csvData, {
             complete: (result) => {
               console.log("CSV Data Loaded: ", result);
@@ -2005,14 +2050,14 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             skipEmptyLines: true,
           });
         } else {
-          setError("No transcript data found in localStorage. Please upload a transcript first.");
+          setError("No transcript data found. Please upload a transcript first.");
           setLoading(false);
         }
       } catch (error) {
         if (error instanceof Error) {
-          setError("Error loading CSV from localStorage: " + error.message);
+          setError("Error loading CSV data: " + error.message);
         } else {
-          setError("An unknown error occurred while loading from localStorage.");
+          setError("An unknown error occurred while loading CSV data.");
         }
         setLoading(false);
       }

@@ -1,10 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as XLSX from 'xlsx';
 
-// Function to get the next available transcript number (simplified for local storage)
-async function getNextTranscriptNumber(): Promise<number> {
-  // For local storage, use timestamp-based number to ensure uniqueness
-  return Date.now() % 100000; // Use last 5 digits of timestamp
+// Function to get the next available transcript number (checking both localStorage and public folder)
+async function getNextTranscriptNumber(existingLocalStorageNumbers: number[] = []): Promise<number> {
+  let maxNumber = 0;
+  
+  // Check existing transcripts in public folder
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    
+    const publicDir = path.join(process.cwd(), 'public');
+    
+    if (fs.existsSync(publicDir)) {
+      const items = fs.readdirSync(publicDir, { withFileTypes: true });
+      
+      items
+        .filter(item => item.isDirectory())
+        .map(item => item.name)
+        .forEach(name => {
+          const match = name.match(/^t(\d+)$/);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNumber) {
+              maxNumber = num;
+            }
+          }
+        });
+      
+      console.log('Max transcript number from public folder:', maxNumber);
+    }
+  } catch (error) {
+    console.log('Error checking public folder for transcript numbers:', error);
+  }
+  
+  // Check localStorage transcript numbers
+  if (existingLocalStorageNumbers.length > 0) {
+    const maxLocalStorage = Math.max(...existingLocalStorageNumbers);
+    if (maxLocalStorage > maxNumber) {
+      maxNumber = maxLocalStorage;
+    }
+    console.log('Max transcript number from localStorage:', maxLocalStorage);
+  }
+  
+  // If no transcripts exist, start from 1001 to avoid conflicts with existing ones
+  if (maxNumber === 0) {
+    maxNumber = 1000;
+  }
+  
+  console.log('Next transcript number will be:', maxNumber + 1);
+  return maxNumber + 1;
 }
 
 // Function to prepare files for client-side storage
@@ -40,9 +85,20 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
+    const existingNumbersStr = formData.get('existingNumbers') as string;
     
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    }
+    
+    // Parse existing transcript numbers from localStorage
+    let existingNumbers: number[] = [];
+    if (existingNumbersStr) {
+      try {
+        existingNumbers = JSON.parse(existingNumbersStr);
+      } catch (error) {
+        console.log('Error parsing existing numbers:', error);
+      }
     }
 
     // Check file type
@@ -174,7 +230,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Get next available transcript number
-    const nextNumber = await getNextTranscriptNumber();
+    const nextNumber = await getNextTranscriptNumber(existingNumbers);
     const transcriptId = `t${nextNumber.toString().padStart(3, '0')}`;
     
     // Save transcript as CSV (use valid rows only)
