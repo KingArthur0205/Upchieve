@@ -1830,7 +1830,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        const res = await fetch(`/t${number}/content.json`);
+        const res = await fetch(`/api/transcript/t${number}?file=content.json`);
         if (!res.ok) throw new Error("Failed to fetch content.json");
         const data = await res.json();
         setGradeLevel(data.gradeLevel);
@@ -1843,7 +1843,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
     const fetchSpeakers = async () => {
       try {
-        const res = await fetch(`/t${number}/speakers.json`);
+        const res = await fetch(`/api/transcript/t${number}?file=speakers.json`);
         if (!res.ok) throw new Error("Failed to fetch speakers.json");
         const data = await res.json();
         setSpeakerColors(data);
@@ -1854,7 +1854,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     
     const loadCSVData = async () => {
       try {
-        const response = await fetch(`/t${number}/transcript.csv`);
+        const response = await fetch(`/api/transcript/t${number}?file=transcript.csv`);
         if (!response.ok) throw new Error("Failed to fetch the CSV file.");
         const text = await response.text();
         
@@ -2345,7 +2345,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       
       // Try to load Excel format first (multiple sheets)
       try {
-        const excelResponse = await fetch(`/t${number}/annotated_transcript.xlsx`);
+        const excelResponse = await fetch(`/api/transcript/t${number}?file=annotated_transcript.xlsx`);
         if (excelResponse.ok) {
           console.log('Loading LLM annotations from annotated_transcript.xlsx');
           const arrayBuffer = await excelResponse.arrayBuffer();
@@ -2484,7 +2484,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       // If Excel didn't work, try CSV format (single file with all annotations)
       if (!dataLoaded) {
         try {
-          const csvResponse = await fetch(`/t${number}/annotated_transcript.csv`);
+          const csvResponse = await fetch(`/api/transcript/t${number}?file=annotated_transcript.csv`);
           if (csvResponse.ok) {
             console.log('Loading LLM annotations from annotated_transcript.csv');
             const csvText = await csvResponse.text();
@@ -2614,7 +2614,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     try {
       console.log('Loading expert annotations...');
       
-      const excelResponse = await fetch(`/t${number}/expert_annotations.xlsx`);
+              const excelResponse = await fetch(`/api/transcript/t${number}?file=expert_annotations.xlsx`);
       if (!excelResponse.ok) {
         throw new Error('Expert annotations file not found');
       }
@@ -2730,7 +2730,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     try {
       console.log('Loading LLM analysis annotations...');
       
-      const excelResponse = await fetch(`/t${number}/transcript_analysis.xlsx`);
+              const excelResponse = await fetch(`/api/transcript/t${number}?file=transcript_analysis.xlsx`);
       if (!excelResponse.ok) {
         throw new Error('LLM analysis file not found');
       }
@@ -2828,7 +2828,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       // Load Expert data
       let expertsData = null;
       try {
-        const expertsResponse = await fetch(`/t${number}/expert_annotations.xlsx`);
+        const expertsResponse = await fetch(`/api/transcript/t${number}?file=expert_annotations.xlsx`);
         if (expertsResponse.ok) {
           const expertsArrayBuffer = await expertsResponse.arrayBuffer();
           const expertsWorkbook = read(expertsArrayBuffer);
@@ -2913,7 +2913,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       // Load LLM Analysis data
       let llmData = null;
       try {
-        const llmResponse = await fetch(`/t${number}/transcript_analysis.xlsx`);
+        const llmResponse = await fetch(`/api/transcript/t${number}?file=transcript_analysis.xlsx`);
         if (llmResponse.ok) {
           const llmArrayBuffer = await llmResponse.arrayBuffer();
           const llmWorkbook = read(llmArrayBuffer);

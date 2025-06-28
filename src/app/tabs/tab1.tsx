@@ -60,7 +60,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
     if (!number) return;
     
     try {
-      const response = await fetch(`/t${number}/images.json`);
+      const response = await fetch(`/api/transcript/t${number}?file=images.json`);
       const data = await response.json();
       
       let newImages: ImageData[] = [];
@@ -104,8 +104,8 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
   useEffect(() => {
     if (!number || !selectedSegment) return;
 
-    // Fetch lesson link from content.json
-    fetch(`/t${number}/content.json`)
+            // Fetch lesson link from content.json
+        fetch(`/api/transcript/t${number}?file=content.json`)
       .then((res) => res.json())
       .then((data) => {
         setLessonLink(data.lessonLink);

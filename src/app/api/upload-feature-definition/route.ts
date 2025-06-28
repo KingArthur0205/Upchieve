@@ -1,9 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, readdir, unlink } from 'fs/promises';
-import path from 'path';
+import { Storage } from '@google-cloud/storage';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
-import fs from 'fs';
+
+// Initialize Google Cloud Storage (if available)
+let storage: Storage | null = null;
+let bucketName = '';
+
+try {
+  if (process.env.GOOGLE_CREDENTIALS_BASE64 && process.env.GOOGLE_CLOUD_BUCKET_NAME) {
+    const credentialsJson = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString();
+    const credentials = JSON.parse(credentialsJson);
+    
+    storage = new Storage({
+      credentials,
+      projectId: credentials.project_id
+    });
+    
+    bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
+    console.log('Google Cloud Storage initialized for feature definitions');
+  }
+} catch (error) {
+  console.warn('Google Cloud Storage not available for feature definitions:', error);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -162,45 +181,41 @@ export async function POST(request: NextRequest) {
 
 async function clearAllAnnotationData() {
   try {
-    const publicDir = path.join(process.cwd(), 'public');
-    
-    // Get all transcript directories (folders starting with 't' followed by numbers)
-    const entries = await readdir(publicDir, { withFileTypes: true });
-    const transcriptDirs = entries
-      .filter(entry => entry.isDirectory() && /^t\d+$/.test(entry.name))
-      .map(entry => entry.name);
-    
-    console.log(`Found ${transcriptDirs.length} transcript directories to clear annotations from`);
-    
-    for (const transcriptDir of transcriptDirs) {
-      const transcriptPath = path.join(publicDir, transcriptDir);
+    if (storage && bucketName) {
+      // Clear annotation data from cloud storage
+      const [files] = await storage.bucket(bucketName).getFiles({
+        prefix: 'transcripts/',
+      });
       
-      // List of annotation-related files to delete
-      const filesToDelete = [
-        'expert_annotations.xlsx',
-        'expert_noticings.csv',
-        'expert_noticings.xlsx',
-        'llm_noticings.csv',
-        'llm_noticings.xlsx',
-        'transcript_analysis.xlsx',
-        'annotated_transcript.csv',
-        'annotated_transcript.xlsx'
-      ];
+      const annotationFiles = files.filter(file => {
+        const fileName = file.name.split('/').pop() || '';
+        return [
+          'expert_annotations.xlsx',
+          'expert_noticings.csv',
+          'expert_noticings.xlsx', 
+          'llm_noticings.csv',
+          'llm_noticings.xlsx',
+          'transcript_analysis.xlsx',
+          'annotated_transcript.csv',
+          'annotated_transcript.xlsx'
+        ].includes(fileName);
+      });
       
-      for (const fileName of filesToDelete) {
-        const filePath = path.join(transcriptPath, fileName);
-        try {
-          if (fs.existsSync(filePath)) {
-            await unlink(filePath);
-            console.log(`Deleted: ${transcriptDir}/${fileName}`);
-          }
-        } catch (error) {
-          console.warn(`Failed to delete ${transcriptDir}/${fileName}:`, error);
-        }
-      }
+      console.log(`Found ${annotationFiles.length} annotation files to delete from cloud storage`);
+      
+      // Delete annotation files in parallel
+      await Promise.all(
+        annotationFiles.map(file => 
+          file.delete().catch(error => 
+            console.warn(`Failed to delete ${file.name}:`, error)
+          )
+        )
+      );
+      
+      console.log('Cloud annotation data clearing completed');
+    } else {
+      console.log('Cloud storage not available, annotation clearing skipped');
     }
-    
-    console.log('Annotation data clearing completed');
   } catch (error) {
     console.error('Error clearing annotation data:', error);
     // Don't throw error - we want the feature definition upload to succeed even if clearing fails
@@ -214,25 +229,51 @@ async function saveFeatureDefinition(
   featureData: { [category: string]: { Code: string; Definition: string; [key: string]: string }[] },
   isXLSX: boolean
 ) {
-  const publicDir = path.join(process.cwd(), 'public');
-  
   // Clear all existing annotation data before saving new feature definitions
   await clearAllAnnotationData();
   
-  // Save original file
-  const originalFileName = isXLSX ? 'MOL Roles Features.xlsx' : 'MOL Roles Features.csv';
-  const originalPath = path.join(publicDir, originalFileName);
-  await writeFile(originalPath, buffer);
+  if (storage && bucketName) {
+    try {
+      const bucket = storage.bucket(bucketName);
+      
+      // Save original file to cloud storage
+      const originalFileName = isXLSX ? 'MOL_Roles_Features.xlsx' : 'MOL_Roles_Features.csv';
+      await bucket.file(`feature-definitions/${originalFileName}`).save(buffer, {
+        metadata: { 
+          contentType: isXLSX 
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            : 'text/csv'
+        }
+      });
 
-  // Save processed JSON data for easy access
-  const jsonPath = path.join(publicDir, 'feature-definitions.json');
-  const jsonData = {
-    categories,
-    data: featureData,
-    uploadedAt: new Date().toISOString(),
-    originalFileName: file.name
-  };
-  await writeFile(jsonPath, JSON.stringify(jsonData, null, 2));
+      // Save processed JSON data for easy access
+      const jsonData = {
+        categories,
+        data: featureData,
+        uploadedAt: new Date().toISOString(),
+        originalFileName: file.name
+      };
+      
+      await bucket.file('feature-definitions/feature-definitions.json').save(
+        JSON.stringify(jsonData, null, 2),
+        { metadata: { contentType: 'application/json' } }
+      );
 
-  console.log(`Feature definition saved with ${categories.length} categories:`, categories);
+      console.log(`Feature definition saved to cloud storage with ${categories.length} categories:`, categories);
+    } catch (error) {
+      console.error('Error saving feature definition to cloud storage:', error);
+      throw error;
+    }
+  } else {
+    // For deployment without cloud storage, we'll store in memory/cache
+    // This is a fallback - ideally cloud storage should be configured
+    console.warn('Cloud storage not available for feature definitions. Consider configuring Google Cloud Storage for production deployment.');
+    
+    // You could implement alternative storage here, such as:
+    // - Database storage
+    // - External API
+    // - Redis cache
+    // For now, we'll just log the data
+    console.log(`Feature definition processed with ${categories.length} categories:`, categories);
+  }
 } 

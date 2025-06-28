@@ -26,6 +26,11 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Don't close if the modal is open
+      if (showEnvModal) {
+        return;
+      }
+      
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         onClose();
       }
@@ -38,7 +43,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, showEnvModal]);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -56,6 +61,11 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseModal = () => {
+    setShowEnvModal(false);
+    setMessage('');
   };
 
   const saveSettings = async () => {
@@ -80,6 +90,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         setMessage('Settings saved successfully!');
         setTimeout(() => {
           setMessage('');
+          setShowEnvModal(false);
           onClose();
         }, 2000);
       } else {
@@ -121,13 +132,19 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
 
       {/* Environment Variables Modal */}
       {showEnvModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+          onClick={handleCloseModal}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Configure Google Cloud</h2>
                 <button
-                  onClick={() => setShowEnvModal(false)}
+                  onClick={handleCloseModal}
                   className="text-gray-500 hover:text-gray-700 text-2xl"
                 >
                   ×
@@ -181,7 +198,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
 
                   <div className="flex justify-end space-x-3 pt-4">
                     <button
-                      onClick={() => setShowEnvModal(false)}
+                      onClick={handleCloseModal}
                       className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition"
                       disabled={saving}
                     >

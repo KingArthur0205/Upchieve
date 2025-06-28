@@ -1,31 +1,127 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, readdir } from 'fs/promises';
-import { join } from 'path';
+import { Storage } from '@google-cloud/storage';
 import * as XLSX from 'xlsx';
+
+// Initialize Google Cloud Storage (if available)
+let storage: Storage | null = null;
+let bucketName = '';
+
+try {
+  if (process.env.GOOGLE_CREDENTIALS_BASE64 && process.env.GOOGLE_CLOUD_BUCKET_NAME) {
+    const credentialsJson = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString();
+    const credentials = JSON.parse(credentialsJson);
+    
+    storage = new Storage({
+      credentials,
+      projectId: credentials.project_id
+    });
+    
+    bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
+    console.log('Google Cloud Storage initialized for transcript uploads');
+  }
+} catch (error) {
+  console.warn('Google Cloud Storage not available for transcript uploads:', error);
+}
 
 // Function to get the next available transcript number
 async function getNextTranscriptNumber(): Promise<number> {
-  const publicDir = join(process.cwd(), 'public');
-  
   try {
-    const items = await readdir(publicDir);
-    const transcriptFolders = items.filter(item => 
-      item.startsWith('t') && /^t\d+$/.test(item)
-    );
-    
-    if (transcriptFolders.length === 0) {
-      return 1;
+    if (storage && bucketName) {
+      // Use cloud storage to find existing transcripts
+      const [files] = await storage.bucket(bucketName).getFiles({
+        prefix: 'transcripts/t',
+        delimiter: '/'
+      });
+      
+      const transcriptNumbers = files
+        .map(file => {
+          const match = file.name.match(/transcripts\/t(\d+)\//);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter(num => num > 0);
+      
+      return transcriptNumbers.length > 0 ? Math.max(...transcriptNumbers) + 1 : 1;
     }
     
-    const numbers = transcriptFolders.map(folder => {
-      const num = parseInt(folder.substring(1));
-      return isNaN(num) ? 0 : num;
-    });
-    
-    return Math.max(...numbers) + 1;
+    // Fallback: return timestamp-based number for deployment without cloud storage
+    return Date.now() % 100000; // Use last 5 digits of timestamp
   } catch (error) {
-    console.error('Error reading public directory:', error);
-    return 1;
+    console.error('Error getting next transcript number:', error);
+    return Date.now() % 100000;
+  }
+}
+
+// Function to save files to cloud storage or return data for client-side storage
+async function saveTranscriptFiles(
+  transcriptId: string,
+  csvContent: string,
+  originalBuffer: Buffer,
+  originalFileName: string,
+  speakerColors: { [key: string]: string }
+) {
+  if (storage && bucketName) {
+    try {
+      const bucket = storage.bucket(bucketName);
+      const basePath = `transcripts/${transcriptId}/`;
+      
+      // Save CSV transcript
+      await bucket.file(`${basePath}transcript.csv`).save(csvContent, {
+        metadata: { contentType: 'text/csv' }
+      });
+      
+      // Save original file
+      const originalExt = originalFileName.toLowerCase().endsWith('.csv') ? 'csv' : 'xlsx';
+      await bucket.file(`${basePath}transcript_original.${originalExt}`).save(originalBuffer, {
+        metadata: { 
+          contentType: originalExt === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+      });
+      
+      // Save speaker colors
+      await bucket.file(`${basePath}speakers.json`).save(JSON.stringify(speakerColors, null, 2), {
+        metadata: { contentType: 'application/json' }
+      });
+      
+      // Save default content
+      const defaultContent = {
+        "gradeLevel": "Grade Level",
+        "lessonGoal": "Lesson Goal"
+      };
+      await bucket.file(`${basePath}content.json`).save(JSON.stringify(defaultContent, null, 2), {
+        metadata: { contentType: 'application/json' }
+      });
+      
+      // Save default images
+      const defaultImages = { "images": [] };
+      await bucket.file(`${basePath}images.json`).save(JSON.stringify(defaultImages, null, 2), {
+        metadata: { contentType: 'application/json' }
+      });
+      
+      console.log(`Transcript ${transcriptId} saved to cloud storage successfully`);
+      return { cloudStorage: true };
+    } catch (error) {
+      console.error('Error saving to cloud storage:', error);
+      throw error;
+    }
+  } else {
+    // Return data for client-side storage or alternative handling
+    console.log('Cloud storage not available, returning data for alternative storage');
+    return {
+      cloudStorage: false,
+      files: {
+        'transcript.csv': csvContent,
+        'speakers.json': JSON.stringify(speakerColors, null, 2),
+        'content.json': JSON.stringify({
+          "gradeLevel": "Grade Level", 
+          "lessonGoal": "Lesson Goal"
+        }, null, 2),
+        'images.json': JSON.stringify({ "images": [] }, null, 2)
+      },
+      originalFile: {
+        name: originalFileName,
+        buffer: originalBuffer.toString('base64')
+      }
+    };
   }
 }
 
@@ -170,12 +266,6 @@ export async function POST(request: NextRequest) {
     const nextNumber = await getNextTranscriptNumber();
     const transcriptId = `t${nextNumber.toString().padStart(3, '0')}`;
     
-    // Create folder path
-    const publicDir = join(process.cwd(), 'public', transcriptId);
-    
-    // Create directory
-    await mkdir(publicDir, { recursive: true });
-    
     // Save transcript as CSV (use valid rows only)
     const csvContent = validRows.map(row => {
       return row.map(cell => {
@@ -192,39 +282,21 @@ export async function POST(request: NextRequest) {
     const csvHeader = headers.join(',');
     const fullCsvContent = csvHeader + '\n' + csvContent;
     
-    await writeFile(join(publicDir, 'transcript.csv'), fullCsvContent);
-    
-    // Save speaker colors
-    await writeFile(join(publicDir, 'speakers.json'), JSON.stringify(speakerColors, null, 2));
-    
-    // Save original file
-    if (file.name.endsWith('.csv')) {
-      await writeFile(join(publicDir, 'transcript_original.csv'), buffer);
-    } else {
-      await writeFile(join(publicDir, 'transcript.xlsx'), buffer);
-    }
-
-    // Create default content.json
-    const defaultContent = {
-      "grade_level": "Grade Level",
-      "lesson_title": "Lesson Title",
-      "learning_goals": "Learning Goals",
-      "materials": "Materials",
-      "instructions": "Instructions"
-    };
-    await writeFile(join(publicDir, 'content.json'), JSON.stringify(defaultContent, null, 2));
-
-    // Create default images.json
-    const defaultImages = {
-      "images": []
-    };
-    await writeFile(join(publicDir, 'images.json'), JSON.stringify(defaultImages, null, 2));
+    // Save files (either to cloud storage or return for alternative handling)
+    const saveResult = await saveTranscriptFiles(
+      transcriptId,
+      fullCsvContent,
+      buffer,
+      file.name,
+      speakerColors
+    );
 
     return NextResponse.json({ 
       success: true, 
       transcriptId,
       speakers: Array.from(speakers),
-      rowCount: validRows.length
+      rowCount: validRows.length,
+      storage: saveResult
     });
 
   } catch (error) {

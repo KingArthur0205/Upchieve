@@ -11,7 +11,7 @@ export default function Tab3({ number }: Tab3Props) {
   useEffect(() => {
     if (!number) return;
     
-    fetch(`/t${number}/ccss.txt`)
+          fetch(`/api/transcript/t${number}?file=ccss.txt`)
       .then((res) => res.text())
       .then((text) => setContent(text))
       .catch((err) => console.error("Error loading text:", err));

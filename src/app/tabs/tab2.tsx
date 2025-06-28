@@ -12,7 +12,7 @@ export default function Tab2({ number }: Tab2Props) {
   useEffect(() => {
     if (!number) return; // Ensure the number is available
     
-    fetch(`/t${number}/learning_goals.txt`) // Fetch from public folder
+            fetch(`/api/transcript/t${number}?file=learning_goals.txt`) // Fetch from API
       .then((res) => res.text())
       .then((text) => setContent(text));
   }, [number]); // Add number to the dependency array
