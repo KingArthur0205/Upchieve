@@ -1645,9 +1645,39 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             ALLOWED_SHEETS = featureDefinitions.categories;
             console.log('Loaded feature categories from localStorage:', ALLOWED_SHEETS);
             
-            // Create annotation data from feature definitions
-            let newData = annotationData && Object.keys(annotationData).length > 0 ? { ...annotationData } : {};
+            // Check if annotation data already exists for this transcript
+            const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
+            let newData = {};
             
+            if (existingAnnotationData) {
+              try {
+                newData = JSON.parse(existingAnnotationData);
+                console.log('Found existing annotation data for transcript:', number);
+                
+                // Check if existing data matches current codebook structure
+                const needsRegeneration = featureDefinitions.categories.some((category: string) => {
+                  const categoryFeatures = featureDefinitions.features[category] || [];
+                  const expectedCodes = categoryFeatures.map((feature: any) => feature.Code);
+                  const existingCodes = (newData as any)[category]?.codes || [];
+                  
+                  // Check if codes match
+                  return expectedCodes.length !== existingCodes.length || 
+                         !expectedCodes.every((code: string) => existingCodes.includes(code));
+                });
+                
+                if (needsRegeneration) {
+                  console.log('Codebook has changed, regenerating annotation data...');
+                  newData = {};
+                }
+              } catch (error) {
+                console.log('Error parsing existing annotation data, regenerating...');
+                newData = {};
+              }
+            } else {
+              console.log('No existing annotation data found, generating from codebook...');
+            }
+            
+            // Generate or update annotation data from feature definitions
             featureDefinitions.categories.forEach((category: string) => {
               const categoryFeatures = featureDefinitions.features[category] || [];
               const codes = categoryFeatures.map((feature: any) => feature.Code);
@@ -1663,8 +1693,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 };
               });
               
-              // Initialize annotations only if they don't exist for this category
-              if (!newData[category] || newData[category].codes.length === 0) {
+              // Initialize annotations only if they don't exist for this category or need regeneration
+              if (!(newData as any)[category] || (newData as any)[category].codes.length === 0) {
                 console.log('Creating new annotation data for:', category);
                 const annotations: { [key: number]: { [code: string]: boolean } } = {};
                 
@@ -1675,23 +1705,39 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   });
                 }
                 
-                newData[category] = {
+                (newData as any)[category] = {
                   codes,
                   definitions,
                   annotations
                 };
               } else {
                 // Update codes and definitions while preserving existing annotations
-                newData[category] = {
-                  ...newData[category],
+                const existingAnnotations = (newData as any)[category].annotations || {};
+                
+                // Ensure all lines have annotations for all codes
+                const updatedAnnotations: { [key: number]: { [code: string]: boolean } } = {};
+                for (let i = 0; i < tableData.length; i++) {
+                  updatedAnnotations[i] = existingAnnotations[i] || {};
+                  codes.forEach((code: string) => {
+                    if (!(code in updatedAnnotations[i])) {
+                      updatedAnnotations[i][code] = false;
+                    }
+                  });
+                }
+                
+                (newData as any)[category] = {
                   codes,
-                  definitions
+                  definitions,
+                  annotations: updatedAnnotations
                 };
               }
             });
             
             console.log('Setting annotation data:', newData);
-            setAnnotationData(newData);
+            setAnnotationData(newData as AnnotationData);
+            
+            // Save the updated annotation data
+            localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
           } else {
             console.log('No feature categories found in localStorage');
             setAnnotationData({});

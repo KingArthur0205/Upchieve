@@ -123,14 +123,230 @@ export default function Home() {
   const handleTranscriptUploaded = () => {
     // Refresh transcript list when a new transcript is uploaded
     loadTranscripts();
+    
+    // Auto-generate annotation columns for the new transcript if codebook exists
+    setTimeout(() => {
+      generateAnnotationColumnsForNewTranscripts();
+    }, 500); // Small delay to ensure transcript data is saved first
+  };
+  
+  // Function to automatically generate annotation columns for new transcripts if codebook exists
+  const generateAnnotationColumnsForNewTranscripts = () => {
+    try {
+      const featureDefinitionsData = localStorage.getItem('feature-definitions');
+      if (!featureDefinitionsData) {
+        console.log('No codebook found, skipping auto-generation for new transcripts');
+        return;
+      }
+      
+      const featureDefinitions = JSON.parse(featureDefinitionsData);
+      if (!featureDefinitions.categories || featureDefinitions.categories.length === 0) {
+        console.log('No categories in codebook, skipping auto-generation for new transcripts');
+        return;
+      }
+      
+      console.log('Checking for new transcripts without annotation columns...');
+      
+      // Get all transcript IDs
+      const storedTranscripts = localStorage.getItem('transcripts');
+      if (!storedTranscripts) return;
+      
+             const parsedTranscripts = JSON.parse(storedTranscripts);
+       const transcriptIds = parsedTranscripts.map((t: { id: string }) => t.id.replace('t', ''));
+      
+      // Check each transcript for existing annotation data
+      transcriptIds.forEach((transcriptId: string) => {
+        const annotationKey = `annotations-${transcriptId}`;
+        const existingAnnotations = localStorage.getItem(annotationKey);
+        
+        if (!existingAnnotations) {
+          console.log(`Generating annotation columns for new transcript ${transcriptId}...`);
+          generateAnnotationColumnsForTranscript(transcriptId, featureDefinitions);
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error in auto-generation for new transcripts:', error);
+    }
   };
 
   const handleFeatureDefinitionUploaded = () => {
     // Handle feature definition upload success
-    console.log('Feature definition uploaded successfully - all annotations cleared');
+    console.log('Feature definition uploaded successfully - annotation columns regenerated');
     
-    // Show a notification to the user about the annotation clearing
-    alert('Feature definition uploaded successfully!\n\nAll previous annotations have been cleared from all transcripts.\nPlease refresh any open transcript pages to see the new feature definitions.');
+    // Auto-generate annotation columns for any existing transcripts
+    generateAnnotationColumnsForAllTranscripts();
+    
+    // Show a notification to the user about the automatic generation
+    alert('Feature definition uploaded successfully!\n\nAnnotation columns have been automatically generated for all transcripts based on the new codebook.\nPlease refresh any open transcript pages to see the new feature definitions.');
+  };
+  
+  // Function to automatically generate annotation columns for all transcripts when codebook is updated
+  const generateAnnotationColumnsForAllTranscripts = () => {
+    try {
+      const featureDefinitionsData = localStorage.getItem('feature-definitions');
+      if (!featureDefinitionsData) {
+        console.log('No codebook found, skipping auto-generation');
+        return;
+      }
+      
+      const featureDefinitions = JSON.parse(featureDefinitionsData);
+      if (!featureDefinitions.categories || featureDefinitions.categories.length === 0) {
+        console.log('No categories in codebook, skipping auto-generation');
+        return;
+      }
+      
+      console.log('Regenerating annotation columns for all transcripts...');
+      
+      // Get all transcript IDs from localStorage
+      const transcriptIds = [];
+      const storedTranscripts = localStorage.getItem('transcripts');
+      if (storedTranscripts) {
+        const parsedTranscripts = JSON.parse(storedTranscripts);
+        transcriptIds.push(...parsedTranscripts.map((t: { id: string }) => t.id.replace('t', '')));
+      }
+      
+      // Also check for any existing annotation keys in localStorage
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('annotations-')) {
+          const transcriptId = key.replace('annotations-', '');
+          if (!transcriptIds.includes(transcriptId)) {
+            transcriptIds.push(transcriptId);
+          }
+        }
+      }
+      
+      console.log(`Found ${transcriptIds.length} transcripts to regenerate:`, transcriptIds);
+      
+      // Regenerate annotation columns for each transcript
+      transcriptIds.forEach(transcriptId => {
+        generateAnnotationColumnsForTranscript(transcriptId, featureDefinitions);
+      });
+      
+      console.log(`Successfully regenerated annotation columns for ${transcriptIds.length} transcripts`);
+      
+    } catch (error) {
+      console.error('Error in auto-generation:', error);
+    }
+  };
+  
+  // Interface for feature definitions (matching the one in FeatureDefinitionUpload)
+  interface FeatureDefinitions {
+    uploadedAt: string;
+    originalFileName: string;
+    isXLSX: boolean;
+    categories: string[];
+    features: {
+      [category: string]: Array<{
+        Code?: string;
+        Definition?: string;
+        Example1?: string;
+        example1?: string;
+        Example2?: string;
+        example2?: string;
+        NonExample1?: string;
+        nonexample1?: string;
+        NonExample2?: string;
+        nonexample2?: string;
+      }>;
+    };
+  }
+
+  // Function to generate annotation columns for a specific transcript
+  const generateAnnotationColumnsForTranscript = (transcriptId: string, featureDefinitions: FeatureDefinitions) => {
+    try {
+      console.log(`Regenerating annotation columns for transcript ${transcriptId}...`);
+      
+      // Get table data for this transcript
+      const tableDataKey = `tableData-${transcriptId}`;
+      const existingTableData = localStorage.getItem(tableDataKey);
+      
+      if (!existingTableData) {
+        console.log(`No table data found for transcript ${transcriptId}, skipping`);
+        return;
+      }
+      
+      const tableData = JSON.parse(existingTableData);
+      const numRows = tableData.length;
+      
+      // Create annotation data structure based on the current codebook
+      const newAnnotationData: Record<string, {
+        codes: string[];
+        definitions: Record<string, {
+          Definition: string;
+          example1: string;
+          example2: string;
+          nonexample1: string;
+          nonexample2: string;
+        }>;
+        annotations: Record<number, Record<string, boolean>>;
+      }> = {};
+      
+      if (featureDefinitions.categories && featureDefinitions.features) {
+        featureDefinitions.categories.forEach((category: string) => {
+          const categoryFeatures = featureDefinitions.features[category] || [];
+          
+          // Extract codes
+          const codes = categoryFeatures.map((feature: { Code?: string }) => feature.Code).filter((code): code is string => Boolean(code));
+          
+          // Create definitions object
+          const definitions: Record<string, {
+            Definition: string;
+            example1: string;
+            example2: string;
+            nonexample1: string;
+            nonexample2: string;
+          }> = {};
+          categoryFeatures.forEach((feature: { 
+            Code?: string; 
+            Definition?: string; 
+            Example1?: string; 
+            example1?: string; 
+            Example2?: string; 
+            example2?: string; 
+            NonExample1?: string; 
+            nonexample1?: string; 
+            NonExample2?: string; 
+            nonexample2?: string 
+          }) => {
+            if (feature.Code) {
+              definitions[feature.Code] = {
+                Definition: feature.Definition || '',
+                example1: feature.Example1 || feature.example1 || '',
+                example2: feature.Example2 || feature.example2 || '',
+                nonexample1: feature.NonExample1 || feature.nonexample1 || '',
+                nonexample2: feature.NonExample2 || feature.nonexample2 || ''
+              };
+            }
+          });
+          
+          // Initialize annotations for each line (all false by default)
+          const annotations: { [rowIndex: number]: { [code: string]: boolean } } = {};
+          for (let i = 0; i < numRows; i++) {
+            annotations[i] = {};
+            codes.forEach((code: string) => {
+              annotations[i][code] = false;
+            });
+          }
+          
+          newAnnotationData[category] = {
+            codes,
+            definitions,
+            annotations
+          };
+        });
+      }
+      
+      // Save the new annotation data
+      const annotationKey = `annotations-${transcriptId}`;
+      localStorage.setItem(annotationKey, JSON.stringify(newAnnotationData));
+      
+      console.log(`Successfully regenerated annotation columns for transcript ${transcriptId}:`, Object.keys(newAnnotationData));
+      
+    } catch (error) {
+      console.error(`Failed to regenerate annotation columns for transcript ${transcriptId}:`, error);
+    }
   };
 
   const handleDeleteTranscript = async (transcriptId: string, event: React.MouseEvent) => {

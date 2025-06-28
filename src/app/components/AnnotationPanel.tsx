@@ -95,6 +95,7 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
   const [selectedSheet, setSelectedSheet] = useState<string | null>(null);
   const [annotationData, setAnnotationData] = useState<AnnotationData>({});
   const [loading, setLoading] = useState(true);
+  const [isGeneratedFromCodebook, setIsGeneratedFromCodebook] = useState(false);
 
   useEffect(() => {
     const loadFeatureCategoriesAndAnnotationData = async () => {
@@ -180,6 +181,7 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
             setAnnotationData(data);
             setSheetNames(Object.keys(data));
             setLoading(false);
+            setIsGeneratedFromCodebook(true);
             
             // If there's saved data, make sure it's reflected in the UI immediately
             if (savedData) {
@@ -248,6 +250,7 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
             setAnnotationData(data);
             setSheetNames(Object.keys(data));
             setLoading(false);
+            setIsGeneratedFromCodebook(true);
             
             // If there's saved data, make sure it's reflected in the UI immediately
             if (savedData) {
@@ -351,6 +354,17 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
 
   return (
     <div className="flex flex-col h-full">
+      {isGeneratedFromCodebook && (
+        <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-md">
+          <div className="flex items-center gap-2 text-green-700 text-sm">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Annotation columns automatically generated from uploaded codebook</span>
+          </div>
+        </div>
+      )}
+      
       <div className="flex flex-wrap gap-2 mb-4">
         {sheetNames.map(sheetName => (
           <button

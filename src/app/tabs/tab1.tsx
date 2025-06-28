@@ -87,8 +87,8 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
         let newImages: ImageData[] = [];
         let newLegacyImages: string[] = [];
       
-        // Handle both old format and new format
-        if (data.images && Array.isArray(data.images)) {
+      // Handle both old format and new format
+      if (data.images && Array.isArray(data.images)) {
           // New format with images array - validate each image
           const validatedImages = await Promise.all(
             data.images.map(async (img: ImageData) => {
@@ -97,7 +97,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
             })
           );
           newImages = validatedImages.filter(Boolean);
-        } else if (data[`t${number}`] && Array.isArray(data[`t${number}`])) {
+      } else if (data[`t${number}`] && Array.isArray(data[`t${number}`])) {
           // Old format with transcript-specific array - validate each image
           const validatedUrls = await Promise.all(
             data[`t${number}`].map(async (url: string) => {
@@ -160,7 +160,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
         
         if (contentData) {
           const data = JSON.parse(contentData);
-          setLessonLink(data.lessonLink);
+        setLessonLink(data.lessonLink);
           // Load custom lesson title if it exists
           if (data.customLessonTitle) {
             setLessonTitle(data.customLessonTitle);

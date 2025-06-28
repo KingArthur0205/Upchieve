@@ -540,20 +540,7 @@ export default function MultiAnnotatorComparisonView({
     return value ?? false;
   }, [currentAnnotatorData, tableData]);
 
-  const getAnnotatorValue = useCallback((annotator: AnnotatorData, lineNumber: number, category: string, feature: string): boolean | number | string | null => {
-    // Check if this row is annotatable (has col1 value)
-    const tableRow = tableData.find(row => row.col2 === lineNumber);
-    if (!tableRow || !isTableRowSelectable(tableRow)) {
-      return null; // Return null for non-annotatable rows (like Teacher rows)
-    }
-    
-    const lineAnnotations = annotator.annotations[lineNumber];
-    if (!lineAnnotations || !lineAnnotations[category]) return null;
-    
-    return lineAnnotations[category][feature] ?? null;
-  }, [tableData]);
-
-  const isTableRowSelectable = (rowData: TableRow): boolean => {
+  const isTableRowSelectable = useCallback((rowData: TableRow): boolean => {
     // If no "Selectable" column exists in the data, all rows are annotatable
     if (!hasSelectableColumn) {
       return true;
@@ -566,7 +553,20 @@ export default function MultiAnnotatorComparisonView({
     
     const selectableValue = rowData.col7.toLowerCase().trim();
     return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
-  };
+  }, [hasSelectableColumn]);
+
+  const getAnnotatorValue = useCallback((annotator: AnnotatorData, lineNumber: number, category: string, feature: string): boolean | number | string | null => {
+    // Check if this row is annotatable (has col1 value)
+    const tableRow = tableData.find(row => row.col2 === lineNumber);
+    if (!tableRow || !isTableRowSelectable(tableRow)) {
+      return null; // Return null for non-annotatable rows (like Teacher rows)
+    }
+    
+    const lineAnnotations = annotator.annotations[lineNumber];
+    if (!lineAnnotations || !lineAnnotations[category]) return null;
+    
+    return lineAnnotations[category][feature] ?? null;
+  }, [tableData, isTableRowSelectable]);
 
   const getDisplayTableData = () => {
     let filteredData = tableData;
@@ -889,7 +889,7 @@ export default function MultiAnnotatorComparisonView({
     });
     
     return stats.sort((a, b) => b.agreement - a.agreement);
-  }, [selectedCategory, otherAnnotators, tableData, getFeaturesForCategory, getCurrentAnnotatorValue, getAnnotatorValue]);
+  }, [selectedCategory, otherAnnotators, tableData, getFeaturesForCategory, getCurrentAnnotatorValue, getAnnotatorValue, isTableRowSelectable]);
 
   const allCategories = getAllCategories();
   const displayTableData = getDisplayTableData();
