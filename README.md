@@ -5,8 +5,61 @@ It provides a practical and efficient interface for essential tasks such as data
 This toolkit aims to enhance the accessibility and efficiency of educational language data annotation, as well as advance both natural language processing (NLP) and education research.
 By simplifying these key operations, the UI supports the efficient exploration of text data annotation in education.
 
-## Table of Contents
-[**Installation**](#installation) ｜ [**Tutorials**](#tutorials) | [File Formats](#file-formats) ｜ [**Troubleshooting**](#troubleshooting) | [**Future Extensions**](#future-extensions) | [**Citation**](#citation)
+## 📖 Table of Contents
+[**Overview**](#overview)| [**Installation**](#installation) ｜ [**Tutorials**](#tutorials) | [File Formats](#file-formats) ｜ [**Troubleshooting**](#troubleshooting) | [**Future Extensions**](#future-extensions) | [**Citation**](#citation)
+
+## Overview
+
+## Installation
+You can install the UI with ```npm```: 
+   ```bash
+   git clone https://github.com/KingArthur0205/summit_mol
+   cd summit_mol
+   npm install # Install Dependencies
+   ```
+
+## Getting Started
+To run the UI:
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser (or the port shown in terminal if 3000 is occupied).
+
+### Upload Transcript
+
+Click  <img src="figures/Add_Transcript_Button.png" alt="Add New Transcript" style="height: 2em; vertical-align: middle;" />   on the navigation page. Files need to be in either XLSX or CSV formats.
+
+**Required columns:**  
+- `#` — Line number  
+- `Speaker` — Speaker name or ID  
+- `Dialogue` — The text of the utterance  
+
+**Optional columns:**  
+- `Selectable` — Mark with `"yes"` to enable annotation. If omitted, all rows are annotatable.  
+- `Segment` — Group rows (e.g., `"a"`, `"b"`, `"c"`) for better viewing and filtering.
+
+### Upload Feature Definition Codebook
+Click <img src="figures/Add_Feature_Button.png" alt="Add New Transcript" style="height: 2em; vertical-align: middle;" /> on the navigation page. Upload an `.xlsx` or `.csv` file to define annotation features.  
+Each sheet (XLSX) or file (CSV) becomes a feature category.
+
+**Required columns:** `Code`, `Definition`  
+**Optional columns:** `Example1`, `Example2`, `NonExample1`, `NonExample2`
+
+- **XLSX**: Each sheet is a separate category  
+- **CSV**: Filename (without extension) becomes the category name
+
+### Configure Google Cloud Storage
+This project reads and writes data to Google Cloud Storage. To allow this integration:
+
+1. Go to https://console.cloud.google.com/
+2. Select IAM & Admin, then select Service Accounts
+3. Create a new Service Account.
+4. The service account comes with an email address that ends in @cosmic-anthem-412619.iam.gserviceaccount.com -- share the Google sheet to access with this account.
+5. Download the service account details as JSON -- this should include a private key and client email.
+6. Save the private key and client email as local environment variables. Convert to BASE64 format, and set in the settings of UI.
+7. Select Cloud Storage, then select Storage Bucket
+8. Create a storage bucket and set the name in the settings of UI.
+
 
 ### Tutorials
 ### Future Extensions 
@@ -41,43 +94,6 @@ By simplifying these key operations, the UI supports the efficient exploration o
 - **Bulk Upload**: Upload multiple transcripts simultaneously via ZIP files
 - **Cloud Sync**: Automatic synchronization with Google Cloud Storage
 - **Export Functions**: Export annotations in multiple formats (XLSX, CSV)
-
-## Installation
-
-### Prerequisites
-
-- **Node.js** (version 18 or higher)
-- **npm**, **yarn**, **pnpm**, or **bun** package manager
-- **Google Cloud Account** (for cloud features)
-
-### Step-by-Step Installation
-
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/KingArthur0205/summit_mol
-   cd summit_mol
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
-
-## Getting Started
-
-### Running the Development Server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser (or the port shown in terminal if 3000 is occupied).
-
-### First-Time Setup
-
-1. **Upload Transcripts**: Use the "Add New Transcript" button on the main page
-2. **Configure Settings**: Click the settings gear icon to set up Google Cloud integration
-3. **Upload Feature Definitions**: Upload annotation framework definitions via the upload interface
 
 ## Usage Guide
 
