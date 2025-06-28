@@ -140,8 +140,11 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div className="text-xs text-blue-700">
-                  <p className="font-medium mb-1">💡 Annotation Tip:</p>
-                  <p>For annotation features to work, include a <strong>&quot;Selectable&quot;</strong> column with &quot;yes&quot; values for rows you want to annotate. Only rows marked as selectable will allow feature annotations.</p>
+                  <p className="font-medium mb-1">Additional Columns:</p>
+                  <ul className="list-disc list-inside mt-1 space-y-1">
+                    <li><strong>&quot;Selectable&quot;</strong>: Mark rows with &quot;yes&quot;/&quot;true&quot;/&quot;1&quot; to enable annotation features. If no Selectable column exists, all rows are annotatable.</li>
+                    <li><strong>&quot;Segment&quot;</strong>: Group rows into segments (e.g., &quot;a&quot;, &quot;b&quot;, &quot;c&quot;) for organized viewing and filtering.</li>
+                  </ul>
                 </div>
               </div>
             </div>
