@@ -65,6 +65,8 @@ This project reads and writes data to Google Cloud Storage. To allow this integr
 ### Future Extensions 
 ### Citation
 
+# --------- Deprecated ---------
+
 ### Key Capabilities
 
 - **Transcript Annotation**: Annotate classroom transcripts with educational discourse features
