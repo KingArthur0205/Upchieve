@@ -74,8 +74,18 @@ export default function FeatureDefinitionUpload({ onUploadSuccess }: FeatureDefi
       if (result.success) {
         // Save feature definition data to localStorage
         if (result.storage && !result.storage.cloudStorage) {
-          localStorage.setItem('feature-definitions', JSON.stringify(result.storage.data));
-          console.log('Feature definitions saved to localStorage:', result.storage.data);
+          // Save the complete data structure for compatibility with both AnnotationPanel and transcript page
+          const completeData = result.storage.data;
+          localStorage.setItem('feature-definitions', JSON.stringify(completeData));
+          console.log('Feature definitions saved to localStorage:', completeData);
+          console.log('Categories detected:', completeData.categories);
+          
+          // Also log the structure for debugging
+          if (completeData.features) {
+            Object.keys(completeData.features).forEach(category => {
+              console.log(`Category "${category}":`, completeData.features[category].length, 'features');
+            });
+          }
         }
 
         // Clear all annotation-related localStorage data

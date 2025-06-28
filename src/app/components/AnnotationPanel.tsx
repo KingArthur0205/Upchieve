@@ -99,37 +99,203 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
   useEffect(() => {
     const loadFeatureCategoriesAndAnnotationData = async () => {
       try {
-        // First, load the feature categories dynamically
-        console.log('AnnotationPanel: Loading feature categories...');
+        console.log('AnnotationPanel: Loading feature categories and definitions...');
+        
+        // First, try to load from localStorage
+        const localFeatureDefinitions = localStorage.getItem('feature-definitions');
+        
+        if (localFeatureDefinitions) {
+          // Load from localStorage
+          console.log('AnnotationPanel: Loading feature definitions from localStorage');
+          const featureData = JSON.parse(localFeatureDefinitions);
+          console.log('AnnotationPanel: localStorage data structure:', featureData);
+          console.log('AnnotationPanel: Object keys:', Object.keys(featureData));
+          console.log('AnnotationPanel: Has categories?', !!featureData.categories);
+          console.log('AnnotationPanel: Has features?', !!featureData.features);
+          
+          // Check if it's the new direct format (category names as keys)
+          const isDirectFormat = typeof featureData === 'object' && 
+                                featureData !== null && 
+                                !featureData.categories && 
+                                !featureData.features &&
+                                Object.keys(featureData).length > 0;
+          console.log('AnnotationPanel: Direct format check:', isDirectFormat);
+          
+          if (isDirectFormat) {
+            // Direct format: { "Conceptual": [...], "Discursive": [...] }
+            const categories = Object.keys(featureData);
+            ALLOWED_SHEETS = categories;
+            console.log('AnnotationPanel: Loaded categories from localStorage (direct format):', ALLOWED_SHEETS);
+            
+            // Convert localStorage feature data to annotation data format
+            const data: AnnotationData = {};
+            
+            categories.forEach((category: string) => {
+              const categoryFeatures = featureData[category] || [];
+              
+              // Extract codes
+              const codes = categoryFeatures.map((feature: { Code?: string }) => feature.Code).filter(Boolean);
+              
+              // Create definitions object
+              const definitions: { [code: string]: FeatureDetails } = {};
+              categoryFeatures.forEach((feature: { 
+                Code?: string; 
+                Definition?: string; 
+                Example1?: string; 
+                example1?: string; 
+                Example2?: string; 
+                example2?: string; 
+                NonExample1?: string; 
+                nonexample1?: string; 
+                NonExample2?: string; 
+                nonexample2?: string 
+              }) => {
+                if (feature.Code) {
+                  definitions[feature.Code] = {
+                    Definition: feature.Definition || '',
+                    example1: feature.Example1 || feature.example1 || '',
+                    example2: feature.Example2 || feature.example2 || '',
+                    nonexample1: feature.NonExample1 || feature.nonexample1 || '',
+                    nonexample2: feature.NonExample2 || feature.nonexample2 || ''
+                  };
+                }
+              });
+              
+              // Initialize annotations for each line
+              const annotations: { [rowIndex: number]: { [code: string]: boolean } } = {};
+              for (let i = 0; i < numRows; i++) {
+                annotations[i] = {};
+                codes.forEach((code: string) => {
+                  annotations[i][code] = false;
+                });
+              }
+              
+              data[category] = {
+                codes,
+                definitions,
+                annotations: savedData?.[category]?.annotations || annotations
+              };
+            });
+            
+            setAnnotationData(data);
+            setSheetNames(Object.keys(data));
+            setLoading(false);
+            
+            // If there's saved data, make sure it's reflected in the UI immediately
+            if (savedData) {
+              onAnnotationChange?.(savedData);
+            } else {
+              onAnnotationChange?.(data);
+            }
+            return;
+          }
+          
+          // Legacy format: { categories: [...], features: {...} }
+          if (featureData.categories && featureData.features) {
+            ALLOWED_SHEETS = featureData.categories;
+            console.log('AnnotationPanel: Loaded categories from localStorage (legacy format):', ALLOWED_SHEETS);
+            
+            // Convert localStorage feature data to annotation data format
+            const data: AnnotationData = {};
+            
+            featureData.categories.forEach((category: string) => {
+              const categoryFeatures = featureData.features[category] || [];
+              
+              // Extract codes
+              const codes = categoryFeatures.map((feature: { Code?: string }) => feature.Code).filter(Boolean);
+              
+              // Create definitions object
+              const definitions: { [code: string]: FeatureDetails } = {};
+              categoryFeatures.forEach((feature: { 
+                Code?: string; 
+                Definition?: string; 
+                Example1?: string; 
+                example1?: string; 
+                Example2?: string; 
+                example2?: string; 
+                NonExample1?: string; 
+                nonexample1?: string; 
+                NonExample2?: string; 
+                nonexample2?: string 
+              }) => {
+                if (feature.Code) {
+                  definitions[feature.Code] = {
+                    Definition: feature.Definition || '',
+                    example1: feature.Example1 || feature.example1 || '',
+                    example2: feature.Example2 || feature.example2 || '',
+                    nonexample1: feature.NonExample1 || feature.nonexample1 || '',
+                    nonexample2: feature.NonExample2 || feature.nonexample2 || ''
+                  };
+                }
+              });
+              
+              // Initialize annotations for each line
+              const annotations: { [rowIndex: number]: { [code: string]: boolean } } = {};
+              for (let i = 0; i < numRows; i++) {
+                annotations[i] = {};
+                codes.forEach((code: string) => {
+                  annotations[i][code] = false;
+                });
+              }
+              
+              data[category] = {
+                codes,
+                definitions,
+                annotations: savedData?.[category]?.annotations || annotations
+              };
+            });
+            
+            setAnnotationData(data);
+            setSheetNames(Object.keys(data));
+            setLoading(false);
+            
+            // If there's saved data, make sure it's reflected in the UI immediately
+            if (savedData) {
+              onAnnotationChange?.(savedData);
+            } else {
+              onAnnotationChange?.(data);
+            }
+            return;
+          }
+        }
+        
+        // Fallback: try API for feature categories
+        console.log('AnnotationPanel: No localStorage data, trying API...');
         const categoriesResponse = await fetch('/api/get-feature-categories');
         const categoriesData = await categoriesResponse.json();
         
-        if (categoriesData.success) {
+        if (categoriesData.success && categoriesData.categories.length > 0) {
           ALLOWED_SHEETS = categoriesData.categories;
-          console.log('AnnotationPanel: Loaded feature categories:', ALLOWED_SHEETS, 'from', categoriesData.source);
-        }
-        
-        console.log('AnnotationPanel: Starting to load annotation data from XLSX');
-        
-        console.log('AnnotationPanel: Loading XLSX file /MOL Roles Features.xlsx');
-        const xlsxResponse = await fetch('/MOL%20Roles%20Features.xlsx');
-        if (!xlsxResponse.ok) {
-          throw new Error(`Failed to fetch annotation file: ${xlsxResponse.statusText}`);
-        }
-        const arrayBuffer = await xlsxResponse.arrayBuffer();
-        const data = parseXLSXAnnotationData(arrayBuffer, numRows, savedData);
-        console.log('AnnotationPanel: XLSX data parsed successfully');
-        
-        setAnnotationData(data);
-        setSheetNames(Object.keys(data));
-        setLoading(false);
-        
-        // If there's saved data, make sure it's reflected in the UI immediately
-        if (savedData) {
-          onAnnotationChange?.(savedData);
+          console.log('AnnotationPanel: Loaded feature categories from API:', ALLOWED_SHEETS);
+          
+          // Try to load the hardcoded XLSX file as fallback
+          console.log('AnnotationPanel: Loading XLSX file /MOL Roles Features.xlsx');
+          const xlsxResponse = await fetch('/MOL%20Roles%20Features.xlsx');
+          if (!xlsxResponse.ok) {
+            throw new Error(`Failed to fetch annotation file: ${xlsxResponse.statusText}`);
+          }
+          const arrayBuffer = await xlsxResponse.arrayBuffer();
+          const data = parseXLSXAnnotationData(arrayBuffer, numRows, savedData);
+          console.log('AnnotationPanel: XLSX data parsed successfully');
+          
+          setAnnotationData(data);
+          setSheetNames(Object.keys(data));
+          setLoading(false);
+          
+          // If there's saved data, make sure it's reflected in the UI immediately
+          if (savedData) {
+            onAnnotationChange?.(savedData);
+          } else {
+            onAnnotationChange?.(data);
+          }
         } else {
-          onAnnotationChange?.(data);
+          // No feature definitions available
+          console.log('AnnotationPanel: No feature definitions found');
+          setAnnotationData({});
+          setSheetNames([]);
+          setLoading(false);
         }
+        
       } catch (error) {
         console.error('Error loading annotation data:', error);
         setLoading(false);
@@ -166,6 +332,21 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
 
   if (loading) {
     return <div>Loading annotation data...</div>;
+  }
+
+  if (sheetNames.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-500">
+        <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <h3 className="text-lg font-medium mb-2">No Feature Definitions</h3>
+        <p className="text-center max-w-md">
+          Please upload a feature definition file to enable annotation features. 
+          Go to the main page and use the &quot;Upload Feature Definition&quot; section.
+        </p>
+      </div>
+    );
   }
 
   return (

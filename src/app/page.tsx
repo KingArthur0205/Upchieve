@@ -30,7 +30,7 @@ export default function Home() {
 
   const loadTranscripts = async () => {
     try {
-      let allTranscripts: TranscriptInfo[] = [];
+      const allTranscripts: TranscriptInfo[] = [];
       
       // Load transcripts from localStorage
       if (typeof window !== 'undefined') {

@@ -719,11 +719,13 @@ export default function MultiAnnotatorComparisonView({
     return otherAnnotators.some(annotator => {
       if (!annotator.notesData) return false;
 
-      const noteColumns = Object.keys(annotator.notesData.notes?.[0] || {}).filter(col => 
-        col.toLowerCase() !== 'line #' && col.toLowerCase() !== '#' && 
-        col.toLowerCase() !== 'line' && col.toLowerCase() !== 'speaker' && 
-        col.toLowerCase() !== 'utterance'
-      );
+      const noteColumns = Object.keys(annotator.notesData.notes?.[0] || {}).filter(col => {
+        const lowerCol = col.toLowerCase();
+        return lowerCol !== 'line #' && lowerCol !== '#' && 
+               lowerCol !== 'line' && lowerCol !== 'line number' &&
+               lowerCol !== 'speaker' && lowerCol !== 'utterance' &&
+               lowerCol !== 'time' && lowerCol !== 'timestamp';
+      });
 
       const hasAnnotatorNotes = noteColumns.some(col => {
         const note = getAnnotatorNoteForLine(annotator, lineNumber, col);
@@ -740,7 +742,8 @@ export default function MultiAnnotatorComparisonView({
     
     // Find the note entry for this line number
     const noteEntry = annotator.notesData.notes.find(note => {
-      const lineValue = note['Line #'] || note['#'] || note['Line'];
+      // Try multiple possible line number column names
+      const lineValue = note['Line #'] || note['#'] || note['Line'] || note['line'] || note['LINE'] || note['Line Number'];
       if (lineValue === null || lineValue === undefined) return false;
       
       // Handle both string and number line values
@@ -752,11 +755,19 @@ export default function MultiAnnotatorComparisonView({
     
     // Get the note from the specified column
     const noteValue = noteEntry[columnName];
-    if (noteValue === null || noteValue === undefined || noteValue === '' || isNaN(Number(noteValue))) {
+    
+    // Check for various empty/null states - but don't exclude numbers that might be 0 or NaN strings that represent actual content
+    if (noteValue === null || noteValue === undefined || noteValue === '') {
       return null;
     }
     
-    return String(noteValue);
+    // Convert to string and check if it's meaningful content
+    const stringValue = String(noteValue).trim();
+    if (stringValue === '' || stringValue.toLowerCase() === 'nan' || stringValue.toLowerCase() === 'null' || stringValue.toLowerCase() === 'undefined') {
+      return null;
+    }
+    
+    return stringValue;
   };
 
   // Function to handle notes popup
@@ -804,11 +815,13 @@ export default function MultiAnnotatorComparisonView({
     otherAnnotators.forEach(annotator => {
       if (!annotator.notesData) return;
 
-      const noteColumns = Object.keys(annotator.notesData.notes?.[0] || {}).filter(col => 
-        col.toLowerCase() !== 'line #' && col.toLowerCase() !== '#' && 
-        col.toLowerCase() !== 'line' && col.toLowerCase() !== 'speaker' && 
-        col.toLowerCase() !== 'utterance'
-      );
+      const noteColumns = Object.keys(annotator.notesData.notes?.[0] || {}).filter(col => {
+        const lowerCol = col.toLowerCase();
+        return lowerCol !== 'line #' && lowerCol !== '#' && 
+               lowerCol !== 'line' && lowerCol !== 'line number' &&
+               lowerCol !== 'speaker' && lowerCol !== 'utterance' &&
+               lowerCol !== 'time' && lowerCol !== 'timestamp';
+      });
 
       const annotatorNotes = noteColumns
         .map(col => getAnnotatorNoteForLine(annotator, lineNumber, col))
@@ -1486,12 +1499,14 @@ export default function MultiAnnotatorComparisonView({
                               
                               {/* Other annotators' notes columns */}
                               {otherAnnotators.filter(annotator => annotator.notesData).map((annotator) => {
-                                // Get all note columns from this annotator's data
-                                const noteColumns = Object.keys(annotator.notesData?.notes?.[0] || {}).filter(col => 
-                                  col.toLowerCase() !== 'line #' && col.toLowerCase() !== '#' && 
-                                  col.toLowerCase() !== 'line' && col.toLowerCase() !== 'speaker' && 
-                                  col.toLowerCase() !== 'utterance'
-                                );
+                                                // Get all note columns from this annotator's data
+                const noteColumns = Object.keys(annotator.notesData?.notes?.[0] || {}).filter(col => {
+                  const lowerCol = col.toLowerCase();
+                  return lowerCol !== 'line #' && lowerCol !== '#' && 
+                         lowerCol !== 'line' && lowerCol !== 'line number' &&
+                         lowerCol !== 'speaker' && lowerCol !== 'utterance' &&
+                         lowerCol !== 'time' && lowerCol !== 'timestamp';
+                });
                                 
                                 // Get all notes for this line from all note columns
                                 const allNotes = noteColumns

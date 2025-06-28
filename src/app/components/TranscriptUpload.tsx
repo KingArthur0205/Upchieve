@@ -58,7 +58,7 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
       
       // Pass existing transcript numbers to help with sequential numbering
       const existingTranscripts = JSON.parse(localStorage.getItem('transcripts') || '[]');
-      const existingNumbers = existingTranscripts.map((t: any) => {
+      const existingNumbers = existingTranscripts.map((t: { id: string }) => {
         const match = t.id.match(/^t(\d+)$/);
         return match ? parseInt(match[1], 10) : 0;
       }).filter((n: number) => n > 0);

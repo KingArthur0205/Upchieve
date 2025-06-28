@@ -1,6 +1,6 @@
 "use client"; // Client Component
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 
 interface Tab1Props {
@@ -69,7 +69,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
           imagesData = await response.text();
           console.log('Loaded images from public folder');
         }
-      } catch (apiError) {
+      } catch {
         console.log('Images not found in public folder, trying localStorage');
       }
       
@@ -146,7 +146,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
             contentData = await response.text();
             console.log('Loaded content from public folder');
           }
-        } catch (apiError) {
+        } catch {
           console.log('Content not found in public folder, trying localStorage');
         }
         
@@ -329,7 +329,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
   };
 
   // Combine legacy images and new images for display
-  const allImages = [
+  const allImages = useMemo(() => [
     ...legacyImages.map((url, index) => ({
       url,
       filename: `legacy_image_${index}.jpg`,
@@ -338,7 +338,7 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
       isLegacy: true
     })),
     ...images.map(img => ({ ...img, isLegacy: false }))
-  ];
+  ], [legacyImages, images]);
 
   // Handle keyboard navigation for modal
   useEffect(() => {
