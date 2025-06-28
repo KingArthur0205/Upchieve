@@ -20,39 +20,11 @@ try {
 // Specify the name of your bucket
 const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'mol_summit';
 
-// Function to get user's IP address
-function getUserIP(request: NextRequest): string {
-  // Try to get IP from various headers (for different proxy setups)
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIP = request.headers.get('x-real-ip');
-  const cfConnectingIP = request.headers.get('cf-connecting-ip'); // Cloudflare
-  
-  if (forwarded) {
-    // x-forwarded-for can contain multiple IPs, get the first one
-    return forwarded.split(',')[0].trim();
-  }
-  
-  if (realIP) {
-    return realIP;
-  }
-  
-  if (cfConnectingIP) {
-    return cfConnectingIP;
-  }
-  
-  // Fallback to connection remote address (might not work in all environments)
-  return 'unknown-ip';
-}
-
 export async function POST(request: NextRequest) {
   try {
     if (!storage) {
       throw new Error('Google Cloud Storage client not properly initialized');
     }
-    
-    // Get user's IP address
-    const userIP = getUserIP(request);
-    console.log('User IP:', userIP);
     
     // Get the form data from the request
     const formData = await request.formData();
@@ -63,28 +35,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'No file provided' }, { status: 400 });
     }
 
+    if (!transcriptNumber) {
+      return NextResponse.json({ message: 'No transcript number provided' }, { status: 400 });
+    }
+
     // Convert file to buffer
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
     // Create a unique filename with timestamp
     const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-    const fileName = `transcript_${transcriptNumber}_annotations_${timestamp}.xlsx`;
+    const fileName = `${transcriptNumber}_annotations_${timestamp}.xlsx`;
     
-    // Create file path with IP-based folder
-    const filePath = `${userIP}/${fileName}`;
+    // Store directly in annotations folder without IP-based subfolders
+    const filePath = `annotations/${fileName}`;
 
     console.log('Uploading XLSX file:', {
       filePath,
       fileSize: buffer.length,
-      transcriptNumber,
-      userIP
+      transcriptNumber
     });
 
     // Get a reference to the bucket
     const bucket = storage.bucket(bucketName);
 
-    // Create a file object in the bucket with the IP-based path
+    // Create a file object in the bucket with the direct path
     const fileObj = bucket.file(filePath);
 
     // Upload the file with proper metadata
@@ -94,8 +69,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           transcriptNumber: transcriptNumber,
           uploadedAt: new Date().toISOString(),
-          originalName: file.name,
-          userIP: userIP
+          originalName: file.name
         }
       }
     });
@@ -106,7 +80,7 @@ export async function POST(request: NextRequest) {
       message: 'XLSX file uploaded to Google Cloud Storage successfully!',
       filePath: filePath,
       fileSize: buffer.length,
-      userIP: userIP
+      transcriptNumber: transcriptNumber
     });
   } 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
