@@ -1,17 +1,16 @@
 # Transcript Annotation Tool
 
-This tool is designed for educational researchers to annotate and analyze student discourse transcripts. It supports true/false annotations, note-taking, annotator comparison, and provides visualizations for cross-annotator results.
+The **UI** is an open-source user interface(UI) designed to facilitate the study of conversation language data in educational settings.
+It provides a practical and efficient interface for essential tasks such as data annotation, cross-annotator comparison, and analysis, tailored to meet the needs of researchers and teachers.
+This toolkit aims to enhance the accessibility and efficiency of educational language data annotation, as well as advance both natural language processing (NLP) and education research.
+By simplifying these key operations, the UI supports the efficient exploration of text data annotation in education.
 
 ## Table of Contents
+[**Installation**](#installation) ｜ [**Tutorials**](#tutorials) | [File Formats](#file-formats) ｜ [**Troubleshooting**](#troubleshooting) | [**Future Extensions**](#future-extensions) | [**Citation**](#citation)
 
-- [Overview](#overview)
-- [Features](#features)
-- [Installation](#installation)
-- [Getting Started](#getting-started)
-- [Usage Guide](#usage-guide)
-- [File Formats](#file-formats)
-- [Google Cloud Integration](#google-cloud-integration)
-- [Troubleshooting](#troubleshooting)
+### Tutorials
+### Future Extensions 
+### Citation
 
 ### Key Capabilities
 
