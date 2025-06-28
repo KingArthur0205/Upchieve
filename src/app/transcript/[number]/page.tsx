@@ -1634,35 +1634,76 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   useEffect(() => {
     const loadFeatureCategoriesAndAnnotationData = async () => {
       try {
-        // First, load the feature categories dynamically
-        console.log('Loading feature categories...');
-        const categoriesResponse = await fetch('/api/get-feature-categories');
-        const categoriesData = await categoriesResponse.json();
+        // Load feature definitions from localStorage
+        console.log('Loading feature categories from localStorage...');
+        const featureDefinitionsData = localStorage.getItem('feature-definitions');
         
-        if (categoriesData.success) {
-          ALLOWED_SHEETS = categoriesData.categories;
-          console.log('Loaded feature categories:', ALLOWED_SHEETS, 'from', categoriesData.source);
+        if (featureDefinitionsData) {
+          const featureDefinitions = JSON.parse(featureDefinitionsData);
+          
+          if (featureDefinitions.categories && featureDefinitions.categories.length > 0) {
+            ALLOWED_SHEETS = featureDefinitions.categories;
+            console.log('Loaded feature categories from localStorage:', ALLOWED_SHEETS);
+            
+            // Create annotation data from feature definitions
+            let newData = annotationData && Object.keys(annotationData).length > 0 ? { ...annotationData } : {};
+            
+            featureDefinitions.categories.forEach((category: string) => {
+              const categoryFeatures = featureDefinitions.features[category] || [];
+              const codes = categoryFeatures.map((feature: any) => feature.Code);
+              const definitions: { [key: string]: any } = {};
+              
+              categoryFeatures.forEach((feature: any) => {
+                definitions[feature.Code] = {
+                  Definition: feature.Definition || '',
+                  example1: feature.Example1 || '',
+                  example2: feature.Example2 || '',
+                  nonexample1: feature.NonExample1 || '',
+                  nonexample2: feature.NonExample2 || ''
+                };
+              });
+              
+              // Initialize annotations only if they don't exist for this category
+              if (!newData[category] || newData[category].codes.length === 0) {
+                console.log('Creating new annotation data for:', category);
+                const annotations: { [key: number]: { [code: string]: boolean } } = {};
+                
+                for (let i = 0; i < tableData.length; i++) {
+                  annotations[i] = {};
+                  codes.forEach((code: string) => {
+                    annotations[i][code] = false;
+                  });
+                }
+                
+                newData[category] = {
+                  codes,
+                  definitions,
+                  annotations
+                };
+              } else {
+                // Update codes and definitions while preserving existing annotations
+                newData[category] = {
+                  ...newData[category],
+                  codes,
+                  definitions
+                };
+              }
+            });
+            
+            console.log('Setting annotation data:', newData);
+            setAnnotationData(newData);
+          } else {
+            console.log('No feature categories found in localStorage');
+            setAnnotationData({});
+          }
+        } else {
+          console.log('No feature definitions found in localStorage');
+          setAnnotationData({});
         }
         
-        console.log('Starting to load annotation data from XLSX');
-        
-        // Start with saved data if available, otherwise start fresh
-        let newData = annotationData && Object.keys(annotationData).length > 0 ? { ...annotationData } : {};
-        
-          console.log('Loading XLSX file /MOL Roles Features.xlsx');
-          const xlsxResponse = await fetch('/MOL%20Roles%20Features.xlsx');
-          if (!xlsxResponse.ok) {
-            throw new Error(`Failed to fetch annotation file: ${xlsxResponse.statusText}`);
-          }
-          const arrayBuffer = await xlsxResponse.arrayBuffer();
-          newData = parseXLSXAnnotationData(arrayBuffer, newData);
-          console.log('XLSX data parsed successfully');
-        
-        console.log('Setting annotation data:', newData);
-        setAnnotationData(newData);
         setLastFeatureDefinitionCheck(Date.now());
       } catch (error) {
-        console.error('Error loading annotation data:', error);
+        console.error('Error loading annotation data from localStorage:', error);
       }
     };
     
@@ -1830,124 +1871,148 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        const res = await fetch(`/api/transcript/t${number}?file=content.json`);
-        if (!res.ok) throw new Error("Failed to fetch content.json");
-        const data = await res.json();
-        setGradeLevel(data.gradeLevel);
-        setLessonGoal(data.lessonGoal || "");
-        setAvailableSegment(data.segments || []);
+        // Try to load from localStorage first
+        const contentData = localStorage.getItem(`t${number}-content.json`);
+        if (contentData) {
+          const data = JSON.parse(contentData);
+          setGradeLevel(data.gradeLevel);
+          setLessonGoal(data.lessonGoal || "");
+          setAvailableSegment(data.segments || []);
+          console.log('Loaded content from localStorage:', data);
+        } else {
+          // Default values if no content found
+          setGradeLevel("Grade Level");
+          setLessonGoal("Lesson Goal");
+          setAvailableSegment([]);
+          console.log('No content found in localStorage, using defaults');
+        }
       } catch (err) {
-        console.error("Error loading content:", err);
+        console.error("Error loading content from localStorage:", err);
+        // Set defaults on error
+        setGradeLevel("Grade Level");
+        setLessonGoal("Lesson Goal");
+        setAvailableSegment([]);
       }
     };
 
     const fetchSpeakers = async () => {
       try {
-        const res = await fetch(`/api/transcript/t${number}?file=speakers.json`);
-        if (!res.ok) throw new Error("Failed to fetch speakers.json");
-        const data = await res.json();
-        setSpeakerColors(data);
+        // Try to load from localStorage first
+        const speakersData = localStorage.getItem(`t${number}-speakers.json`);
+        if (speakersData) {
+          const data = JSON.parse(speakersData);
+          setSpeakerColors(data);
+          console.log('Loaded speakers from localStorage:', data);
+        } else {
+          // Default speaker colors if no data found
+          setSpeakerColors({});
+          console.log('No speakers found in localStorage, using empty object');
+        }
       } catch (err) {
-        console.error("Error loading speakers:", err);
+        console.error("Error loading speakers from localStorage:", err);
+        setSpeakerColors({});
       }
     };
     
     const loadCSVData = async () => {
       try {
-        const response = await fetch(`/api/transcript/t${number}?file=transcript.csv`);
-        if (!response.ok) throw new Error("Failed to fetch the CSV file.");
-        const text = await response.text();
-        
-        console.log("Loaded CSV content: ", text.substring(0, 500));
-        
-        Papa.parse(text, {
-          complete: (result) => {
-            console.log("CSV Data Loaded: ", result);
-            if (result.errors.length) {
-              setError("Error in CSV parsing: " + result.errors.map((err) => err.message).join(", "));
-              setLoading(false);
-              return;
-            }
-            
-            // Get headers and dynamically find the right columns
-            const headers = Object.keys((result.data as CsvRow[])[0] || {});
-            
-            // Find the line number column (could be "#", "Line #", "Line Number", etc.)
-            const lineNumberCol = headers.find(h => h.toLowerCase().includes("#") || h.toLowerCase().includes("line")) || "#";
-            
-            // Find the speaker column
-            const speakerCol = headers.find(h => h.toLowerCase().includes("speaker")) || "Speaker";
-            
-            // Find the dialogue/utterance column
-            const dialogueCol = headers.find(h => h.toLowerCase().includes("dialogue") || h.toLowerCase().includes("utterance")) || "Dialogue";
-            
-            // Find timing columns
-            const startCol = headers.find(h => h.toLowerCase().includes("in") || h.toLowerCase().includes("start")) || "In cue";
-            const endCol = headers.find(h => h.toLowerCase().includes("out") || h.toLowerCase().includes("end")) || "Out cue";
-            
-            // Find segment column if it exists
-            const segmentCol = headers.find(h => h.toLowerCase() === "segment");
-            const hasSegment = !!segmentCol;
-            setHasSegmentColumn(hasSegment);
-            
-            // Find selectable column if it exists
-            const selectableCol = headers.find(h => h.toLowerCase().includes("selectable"));
-            const hasSelectableCol = !!selectableCol;
-            setHasSelectableColumn(hasSelectableCol);
-            
-            // Ensure segment column is visible if it exists
-            if (hasSegment) {
-              setColumnVisibility(prev => ({
-                ...prev,
-                segment: true
-              }));
-            }
-            
-            // All other columns are considered extra
-            const coreColumns = [lineNumberCol, startCol, endCol, speakerCol, dialogueCol];
-            if (segmentCol) coreColumns.push(segmentCol);
-            if (selectableCol) coreColumns.push(selectableCol);
-            const extraCols = headers.filter(header => !coreColumns.includes(header));
-            
-            // Setup extra columns
-            setExtraColumns(extraCols);
-            const initialExtraVisibility: {[key: string]: boolean} = {};
-            extraCols.forEach(col => {
-              initialExtraVisibility[col] = false; // Hidden by default
-            });
-            setExtraColumnVisibility(initialExtraVisibility);
-            
-            // Add the type assertion here with updated schema
-            const updatedData = (result.data as CsvRow[]).map((row, index) => {
-              const baseData: TableRow = {
-                col1: hasSegment ? (row[segmentCol!] || null) : null,
-                col2: parseInt(row[lineNumberCol] || "", 10) || index + 1,
-                col3: row[startCol] || `Row ${index + 1} Col 3`,
-                col4: row[endCol] || `Row ${index + 1} Col 4`,
-                col5: row[speakerCol] || `Row ${index + 1} Col 5`,
-                col6: row[dialogueCol] || `Row ${index + 1} Col 6`,
-                col7: selectableCol ? (row[selectableCol] || "") : "", // Use selectable column if it exists
-                noteIds: "",
-              };
+        // Try to load from localStorage first
+        const csvData = localStorage.getItem(`t${number}-transcript.csv`);
+        if (csvData) {
+          console.log("Loaded CSV content from localStorage: ", csvData.substring(0, 500));
+          
+          Papa.parse(csvData, {
+            complete: (result) => {
+              console.log("CSV Data Loaded: ", result);
+              if (result.errors.length) {
+                setError("Error in CSV parsing: " + result.errors.map((err) => err.message).join(", "));
+                setLoading(false);
+                return;
+              }
               
-              // Add extra columns
+              // Get headers and dynamically find the right columns
+              const headers = Object.keys((result.data as CsvRow[])[0] || {});
+              
+              // Find the line number column (could be "#", "Line #", "Line Number", etc.)
+              const lineNumberCol = headers.find(h => h.toLowerCase().includes("#") || h.toLowerCase().includes("line")) || "#";
+              
+              // Find the speaker column
+              const speakerCol = headers.find(h => h.toLowerCase().includes("speaker")) || "Speaker";
+              
+              // Find the dialogue/utterance column
+              const dialogueCol = headers.find(h => h.toLowerCase().includes("dialogue") || h.toLowerCase().includes("utterance")) || "Dialogue";
+              
+              // Find timing columns
+              const startCol = headers.find(h => h.toLowerCase().includes("in") || h.toLowerCase().includes("start")) || "In cue";
+              const endCol = headers.find(h => h.toLowerCase().includes("out") || h.toLowerCase().includes("end")) || "Out cue";
+              
+              // Find segment column if it exists
+              const segmentCol = headers.find(h => h.toLowerCase() === "segment");
+              const hasSegment = !!segmentCol;
+              setHasSegmentColumn(hasSegment);
+              
+              // Find selectable column if it exists
+              const selectableCol = headers.find(h => h.toLowerCase().includes("selectable"));
+              const hasSelectableCol = !!selectableCol;
+              setHasSelectableColumn(hasSelectableCol);
+              
+              // Ensure segment column is visible if it exists
+              if (hasSegment) {
+                setColumnVisibility(prev => ({
+                  ...prev,
+                  segment: true
+                }));
+              }
+              
+              // All other columns are considered extra
+              const coreColumns = [lineNumberCol, startCol, endCol, speakerCol, dialogueCol];
+              if (segmentCol) coreColumns.push(segmentCol);
+              if (selectableCol) coreColumns.push(selectableCol);
+              const extraCols = headers.filter(header => !coreColumns.includes(header));
+              
+              // Setup extra columns
+              setExtraColumns(extraCols);
+              const initialExtraVisibility: {[key: string]: boolean} = {};
               extraCols.forEach(col => {
-                baseData[col] = row[col] || "";
+                initialExtraVisibility[col] = false; // Hidden by default
               });
+              setExtraColumnVisibility(initialExtraVisibility);
               
-              return baseData;
-            });
-            setTableData(updatedData);
-            setLoading(false);
-          },
-          header: true,
-          skipEmptyLines: true,
-        });
+              // Add the type assertion here with updated schema
+              const updatedData = (result.data as CsvRow[]).map((row, index) => {
+                const baseData: TableRow = {
+                  col1: hasSegment ? (row[segmentCol!] || null) : null,
+                  col2: parseInt(row[lineNumberCol] || "", 10) || index + 1,
+                  col3: row[startCol] || `Row ${index + 1} Col 3`,
+                  col4: row[endCol] || `Row ${index + 1} Col 4`,
+                  col5: row[speakerCol] || `Row ${index + 1} Col 5`,
+                  col6: row[dialogueCol] || `Row ${index + 1} Col 6`,
+                  col7: selectableCol ? (row[selectableCol] || "") : "", // Use selectable column if it exists
+                  noteIds: "",
+                };
+                
+                // Add extra columns
+                extraCols.forEach(col => {
+                  baseData[col] = row[col] || "";
+                });
+                
+                return baseData;
+              });
+              setTableData(updatedData);
+              setLoading(false);
+            },
+            header: true,
+            skipEmptyLines: true,
+          });
+        } else {
+          setError("No transcript data found in localStorage. Please upload a transcript first.");
+          setLoading(false);
+        }
       } catch (error) {
         if (error instanceof Error) {
-          setError("Error loading CSV: " + error.message);
+          setError("Error loading CSV from localStorage: " + error.message);
         } else {
-          setError("An unknown error occurred.");
+          setError("An unknown error occurred while loading from localStorage.");
         }
         setLoading(false);
       }

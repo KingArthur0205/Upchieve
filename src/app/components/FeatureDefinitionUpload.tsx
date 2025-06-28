@@ -72,20 +72,35 @@ export default function FeatureDefinitionUpload({ onUploadSuccess }: FeatureDefi
       const result = await response.json();
 
       if (result.success) {
-        // If annotations were cleared, also clear localStorage
+        // Save feature definition data to localStorage
+        if (result.storage && !result.storage.cloudStorage) {
+          localStorage.setItem('feature-definitions', JSON.stringify(result.storage.data));
+          console.log('Feature definitions saved to localStorage:', result.storage.data);
+        }
+
+        // Clear all annotation-related localStorage data
         if (result.annotationsCleared) {
           try {
-            // Get the list of localStorage keys to clear
-            const clearResponse = await fetch('/api/clear-annotations');
-            const clearResult = await clearResponse.json();
-            
-            if (clearResult.success && clearResult.keysToDelete) {
-              // Clear each localStorage key
-              clearResult.keysToDelete.forEach((key: string) => {
-                localStorage.removeItem(key);
-              });
-              console.log(`Cleared ${clearResult.keysToDelete.length} localStorage entries`);
+            // Clear annotation keys from localStorage
+            const keysToDelete = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (key && (
+                key.startsWith('annotations-') ||
+                key.startsWith('tableData-') ||
+                key.startsWith('notes-') ||
+                key.startsWith('nextNoteId-') ||
+                key.startsWith('availableIds-')
+              )) {
+                keysToDelete.push(key);
+              }
             }
+            
+            keysToDelete.forEach(key => {
+              localStorage.removeItem(key);
+            });
+            
+            console.log(`Cleared ${keysToDelete.length} annotation localStorage entries`);
           } catch (error) {
             console.warn('Failed to clear localStorage:', error);
           }

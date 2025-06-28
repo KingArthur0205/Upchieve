@@ -30,24 +30,22 @@ export default function Home() {
 
   const loadTranscripts = async () => {
     try {
-      const response = await fetch('/api/list-transcripts');
-      const data = await response.json();
-      
-      if (data.success) {
-        setTranscripts(data.transcripts);
+      // Load transcripts from localStorage instead of API
+      if (typeof window !== 'undefined') {
+        const storedTranscripts = localStorage.getItem('transcripts');
+        if (storedTranscripts) {
+          const parsedTranscripts = JSON.parse(storedTranscripts);
+          setTranscripts(parsedTranscripts);
+          console.log('Loaded transcripts from localStorage:', parsedTranscripts);
+        } else {
+          // No transcripts in localStorage
+          setTranscripts([]);
+          console.log('No transcripts found in localStorage');
+        }
       }
     } catch (error) {
-      console.error('Error loading transcripts:', error);
-      // Fallback to hardcoded list if API fails
-      setTranscripts([
-        { id: "001", displayName: "Transcript 001", isNew: false },
-        { id: "044", displayName: "Transcript 044", isNew: false },
-        { id: "053", displayName: "Transcript 053", isNew: false },
-        { id: "996", displayName: "Transcript 996", isNew: true },
-        { id: "997", displayName: "Transcript 997", isNew: true },
-        { id: "998", displayName: "Transcript 998", isNew: true },
-        { id: "999", displayName: "Transcript 999", isNew: true },
-      ]);
+      console.error('Error loading transcripts from localStorage:', error);
+      setTranscripts([]);
     } finally {
       setLoading(false);
     }

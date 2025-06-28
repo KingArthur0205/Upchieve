@@ -60,42 +60,54 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
     if (!number) return;
     
     try {
-      const response = await fetch(`/api/transcript/t${number}?file=images.json`);
-      const data = await response.json();
+      // Load images from localStorage
+      const imagesData = localStorage.getItem(`t${number}-images.json`);
       
-      let newImages: ImageData[] = [];
-      let newLegacyImages: string[] = [];
-      
-      // Handle both old format and new format
-      if (data.images && Array.isArray(data.images)) {
-        // New format with images array - validate each image
-        const validatedImages = await Promise.all(
-          data.images.map(async (img: ImageData) => {
-            const isValid = await validateImageUrl(img.url);
-            return isValid ? img : null;
-          })
-        );
-        newImages = validatedImages.filter(Boolean);
-      } else if (data[`t${number}`] && Array.isArray(data[`t${number}`])) {
-        // Old format with transcript-specific array - validate each image
-        const validatedUrls = await Promise.all(
-          data[`t${number}`].map(async (url: string) => {
-            const isValid = await validateImageUrl(url);
-            return isValid ? url : null;
-          })
-        );
-        newLegacyImages = validatedUrls.filter(Boolean);
+      if (imagesData) {
+        const data = JSON.parse(imagesData);
+        
+        let newImages: ImageData[] = [];
+        let newLegacyImages: string[] = [];
+        
+        // Handle both old format and new format
+        if (data.images && Array.isArray(data.images)) {
+          // New format with images array - validate each image
+          const validatedImages = await Promise.all(
+            data.images.map(async (img: ImageData) => {
+              const isValid = await validateImageUrl(img.url);
+              return isValid ? img : null;
+            })
+          );
+          newImages = validatedImages.filter(Boolean);
+        } else if (data[`t${number}`] && Array.isArray(data[`t${number}`])) {
+          // Old format with transcript-specific array - validate each image
+          const validatedUrls = await Promise.all(
+            data[`t${number}`].map(async (url: string) => {
+              const isValid = await validateImageUrl(url);
+              return isValid ? url : null;
+            })
+          );
+          newLegacyImages = validatedUrls.filter(Boolean);
+        }
+        
+        setImages(newImages);
+        setLegacyImages(newLegacyImages);
+        setLessonSegmentIDs(data.segments || []);
+        
+        // Clear any previous error states for valid images
+        setImageErrors({});
+        
+        console.log('Loaded images from localStorage:', data);
+      } else {
+        // No images data found
+        setImages([]);
+        setLegacyImages([]);
+        setLessonSegmentIDs([]);
+        console.log('No images found in localStorage');
       }
       
-      setImages(newImages);
-      setLegacyImages(newLegacyImages);
-      setLessonSegmentIDs(data.segments || []);
-      
-      // Clear any previous error states for valid images
-      setImageErrors({});
-      
     } catch (err) {
-      console.error("Error loading images:", err);
+      console.error("Error loading images from localStorage:", err);
       setImages([]);
       setLegacyImages([]);
     }
@@ -104,24 +116,30 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
   useEffect(() => {
     if (!number || !selectedSegment) return;
 
-            // Fetch lesson link from content.json
-        fetch(`/api/transcript/t${number}?file=content.json`)
-      .then((res) => res.json())
-      .then((data) => {
-        setLessonLink(data.lessonLink);
-        // Load custom lesson title if it exists
-        if (data.customLessonTitle) {
-          setLessonTitle(data.customLessonTitle);
-        } else if (!data.lessonLink) {
-          // If no lesson link and no custom title, use default
+            // Load lesson link from localStorage
+        try {
+          const contentData = localStorage.getItem(`t${number}-content.json`);
+          if (contentData) {
+            const data = JSON.parse(contentData);
+            setLessonLink(data.lessonLink);
+            // Load custom lesson title if it exists
+            if (data.customLessonTitle) {
+              setLessonTitle(data.customLessonTitle);
+            } else if (!data.lessonLink) {
+              // If no lesson link and no custom title, use default
+              setLessonTitle('Click to add lesson title');
+            }
+            console.log('Loaded content from localStorage:', data);
+          } else {
+            // If content doesn't exist in localStorage, set default title
+            setLessonTitle('Click to add lesson title');
+            console.log('No content found in localStorage, using default title');
+          }
+        } catch (err) {
+          console.error("Error loading content from localStorage:", err);
+          // If content loading fails, set default title
           setLessonTitle('Click to add lesson title');
         }
-      })
-      .catch((err) => {
-        console.error("Error loading content:", err);
-        // If content.json doesn't exist, set default title
-        setLessonTitle('Click to add lesson title');
-      });
 
     // Load images
     loadImages();

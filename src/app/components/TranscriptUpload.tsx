@@ -9,6 +9,11 @@ interface UploadResponse {
   speakers?: string[];
   rowCount?: number;
   error?: string;
+  storage?: {
+    cloudStorage: boolean;
+    files: Record<string, string>;
+    originalFile?: Record<string, string>;
+  };
 }
 
 interface TranscriptUploadProps {
@@ -59,6 +64,41 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
       const result: UploadResponse = await response.json();
 
       if (result.success && result.transcriptId) {
+        // Save transcript data to localStorage
+        if (result.storage && !result.storage.cloudStorage) {
+          const transcriptData = {
+            id: result.transcriptId,
+            displayName: `Transcript ${result.transcriptId}`,
+            isNew: true,
+            files: result.storage.files,
+            originalFile: result.storage.originalFile,
+            speakers: result.speakers || [],
+            rowCount: result.rowCount || 0,
+            uploadedAt: new Date().toISOString()
+          };
+
+          // Save individual transcript files to localStorage
+          Object.entries(result.storage.files).forEach(([filename, content]) => {
+            localStorage.setItem(`${result.transcriptId}-${filename}`, content as string);
+          });
+
+          // Save original file
+          if (result.storage.originalFile) {
+            localStorage.setItem(`${result.transcriptId}-original`, JSON.stringify(result.storage.originalFile));
+          }
+
+          // Update transcripts list in localStorage
+          const existingTranscripts = JSON.parse(localStorage.getItem('transcripts') || '[]');
+          const updatedTranscripts = [...existingTranscripts, {
+            id: result.transcriptId,
+            displayName: `Transcript ${result.transcriptId}`,
+            isNew: true
+          }];
+          localStorage.setItem('transcripts', JSON.stringify(updatedTranscripts));
+
+          console.log('Transcript saved to localStorage:', transcriptData);
+        }
+
         setUploadStatus({
           type: 'success',
           message: `Transcript uploaded successfully! ID: ${result.transcriptId}. Redirecting...`

@@ -1,279 +1,186 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Storage } from '@google-cloud/storage';
 import * as XLSX from 'xlsx';
-import Papa from 'papaparse';
 
-// Initialize Google Cloud Storage (if available)
-let storage: Storage | null = null;
-let bucketName = '';
-
-try {
-  if (process.env.GOOGLE_CREDENTIALS_BASE64 && process.env.GOOGLE_CLOUD_BUCKET_NAME) {
-    const credentialsJson = Buffer.from(process.env.GOOGLE_CREDENTIALS_BASE64, 'base64').toString();
-    const credentials = JSON.parse(credentialsJson);
-    
-    storage = new Storage({
-      credentials,
-      projectId: credentials.project_id
-    });
-    
-    bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
-    console.log('Google Cloud Storage initialized for feature definitions');
-  }
-} catch (error) {
-  console.warn('Google Cloud Storage not available for feature definitions:', error);
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const data = await request.formData();
-    const file: File | null = data.get('file') as unknown as File;
-
-    if (!file) {
-      return NextResponse.json({ success: false, error: 'No file uploaded' });
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Determine file type
-    const isXLSX = file.name.toLowerCase().endsWith('.xlsx');
-    const isCSV = file.name.toLowerCase().endsWith('.csv');
-
-    if (!isXLSX && !isCSV) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Only XLSX and CSV files are supported' 
-      });
-    }
-
-    let categories: string[] = [];
-    const featureData: { [category: string]: { Code: string; Definition: string; [key: string]: string }[] } = {};
-
-    if (isXLSX) {
-      // Parse XLSX file
-      const workbook = XLSX.read(buffer);
-      categories = workbook.SheetNames;
-
-      // Process each sheet
-      for (const sheetName of workbook.SheetNames) {
-        const sheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(sheet) as Record<string, string>[];
-
-        // Validate that the sheet has required columns
-        if (jsonData.length > 0) {
-          const firstRow = jsonData[0];
-          const hasCode = 'Code' in firstRow || 'code' in firstRow;
-          const hasDefinition = 'Definition' in firstRow || 'definition' in firstRow;
-
-          if (!hasCode || !hasDefinition) {
-            return NextResponse.json({
-              success: false,
-              error: `Sheet "${sheetName}" must have at least "Code" and "Definition" columns`
-            });
-          }
-
-          // Normalize column names
-          const normalizedData = jsonData.map(row => ({
-            Code: row.Code || row.code,
-            Definition: row.Definition || row.definition,
-            Example1: row.Example1 || row.example1 || '',
-            Example2: row.Example2 || row.example2 || '',
-            NonExample1: row.NonExample1 || row.nonexample1 || '',
-            NonExample2: row.NonExample2 || row.nonexample2 || '',
-            ...row
-          }));
-
-          featureData[sheetName] = normalizedData;
-        }
-      }
-    } else if (isCSV) {
-      // Parse CSV file
-      const csvText = buffer.toString('utf8');
-      
-      return new Promise<NextResponse>((resolve) => {
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          complete: async (result) => {
-            try {
-              if (result.errors.length > 0) {
-                resolve(NextResponse.json({
-                  success: false,
-                  error: 'CSV parsing error: ' + result.errors.map(e => e.message).join(', ')
-                }));
-                return;
-              }
-
-              const data = result.data as Record<string, string>[];
-              
-              // Validate required columns
-              if (data.length > 0) {
-                const firstRow = data[0];
-                const hasCode = 'Code' in firstRow || 'code' in firstRow;
-                const hasDefinition = 'Definition' in firstRow || 'definition' in firstRow;
-
-                if (!hasCode || !hasDefinition) {
-                  resolve(NextResponse.json({
-                    success: false,
-                    error: 'CSV file must have at least "Code" and "Definition" columns'
-                  }));
-                  return;
-                }
-
-                // Use filename (without extension) as category name
-                const categoryName = file.name.replace(/\.(csv|CSV)$/, '');
-                categories = [categoryName];
-
-                // Normalize column names
-                const normalizedData = data.map(row => ({
-                  Code: row.Code || row.code,
-                  Definition: row.Definition || row.definition,
-                  Example1: row.Example1 || row.example1 || '',
-                  Example2: row.Example2 || row.example2 || '',
-                  NonExample1: row.NonExample1 || row.nonexample1 || '',
-                  NonExample2: row.NonExample2 || row.nonexample2 || '',
-                  ...row
-                }));
-
-                featureData[categoryName] = normalizedData;
-              }
-
-              // Save the processed data and original file
-              await saveFeatureDefinition(file, buffer, categories, featureData, isXLSX);
-
-              resolve(NextResponse.json({
-                success: true,
-                categories,
-                annotationsCleared: true,
-                message: `Feature definition uploaded successfully with ${categories.length} categories. All previous annotations have been cleared.`
-              }));
-            } catch (error) {
-              console.error('Error processing CSV:', error);
-              resolve(NextResponse.json({
-                success: false,
-                error: 'Failed to process CSV file'
-              }));
-            }
-          }
-        });
-      });
-    }
-
-    // Save the processed data for XLSX files
-    await saveFeatureDefinition(file, buffer, categories, featureData, isXLSX);
-
-    return NextResponse.json({
-      success: true,
-      categories,
-      annotationsCleared: true,
-      message: `Feature definition uploaded successfully with ${categories.length} categories. All previous annotations have been cleared.`
-    });
-
-  } catch (error) {
-    console.error('Error uploading feature definition:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to upload feature definition'
-    });
-  }
-}
-
-async function clearAllAnnotationData() {
-  try {
-    if (storage && bucketName) {
-      // Clear annotation data from cloud storage
-      const [files] = await storage.bucket(bucketName).getFiles({
-        prefix: 'transcripts/',
-      });
-      
-      const annotationFiles = files.filter(file => {
-        const fileName = file.name.split('/').pop() || '';
-        return [
-          'expert_annotations.xlsx',
-          'expert_noticings.csv',
-          'expert_noticings.xlsx', 
-          'llm_noticings.csv',
-          'llm_noticings.xlsx',
-          'transcript_analysis.xlsx',
-          'annotated_transcript.csv',
-          'annotated_transcript.xlsx'
-        ].includes(fileName);
-      });
-      
-      console.log(`Found ${annotationFiles.length} annotation files to delete from cloud storage`);
-      
-      // Delete annotation files in parallel
-      await Promise.all(
-        annotationFiles.map(file => 
-          file.delete().catch(error => 
-            console.warn(`Failed to delete ${file.name}:`, error)
-          )
-        )
-      );
-      
-      console.log('Cloud annotation data clearing completed');
-    } else {
-      console.log('Cloud storage not available, annotation clearing skipped');
-    }
-  } catch (error) {
-    console.error('Error clearing annotation data:', error);
-    // Don't throw error - we want the feature definition upload to succeed even if clearing fails
-  }
-}
-
-async function saveFeatureDefinition(
+// Function to prepare feature definition for client-side storage
+async function prepareFeatureDefinition(
   file: File, 
   buffer: Buffer, 
   categories: string[], 
   featureData: { [category: string]: { Code: string; Definition: string; [key: string]: string }[] },
   isXLSX: boolean
 ) {
-  // Clear all existing annotation data before saving new feature definitions
-  await clearAllAnnotationData();
+  const timestamp = new Date().toISOString();
   
-  if (storage && bucketName) {
-    try {
-      const bucket = storage.bucket(bucketName);
-      
-      // Save original file to cloud storage
-      const originalFileName = isXLSX ? 'MOL_Roles_Features.xlsx' : 'MOL_Roles_Features.csv';
-      await bucket.file(`feature-definitions/${originalFileName}`).save(buffer, {
-        metadata: { 
-          contentType: isXLSX 
-            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            : 'text/csv'
-        }
-      });
+  const featureDefinitions = {
+    uploadedAt: timestamp,
+    originalFileName: file.name,
+    isXLSX: isXLSX,
+    categories: categories,
+    features: featureData
+  };
 
-      // Save processed JSON data for easy access
-      const jsonData = {
-        categories,
-        data: featureData,
-        uploadedAt: new Date().toISOString(),
-        originalFileName: file.name
-      };
-      
-      await bucket.file('feature-definitions/feature-definitions.json').save(
-        JSON.stringify(jsonData, null, 2),
-        { metadata: { contentType: 'application/json' } }
-      );
-
-      console.log(`Feature definition saved to cloud storage with ${categories.length} categories:`, categories);
-    } catch (error) {
-      console.error('Error saving feature definition to cloud storage:', error);
-      throw error;
+  console.log(`Preparing feature definition for local storage with ${categories.length} categories:`, categories);
+  
+  return {
+    cloudStorage: false,
+    data: featureDefinitions,
+    originalFile: {
+      name: file.name,
+      buffer: buffer.toString('base64')
     }
-  } else {
-    // For deployment without cloud storage, we'll store in memory/cache
-    // This is a fallback - ideally cloud storage should be configured
-    console.warn('Cloud storage not available for feature definitions. Consider configuring Google Cloud Storage for production deployment.');
+  };
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
     
-    // You could implement alternative storage here, such as:
-    // - Database storage
-    // - External API
-    // - Redis cache
-    // For now, we'll just log the data
-    console.log(`Feature definition processed with ${categories.length} categories:`, categories);
+    if (!file) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'No file provided' 
+      }, { status: 400 });
+    }
+
+    // Check file type
+    const isXLSX = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const isJSON = file.name.endsWith('.json');
+    
+    if (!isXLSX && !isJSON) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Only Excel files (.xlsx, .xls) and JSON files (.json) are supported' 
+      }, { status: 400 });
+    }
+
+    // Check file size (limit to 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'File size must be less than 10MB' 
+      }, { status: 400 });
+    }
+
+    // Convert file to buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
+    let categories: string[] = [];
+    const featureData: { [category: string]: { Code: string; Definition: string; [key: string]: string }[] } = {};
+
+    if (isJSON) {
+      // Parse JSON file
+      try {
+        const jsonText = buffer.toString('utf-8');
+        const jsonData = JSON.parse(jsonText);
+        
+        // Validate JSON structure
+        if (!jsonData.categories || !Array.isArray(jsonData.categories)) {
+          return NextResponse.json({ 
+            success: false, 
+            error: 'Invalid JSON format. Expected structure: { "categories": [...] }' 
+          }, { status: 400 });
+        }
+        
+        categories = jsonData.categories;
+        
+        // Convert categories to feature data format
+        categories.forEach(category => {
+          featureData[category] = []; // JSON format doesn't include feature definitions
+        });
+        
+      } catch {
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Invalid JSON file format' 
+        }, { status: 400 });
+      }
+    } else {
+      // Parse Excel file
+      try {
+        const workbook = XLSX.read(buffer, { type: 'buffer' });
+        
+        // Process each sheet as a category
+        workbook.SheetNames.forEach(sheetName => {
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
+          
+          if (jsonData.length === 0) {
+            console.warn(`Empty sheet: ${sheetName}`);
+            return;
+          }
+          
+          // Get headers from first row
+          const headers = jsonData[0] as string[];
+          const codeIndex = headers.findIndex(h => h && h.toString().toLowerCase().includes('code'));
+          const definitionIndex = headers.findIndex(h => h && h.toString().toLowerCase().includes('definition'));
+          
+          if (codeIndex === -1) {
+            console.warn(`No 'Code' column found in sheet: ${sheetName}`);
+            return;
+          }
+          
+          // Extract features from remaining rows
+          const features: { Code: string; Definition: string; [key: string]: string }[] = [];
+          
+          for (let i = 1; i < jsonData.length; i++) {
+            const row = jsonData[i] as unknown[];
+            if (row && row[codeIndex] && String(row[codeIndex]).trim() !== '') {
+              const feature: { Code: string; Definition: string; [key: string]: string } = {
+                Code: String(row[codeIndex]).trim(),
+                Definition: definitionIndex !== -1 && row[definitionIndex] 
+                  ? String(row[definitionIndex]).trim() 
+                  : ''
+              };
+              
+              // Add any additional columns
+              headers.forEach((header, index) => {
+                if (index !== codeIndex && index !== definitionIndex && row[index]) {
+                  feature[String(header)] = String(row[index]).trim();
+                }
+              });
+              
+              features.push(feature);
+            }
+          }
+          
+          if (features.length > 0) {
+            categories.push(sheetName);
+            featureData[sheetName] = features;
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error parsing Excel file:', error);
+        return NextResponse.json({ 
+          success: false, 
+          error: 'Invalid Excel file format' 
+        }, { status: 400 });
+      }
+    }
+
+    if (categories.length === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'No valid categories found in the file' 
+      }, { status: 400 });
+    }
+
+    // Prepare feature definition for client-side storage
+    const prepareResult = await prepareFeatureDefinition(file, buffer, categories, featureData, isXLSX);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `Feature definition uploaded successfully with ${categories.length} categories: ${categories.join(', ')}`,
+      categories: categories,
+      storage: prepareResult,
+      annotationsCleared: true // Indicate that annotations should be cleared
+    });
+
+  } catch (error) {
+    console.error('Error processing feature definition upload:', error);
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Failed to process feature definition file' 
+    }, { status: 500 });
   }
 } 
