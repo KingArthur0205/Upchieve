@@ -31,10 +31,10 @@ export async function GET() {
       });
     }
     
-    // If no files exist, return default categories
+    // If no files exist, return empty categories
     return NextResponse.json({
       success: true,
-      categories: ["Conceptual", "Discursive"],
+      categories: [],
       source: 'fallback'
     });
     
@@ -43,7 +43,7 @@ export async function GET() {
     return NextResponse.json({
       success: false,
       error: 'Failed to get feature categories',
-      categories: ["Conceptual", "Discursive"] // Fallback
+      categories: [] // Fallback
     });
   }
 } 

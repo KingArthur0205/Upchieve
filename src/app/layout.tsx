@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Stanford Feedback Study",
   description: "Measure of feedback quality",
+  other: {
+    'Content-Language': 'en'
+  }
 };
 
 export default function RootLayout({

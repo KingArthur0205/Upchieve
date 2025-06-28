@@ -76,7 +76,6 @@ interface MultiAnnotatorComparisonViewProps {
     lineNumbers: number[];
   }>;
   getNoteDisplayText?: (idsString: string, rowIndex: number) => React.ReactNode;
-  hasSelectableColumn: boolean;
 }
 
 export default function MultiAnnotatorComparisonView({
@@ -85,8 +84,7 @@ export default function MultiAnnotatorComparisonView({
   onBack,
   speakerColors,
   notes = [],
-  getNoteDisplayText,
-  hasSelectableColumn
+  getNoteDisplayText
 }: MultiAnnotatorComparisonViewProps) {
   const [otherAnnotators, setOtherAnnotators] = useState<AnnotatorData[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -112,15 +110,8 @@ export default function MultiAnnotatorComparisonView({
   const [expertDescription, setExpertDescription] = useState('');
   const [expertNotes, setExpertNotes] = useState('');
   
-  // Notes integration state
+  // Add state for showing notes in table
   const [showNotesInTable, setShowNotesInTable] = useState(false);
-  
-  // Notes popup state
-  const [selectedNotesLine, setSelectedNotesLine] = useState<{
-    lineNumber: number;
-    speaker: string;
-    utterance: string;
-  } | null>(null);
 
   // Get current transcript number for localStorage key
   const getTranscriptNumber = () => {
@@ -190,6 +181,8 @@ export default function MultiAnnotatorComparisonView({
           if (notesSheetName) {
             const notesWorksheet = workbook.Sheets[notesSheetName];
             const notesJsonData = XLSX.utils.sheet_to_json(notesWorksheet, { defval: null, raw: false });
+            
+
             
             // Parse notes data similar to UnifiedComparisonView
             annotatorData.notesData = {
@@ -554,19 +547,54 @@ export default function MultiAnnotatorComparisonView({
   }, [tableData]);
 
   const isTableRowSelectable = (rowData: TableRow): boolean => {
-    // If no "Selectable" column exists in the data, all rows are annotatable
-    if (!hasSelectableColumn) {
-      return true;
-    }
-    
-    // If "Selectable" column exists, check the value
-    if (!rowData.col7 || rowData.col7.trim() === '') {
-      return false; // Empty values in selectable column mean not selectable
-    }
-    
-    const selectableValue = rowData.col7.toLowerCase().trim();
+    // Use the same logic as the main transcript page - check col7 (selectable column)
+    const selectableValue = rowData.col7?.toLowerCase();
     return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
   };
+
+  // Notes comparison functions (similar to UnifiedComparisonView)
+  const getAnnotatorNoteForLine = useCallback((annotator: AnnotatorData, lineNumber: number, noteColumn: string): string => {
+    if (!annotator.notesData?.notes) {
+      return '';
+    }
+    
+    // Find the note row that corresponds to this line
+    const noteRow = annotator.notesData.notes.find((row: Record<string, unknown>) => {
+      const lineCol = row['Line #'] || row['#'] || row['Line'] || row['line'] || row['LINE'];
+      return lineCol !== null && lineCol !== undefined && String(lineCol) === String(lineNumber);
+    });
+    
+    if (!noteRow) {
+      return '';
+    }
+    
+    const note = noteRow[noteColumn];
+    
+    // Handle null, undefined, NaN, and empty values
+    if (note === null || note === undefined || note === 'NaN' || note === '') {
+      return '';
+    }
+    
+    return String(note).trim();
+  }, []);
+
+  // Helper function to get current user's notes for a specific line
+  const getCurrentUserNotesForLine = (lineNumber: number): React.ReactNode => {
+    if (!getNoteDisplayText) return "—";
+    
+    // Find the table row for this line number
+    const row = tableData.find(r => r.col2 === lineNumber);
+    if (!row || !row.noteIds || row.noteIds.trim() === '') return "—";
+    
+    return getNoteDisplayText(row.noteIds, lineNumber - 1);
+  };
+
+  // Check if current user has any notes
+  const currentUserHasNotes = notes && notes.length > 0;
+
+  const hasNotesData = useMemo(() => {
+    return otherAnnotators.some(annotator => annotator.notesData?.notes && annotator.notesData.notes.length > 0);
+  }, [otherAnnotators]);
 
   const getDisplayTableData = () => {
     let filteredData = tableData;
@@ -616,13 +644,6 @@ export default function MultiAnnotatorComparisonView({
           const allValues = [currentValue, ...otherValues];
           return !allValues.every(v => v === allValues[0]);
         });
-      });
-    }
-
-    // Filter for only rows with notes if notes are being shown in table
-    if (showNotesInTable) {
-      filteredData = filteredData.filter(row => {
-        return lineHasNotes(row.col2);
       });
     }
     
@@ -684,156 +705,6 @@ export default function MultiAnnotatorComparisonView({
       setCurrentSearchIndex(-1);
     }
   }, [searchTerm, tableData]);
-
-  // Helper function to get current user's notes for a specific line
-  const getCurrentUserNotesForLine = (lineNumber: number): React.ReactNode => {
-    if (!getNoteDisplayText) return "—";
-    
-    // Find the table row for this line number
-    const row = tableData.find(r => r.col2 === lineNumber);
-    if (!row || !row.noteIds || row.noteIds.trim() === '') return "—";
-    
-    return getNoteDisplayText(row.noteIds, lineNumber - 1);
-  };
-
-  // Check if current user has any notes
-  const currentUserHasNotes = notes && notes.length > 0;
-
-  // Check if any annotator has notes data
-  const hasNotesData = useMemo(() => {
-    return otherAnnotators.some(annotator => annotator.notesData && annotator.notesData.notes.length > 0);
-  }, [otherAnnotators]);
-
-  // Helper function to check if a line has notes (either current user or imported annotators)
-  const lineHasNotes = (lineNumber: number): boolean => {
-    // Check current user notes
-    if (currentUserHasNotes) {
-      const row = tableData.find(r => r.col2 === lineNumber);
-      if (row && row.noteIds && row.noteIds.trim() !== '') {
-        const hasUserNotes = notes.some(note => note.lineNumbers.includes(lineNumber));
-        if (hasUserNotes) return true;
-      }
-    }
-
-    // Check imported annotators' notes
-    return otherAnnotators.some(annotator => {
-      if (!annotator.notesData) return false;
-
-      const noteColumns = Object.keys(annotator.notesData.notes?.[0] || {}).filter(col => 
-        col.toLowerCase() !== 'line #' && col.toLowerCase() !== '#' && 
-        col.toLowerCase() !== 'line' && col.toLowerCase() !== 'speaker' && 
-        col.toLowerCase() !== 'utterance'
-      );
-
-      const hasAnnotatorNotes = noteColumns.some(col => {
-        const note = getAnnotatorNoteForLine(annotator, lineNumber, col);
-        return note !== null && note.trim() !== '';
-      });
-
-      return hasAnnotatorNotes;
-    });
-  };
-
-  // Helper function to get annotator note for specific line and column
-  const getAnnotatorNoteForLine = (annotator: AnnotatorData, lineNumber: number, columnName: string): string | null => {
-    if (!annotator.notesData || !annotator.notesData.notes) return null;
-    
-    // Find the note entry for this line number
-    const noteEntry = annotator.notesData.notes.find(note => {
-      const lineValue = note['Line #'] || note['#'] || note['Line'];
-      if (lineValue === null || lineValue === undefined) return false;
-      
-      // Handle both string and number line values
-      const parsedLine = typeof lineValue === 'string' ? parseInt(lineValue) : Number(lineValue);
-      return !isNaN(parsedLine) && parsedLine === lineNumber;
-    });
-    
-    if (!noteEntry) return null;
-    
-    // Get the note from the specified column
-    const noteValue = noteEntry[columnName];
-    if (noteValue === null || noteValue === undefined || noteValue === '' || isNaN(Number(noteValue))) {
-      return null;
-    }
-    
-    return String(noteValue);
-  };
-
-  // Function to handle notes popup
-  const handleNotesClick = (lineNumber: number, speaker: string, utterance: string) => {
-    setSelectedNotesLine({ lineNumber, speaker, utterance });
-  };
-
-  // Function to get all notes for a specific line
-  const getAllNotesForLine = (lineNumber: number) => {
-    const allNotes: Array<{
-      annotatorName: string;
-      annotatorType: 'user' | 'imported';
-      notes: Array<{
-        title?: string;
-        content: string;
-        abstract?: string;
-        fullContent?: string;
-      }>;
-    }> = [];
-
-    // Get current user notes
-    if (currentUserHasNotes && getNoteDisplayText) {
-      const row = tableData.find(r => r.col2 === lineNumber);
-      if (row && row.noteIds && row.noteIds.trim() !== '') {
-        const userNotes = notes
-          .filter(note => note.lineNumbers.includes(lineNumber))
-          .map(note => ({
-            title: note.title,
-            content: note.content_1 + (note.content_2 ? '\n\n' + note.content_2 : ''),
-            abstract: note.title,
-            fullContent: note.content_1 + (note.content_2 ? '\n\n' + note.content_2 : '')
-          }));
-
-        if (userNotes.length > 0) {
-          allNotes.push({
-            annotatorName: 'You',
-            annotatorType: 'user',
-            notes: userNotes
-          });
-        }
-      }
-    }
-
-    // Get imported annotators' notes
-    otherAnnotators.forEach(annotator => {
-      if (!annotator.notesData) return;
-
-      const noteColumns = Object.keys(annotator.notesData.notes?.[0] || {}).filter(col => 
-        col.toLowerCase() !== 'line #' && col.toLowerCase() !== '#' && 
-        col.toLowerCase() !== 'line' && col.toLowerCase() !== 'speaker' && 
-        col.toLowerCase() !== 'utterance'
-      );
-
-      const annotatorNotes = noteColumns
-        .map(col => getAnnotatorNoteForLine(annotator, lineNumber, col))
-        .filter((note): note is string => note !== null && note.trim() !== '')
-        .map(note => {
-          const abstract = note.includes('||') ? note.split('||')[0].trim() : note;
-          const fullContent = note.includes('||') ? note.split('||')[1].trim() : note;
-          return {
-            content: note,
-            abstract,
-            fullContent: note.includes('||') ? fullContent : note
-          };
-        });
-
-      if (annotatorNotes.length > 0) {
-        allNotes.push({
-          annotatorName: annotator.display_name,
-          annotatorType: 'imported',
-          notes: annotatorNotes
-        });
-      }
-    });
-
-    return allNotes;
-  };
 
   // Calculate IRR statistics
   const calculateIRRStats = useMemo((): IRRStats[] => {
@@ -925,6 +796,9 @@ export default function MultiAnnotatorComparisonView({
                   accept=".xlsx"
                   onChange={handleFileUpload}
                   disabled={uploading}
+                  lang="en"
+                  title="Choose XLSX files to upload"
+                  aria-label="Upload XLSX annotation files"
                   className="block w-full text-sm text-black file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
               </div>
@@ -1203,7 +1077,7 @@ export default function MultiAnnotatorComparisonView({
             </div>
           )}
 
-                    {/* Combined Controls and Comparison Table */}
+          {/* Combined Controls and Comparison Table */}
           {otherAnnotators.length > 0 ? (
             <div className="bg-white rounded-lg border shadow-sm overflow-hidden mx-1">
               {/* Header Section */}
@@ -1394,7 +1268,7 @@ export default function MultiAnnotatorComparisonView({
               {/* Comparison Table */}
               <div className="overflow-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
                 <table className="w-full text-sm border-collapse">
-                  <thead className="sticky top-0 z-30 bg-gradient-to-r from-gray-700 to-gray-600 text-white">
+                  <thead className="sticky top-0 z-30 bg-gradient-to-r from-blue-700 to-blue-600 text-white">
                     <tr>
                       <th className="p-3 border border-gray-500 text-left font-semibold">Line #</th>
                       <th className="p-3 border border-gray-500 text-left font-semibold">Speaker</th>
@@ -1421,15 +1295,14 @@ export default function MultiAnnotatorComparisonView({
                         </>
                       )}
                       
+                      {/* Feature columns */}
                       {selectedCategory && getFeaturesForCategory(selectedCategory).map(feature => (
                         <th key={feature} className="p-3 border border-gray-500 text-center font-semibold min-w-32">
                           <div className="text-white font-semibold">{feature}</div>
-                          <div className="flex flex-col gap-1 mt-2">
-                            <div className="px-2 py-1 bg-blue-600 text-blue-100 rounded text-xs font-medium border border-blue-400">
-                              You
-                            </div>
+                          <div className="text-xs text-blue-100 mt-1">
+                            <div className="mb-1">You</div>
                             {otherAnnotators.map((annotator) => (
-                              <div key={annotator.annotator_id} className="px-2 py-1 bg-green-600 text-green-100 rounded text-xs font-medium border border-green-400">
+                              <div key={annotator.annotator_id} className="text-xs">
                                 {annotator.display_name}
                               </div>
                             ))}
@@ -1473,11 +1346,7 @@ export default function MultiAnnotatorComparisonView({
                             <>
                               {/* Current user notes column */}
                               {currentUserHasNotes && (
-                                <td 
-                                  className="p-2 border border-gray-300 cursor-pointer hover:bg-purple-50"
-                                  onClick={() => handleNotesClick(row.col2, row.col5, row.col6)}
-                                  title="Click to view all notes for this line"
-                                >
+                                <td className="p-2 border border-gray-300">
                                   <div className="text-xs">
                                     {getCurrentUserNotesForLine(row.col2)}
                                   </div>
@@ -1496,15 +1365,10 @@ export default function MultiAnnotatorComparisonView({
                                 // Get all notes for this line from all note columns
                                 const allNotes = noteColumns
                                   .map(col => getAnnotatorNoteForLine(annotator, row.col2, col))
-                                  .filter((note): note is string => note !== null && note.trim() !== '');
+                                  .filter(note => note && note.trim() !== '');
                                 
                                 return (
-                                  <td 
-                                    key={`notes-${annotator.annotator_id}`} 
-                                    className="p-2 border border-gray-300 cursor-pointer hover:bg-purple-50"
-                                    onClick={() => handleNotesClick(row.col2, row.col5, row.col6)}
-                                    title="Click to view all notes for this line"
-                                  >
+                                  <td key={`notes-${annotator.annotator_id}`} className="p-2 border border-gray-300">
                                     {allNotes.length > 0 ? (
                                       <div className="space-y-1">
                                         {allNotes.map((note, noteIndex) => {
@@ -1517,7 +1381,7 @@ export default function MultiAnnotatorComparisonView({
                                               key={noteIndex} 
                                               className={`px-2 py-1 rounded text-xs ${
                                                 hasFullContent 
-                                                  ? 'bg-purple-100 border border-purple-300 text-purple-800' 
+                                                  ? 'bg-purple-100 border border-purple-300 text-purple-800 cursor-pointer hover:bg-purple-200' 
                                                   : 'bg-gray-100 border border-gray-300 text-gray-700'
                                               }`}
                                               title={hasFullContent ? 'Click to see full content' : abstract}
@@ -1542,8 +1406,6 @@ export default function MultiAnnotatorComparisonView({
                             const otherValues = otherAnnotators.map(annotator => 
                               getAnnotatorValue(annotator, row.col2, selectedCategory, feature)
                             );
-                            
-
                             
                             // Check if there are any disagreements for this feature
                             const allValues = [currentValue, ...otherValues].filter(v => v !== null && v !== undefined);
@@ -1586,14 +1448,6 @@ export default function MultiAnnotatorComparisonView({
                   </tbody>
                 </table>
               </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg border shadow-sm p-6 text-center mx-1">
-              <svg className="mx-auto w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">No Annotator Data Loaded</h3>
-              <p className="text-gray-600 text-sm">Upload annotation files from other annotators to begin comparison.</p>
             </div>
           )}
         </div>
@@ -1674,125 +1528,6 @@ export default function MultiAnnotatorComparisonView({
                 >
                   Save Expert
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Notes Popup Modal */}
-      {selectedNotesLine && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-700 to-purple-600">
-                <div className="flex items-center justify-between">
-                  <div className="text-white">
-                    <h3 className="text-xl font-bold mb-2">
-                      📝 All Annotations for Line {selectedNotesLine.lineNumber}
-                    </h3>
-                    <div className="bg-orange-100 text-orange-800 p-3 rounded-lg border-l-4 border-orange-400">
-                      <div className="text-sm">
-                        <strong>🎯 Evidence</strong>
-                      </div>
-                      <div className="mt-2">
-                        <span className="font-medium">Speaker:</span> {selectedNotesLine.speaker}
-                      </div>
-                      <div className="mt-1">
-                        <span className="font-medium">Utterance:</span> {selectedNotesLine.utterance}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setSelectedNotesLine(null)}
-                    className="text-white hover:text-gray-200 transition-colors p-2"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {(() => {
-                  const allNotesForLine = getAllNotesForLine(selectedNotesLine.lineNumber);
-                  const totalNotes = allNotesForLine.reduce((sum, annotator) => sum + annotator.notes.length, 0);
-                  
-                  return (
-                    <>
-                      {/* Summary */}
-                      <div className="mb-6 p-4 bg-purple-50 rounded-lg border-l-4 border-purple-400">
-                        <div className="flex items-center justify-between">
-                          <div className="text-purple-800">
-                            <strong>Summary:</strong> {allNotesForLine.filter(a => a.annotatorType === 'user').reduce((sum, a) => sum + a.notes.length, 0)} user, {allNotesForLine.filter(a => a.annotatorType === 'imported').reduce((sum, a) => sum + a.notes.length, 0)} expert, {totalNotes} total notes
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-purple-600">
-                            <span>📄 Scroll horizontally</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Notes Grid */}
-                      {allNotesForLine.length > 0 ? (
-                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                          {allNotesForLine.map((annotatorNotes, index) => (
-                            <div key={index} className="bg-white border rounded-lg shadow-sm">
-                              {/* Annotator Header */}
-                              <div className={`p-4 rounded-t-lg ${
-                                annotatorNotes.annotatorType === 'user' 
-                                  ? 'bg-gradient-to-r from-blue-500 to-blue-600' 
-                                  : 'bg-gradient-to-r from-green-500 to-green-600'
-                              }`}>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xl">
-                                    {annotatorNotes.annotatorType === 'user' ? '👤' : '🤖'}
-                                  </span>
-                                  <h4 className="font-bold text-white">
-                                    {annotatorNotes.annotatorName} ({annotatorNotes.annotatorType === 'user' ? 'User' : 'Expert'})
-                                  </h4>
-                                </div>
-                              </div>
-
-                              {/* Notes Content */}
-                              <div className="p-4 space-y-4">
-                                {annotatorNotes.notes.map((note, noteIndex) => (
-                                  <div key={noteIndex} className="border rounded-lg overflow-hidden">
-                                    {/* Abstract */}
-                                    <div className="p-3 bg-purple-50">
-                                      <div className="text-xs text-gray-600 font-medium mb-1">ABSTRACT</div>
-                                      <div className="bg-purple-200 text-purple-800 px-3 py-2 rounded text-sm">
-                                        {note.title || note.abstract || 'No title'}
-                                      </div>
-                                    </div>
-
-                                    {/* Full Content */}
-                                    <div className="p-3 bg-gray-50">
-                                      <div className="text-xs text-gray-600 font-medium mb-2">FULL CONTENT</div>
-                                      <div className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
-                                        {note.fullContent || note.content || 'No content available'}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-12 text-gray-500">
-                          <svg className="mx-auto w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <h3 className="text-lg font-semibold text-gray-800 mb-2">No Notes Found</h3>
-                          <p className="text-gray-600 text-sm">No notes are available for line {selectedNotesLine.lineNumber}.</p>
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
               </div>
             </div>
           </div>

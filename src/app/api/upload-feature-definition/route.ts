@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { writeFile, readdir, unlink } from 'fs/promises';
 import path from 'path';
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
+import fs from 'fs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -125,7 +126,8 @@ export async function POST(request: NextRequest) {
               resolve(NextResponse.json({
                 success: true,
                 categories,
-                message: `Feature definition uploaded successfully with ${categories.length} categories`
+                annotationsCleared: true,
+                message: `Feature definition uploaded successfully with ${categories.length} categories. All previous annotations have been cleared.`
               }));
             } catch (error) {
               console.error('Error processing CSV:', error);
@@ -145,7 +147,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       categories,
-      message: `Feature definition uploaded successfully with ${categories.length} categories`
+      annotationsCleared: true,
+      message: `Feature definition uploaded successfully with ${categories.length} categories. All previous annotations have been cleared.`
     });
 
   } catch (error) {
@@ -157,6 +160,53 @@ export async function POST(request: NextRequest) {
   }
 }
 
+async function clearAllAnnotationData() {
+  try {
+    const publicDir = path.join(process.cwd(), 'public');
+    
+    // Get all transcript directories (folders starting with 't' followed by numbers)
+    const entries = await readdir(publicDir, { withFileTypes: true });
+    const transcriptDirs = entries
+      .filter(entry => entry.isDirectory() && /^t\d+$/.test(entry.name))
+      .map(entry => entry.name);
+    
+    console.log(`Found ${transcriptDirs.length} transcript directories to clear annotations from`);
+    
+    for (const transcriptDir of transcriptDirs) {
+      const transcriptPath = path.join(publicDir, transcriptDir);
+      
+      // List of annotation-related files to delete
+      const filesToDelete = [
+        'expert_annotations.xlsx',
+        'expert_noticings.csv',
+        'expert_noticings.xlsx',
+        'llm_noticings.csv',
+        'llm_noticings.xlsx',
+        'transcript_analysis.xlsx',
+        'annotated_transcript.csv',
+        'annotated_transcript.xlsx'
+      ];
+      
+      for (const fileName of filesToDelete) {
+        const filePath = path.join(transcriptPath, fileName);
+        try {
+          if (fs.existsSync(filePath)) {
+            await unlink(filePath);
+            console.log(`Deleted: ${transcriptDir}/${fileName}`);
+          }
+        } catch (error) {
+          console.warn(`Failed to delete ${transcriptDir}/${fileName}:`, error);
+        }
+      }
+    }
+    
+    console.log('Annotation data clearing completed');
+  } catch (error) {
+    console.error('Error clearing annotation data:', error);
+    // Don't throw error - we want the feature definition upload to succeed even if clearing fails
+  }
+}
+
 async function saveFeatureDefinition(
   file: File, 
   buffer: Buffer, 
@@ -165,6 +215,9 @@ async function saveFeatureDefinition(
   isXLSX: boolean
 ) {
   const publicDir = path.join(process.cwd(), 'public');
+  
+  // Clear all existing annotation data before saving new feature definitions
+  await clearAllAnnotationData();
   
   // Save original file
   const originalFileName = isXLSX ? 'MOL Roles Features.xlsx' : 'MOL Roles Features.csv';

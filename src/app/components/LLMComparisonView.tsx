@@ -35,6 +35,7 @@ interface LLMComparisonViewProps {
   onBack: () => void;
   speakerColors: { [key: string]: string };
   whichSegment: string;
+  hasSelectableColumn: boolean;
 }
 
 export default function LLMComparisonView({
@@ -44,7 +45,8 @@ export default function LLMComparisonView({
   llmAnnotations,
   onBack,
   speakerColors,
-  whichSegment
+  whichSegment,
+  hasSelectableColumn
 }: LLMComparisonViewProps) {
   const [selectedFeature, setSelectedFeature] = useState<string | null>('Conceptual');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -95,7 +97,17 @@ export default function LLMComparisonView({
 
   // Check if a table row is selectable (same logic as main transcript)
   const isTableRowSelectable = (rowData: TableRow): boolean => {
-    const selectableValue = rowData.col7?.toLowerCase();
+    // If no "Selectable" column exists in the data, all rows are annotatable
+    if (!hasSelectableColumn) {
+      return true;
+    }
+    
+    // If "Selectable" column exists, check the value
+    if (!rowData.col7 || rowData.col7.trim() === '') {
+      return false; // Empty values in selectable column mean not selectable
+    }
+    
+    const selectableValue = rowData.col7.toLowerCase().trim();
     return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
   };
 

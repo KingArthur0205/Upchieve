@@ -152,86 +152,79 @@ Navigate to any transcript (e.g., `/transcript/t001`) to access the full annotat
 
 #### Multi-Annotator Comparison
 
-Upload annotation data from multiple annotators for comprehensive row-level comparison and Inter-Rater Reliability (IRR) analysis.
+The Multi-Annotator Comparison page allows you to compare annotations from multiple annotators with your own annotations. This is useful for measuring inter-rater reliability (IRR) and understanding differences in annotation approaches.
 
-**Compatible Data Format:**
+### Features
 
-*XLSX Format (same as this tool exports):*
-- Upload the XLSX files that this annotation tool exports
-- Each XLSX file represents one annotator
-- Multiple sheets for different categories (e.g., "Conceptual", "Discursive", "Lexical", "Talk")
-- Each sheet contains columns: "Line #", "Speaker", "Utterance", followed by feature columns
-- Feature values: 1 = true, 0 = false, empty = false (non-student speakers)
-- Filename (without extension) is used as the default annotator ID
+1. **XLSX File Upload**: Upload annotation files from other annotators in XLSX format
+2. **Expert Management**: Name and describe each expert annotator
+3. **Category and Feature Comparison**: Compare annotations across different categories and features
+4. **Visual Comparison**: Color-coded comparison showing agreements and disagreements
+5. **IRR Statistics**: Calculate and display inter-rater reliability statistics
+6. **Search Functionality**: Search through line numbers and utterances
+7. **Notes Comparison**: Compare notes from different annotators (NEW!)
+8. **Data Persistence**: Uploaded data persists when you close and return to the page
 
-*Example XLSX Structure:*
+### XLSX File Format
+
+Each XLSX file should contain:
+
+#### Annotation Sheets (Required)
+- **Sheet names**: Category names (e.g., "Conceptual", "Discursive", "Lexical", "Talk")
+- **Columns**:
+  - `Line #`: Line number in the transcript
+  - `Speaker`: Speaker name
+  - `Utterance`: The utterance text
+  - **Feature columns**: One column for each feature with annotation values
+
+#### Notes Sheet (Optional)
+- **Sheet name**: "Notes" (case-insensitive)
+- **Columns**:
+  - `Line #`: Line number in the transcript
+  - `Speaker`: Speaker name
+  - `Utterance`: The utterance text
+  - **Note columns**: One or more columns containing notes
+- **Note Format**: Use `abstract||full content` format where:
+  - `abstract`: Short summary shown in the table
+  - `||`: Separator
+  - `full content`: Detailed note content
+
+#### Example Notes Format:
 ```
-Sheet: Conceptual
-| Line # | Speaker   | Utterance              | Language | Directions | Understanding |
-|--------|-----------|------------------------|----------|------------|---------------|
-| 1      | Teacher   | Let's start...         | true     | true       | false         |
-| 2      | Student 1 | I think the answer is  | false    | false      | true          |
+Student shows understanding||The student demonstrates clear mathematical understanding by using appropriate sharing language and showing they can conceptualize the division process.
 ```
 
-**Enhanced Features:**
+### Using the Notes Comparison Feature
 
-*Expert Management:*
-- Custom naming for each annotator during upload
-- Add descriptions and role information for experts
-- Display expert names instead of filenames in comparisons
-- **Data Persistence**: Uploaded annotator data automatically saves and persists when you return to the page
-- Easy data management with individual or bulk removal options
+1. **Upload XLSX files** that contain a "Notes" sheet
+2. **📝 Compare Notes button** will appear when notes data is detected
+3. **Click the button** to toggle the notes comparison table
+4. **View notes** from different annotators side by side
+5. **Color coding**:
+   - Purple background: Notes with full content (click to expand)
+   - Gray background: Simple notes without additional content
+   - "—": No notes for this line
 
-*Advanced Search & Filtering:*
-- Enhanced search: Simultaneously search Line # and Utterance content
-- Navigation controls: Previous/Next buttons to navigate through search results
-- Real-time filtering with instant results
-- "Show only differences" toggle for focused analysis
-- "Show only annotated" filter for rows with annotations
-- Collapsible upload section for cleaner interface
+### Sample Files
 
-*IRR Statistics Dashboard:*
-- Comprehensive Inter-Rater Reliability calculations
-- Feature-by-feature agreement percentages
-- Color-coded reliability indicators:
-  - Green: ≥80% agreement (Excellent)
-  - Yellow: 60-79% agreement (Good)
-  - Red: <60% agreement (Needs Review)
-- Total comparisons, agreements, and disagreements count
+- `sample_annotator_with_notes.xlsx`: Example file with both annotations and notes
+- `sample_annotator_2_with_notes.xlsx`: Second example for comparison testing
 
-*Visual Improvements:*
-- Black text for better readability (no more grey text)
-- Speaker color coding matching transcript annotation page
-- Scrollable table interface like main annotation page
-- Full transcript display with sticky headers and line numbers
-- Expert names displayed as column headers for each feature
-- Enhanced row styling with speaker-specific colors
+### IRR Statistics
 
-**Usage Workflow:**
-1. Click "Compare with Other Annotators" (orange button)
-2. Upload annotator XLSX files (one at a time for naming)
-3. Name each expert and add optional descriptions
-4. Select category and feature to compare
-5. Use search functionality to find specific content
-6. Enable "Show IRR Statistics" for reliability analysis
-7. Toggle "Show only differences" to focus on disagreements
+The system calculates:
+- **Agreement Percentage**: How often annotators agree
+- **Total Comparisons**: Number of comparisons made
+- **Agreements/Disagreements**: Breakdown of agreement statistics
+- **Color Coding**: Green (≥80%), Yellow (60-79%), Red (<60%)
 
-**Advanced Analysis:**
-- Row-level agreement indicators (Full/Partial)
-- Color-coded value matching (Green=Match, Red=Disagree, Gray=N/A)
-- Statistical summary with total rows analyzed
-- Automatic feature validation against current codebook
-- Support for boolean, numeric, and string annotation values
+### Tips
 
-**Sample Files:**
-- `public/sample_annotator_1.xlsx` - Basic Conceptual annotations
-- `public/sample_annotator_2.xlsx` - Conceptual + Discursive annotations
-
-#### Cloud Integration
-
-1. Configure Google Cloud credentials in Settings
-2. Use "Upload to Cloud" to sync annotations
-3. Automatic backup and version control
+1. **File Naming**: Use descriptive filenames as they become the default annotator names
+2. **Expert Information**: Add names and descriptions for better organization
+3. **Data Persistence**: Your uploaded data is automatically saved and restored
+4. **Search**: Use the search bar to quickly find specific lines or utterances
+5. **Notes**: Include both abstract and full content in notes for better comparison
 
 ## File Formats
 

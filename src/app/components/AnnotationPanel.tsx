@@ -29,7 +29,7 @@ interface Props {
 }
 
 // ALLOWED_SHEETS will be loaded dynamically from API
-let ALLOWED_SHEETS = ["Talk", "Conceptual", "Discursive", "Lexical"]; // Default fallback
+let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Function to parse XLSX annotation data (extracted from existing logic)
 const parseXLSXAnnotationData = (arrayBuffer: ArrayBuffer, numRows: number, savedData?: AnnotationData): AnnotationData => {
@@ -39,10 +39,8 @@ const parseXLSXAnnotationData = (arrayBuffer: ArrayBuffer, numRows: number, save
     
     const data: AnnotationData = {};
     
-    // Process only allowed sheets
-    workbook.SheetNames
-      .filter(name => ALLOWED_SHEETS.includes(name))
-      .forEach(sheetName => {
+    // Process all sheets in the workbook
+    workbook.SheetNames.forEach(sheetName => {
         const sheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(sheet);
         
@@ -123,7 +121,7 @@ export default function AnnotationPanel({ numRows, onSave, savedData, onAnnotati
         console.log('AnnotationPanel: XLSX data parsed successfully');
         
         setAnnotationData(data);
-        setSheetNames(ALLOWED_SHEETS.filter(name => data[name]));
+        setSheetNames(Object.keys(data));
         setLoading(false);
         
         // If there's saved data, make sure it's reflected in the UI immediately

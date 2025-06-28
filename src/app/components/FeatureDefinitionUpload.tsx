@@ -72,14 +72,33 @@ export default function FeatureDefinitionUpload({ onUploadSuccess }: FeatureDefi
       const result = await response.json();
 
       if (result.success) {
+        // If annotations were cleared, also clear localStorage
+        if (result.annotationsCleared) {
+          try {
+            // Get the list of localStorage keys to clear
+            const clearResponse = await fetch('/api/clear-annotations');
+            const clearResult = await clearResponse.json();
+            
+            if (clearResult.success && clearResult.keysToDelete) {
+              // Clear each localStorage key
+              clearResult.keysToDelete.forEach((key: string) => {
+                localStorage.removeItem(key);
+              });
+              console.log(`Cleared ${clearResult.keysToDelete.length} localStorage entries`);
+            }
+          } catch (error) {
+            console.warn('Failed to clear localStorage:', error);
+          }
+        }
+        
         setUploadStatus(`✅ ${result.message}`);
         setFile(null);
         onUploadSuccess();
         
-        // Clear success message after 3 seconds
+        // Clear success message after 5 seconds (longer due to more important message)
         setTimeout(() => {
           setUploadStatus(null);
-        }, 3000);
+        }, 5000);
       } else {
         setUploadStatus(`❌ Error: ${result.error}`);
       }
@@ -104,6 +123,8 @@ export default function FeatureDefinitionUpload({ onUploadSuccess }: FeatureDefi
         </h3>
         <p className="text-sm text-gray-600 mb-4">
           Upload an XLSX file with multiple sheets or a CSV file. Each sheet/file represents a feature category.
+          <br />
+          <span className="text-orange-600 font-medium">⚠️ Warning: This will clear all existing annotations from all transcripts.</span>
         </p>
         
         {/* File Drop Zone */}
@@ -161,6 +182,9 @@ export default function FeatureDefinitionUpload({ onUploadSuccess }: FeatureDefi
                       accept=".xlsx,.csv"
                       onChange={handleFileChange}
                       disabled={uploading}
+                      lang="en"
+                      title="Choose feature definition files to upload"
+                      aria-label="Upload feature definition files"
                     />
                   </label>
                 </p>

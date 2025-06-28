@@ -99,8 +99,10 @@ export default function Home() {
 
   const handleFeatureDefinitionUploaded = () => {
     // Handle feature definition upload success
-    console.log('Feature definition uploaded successfully');
-    // Could reload feature definitions if needed
+    console.log('Feature definition uploaded successfully - all annotations cleared');
+    
+    // Show a notification to the user about the annotation clearing
+    alert('Feature definition uploaded successfully!\n\nAll previous annotations have been cleared from all transcripts.\nPlease refresh any open transcript pages to see the new feature definitions.');
   };
 
   const handleDeleteTranscript = async (transcriptId: string, event: React.MouseEvent) => {

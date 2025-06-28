@@ -154,6 +154,9 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
             className="hidden"
             id="file-upload"
             disabled={isUploading}
+            lang="en"
+            title="Choose Excel or CSV files to upload"
+            aria-label="Upload transcript files"
           />
           
           <label

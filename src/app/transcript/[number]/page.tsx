@@ -28,15 +28,7 @@ import MultiAnnotatorComparisonView from "../../components/MultiAnnotatorCompari
 
 
 interface CsvRow {
-  "#": string;
-  "In cue": string;
-  "Out cue": string;
-  "Speaker": string;
-  "Dialogue": string;
-  "Segment"?: string;
-  "selectable"?: string;
-  "Selectable"?: string;
-  [key: string]: string | undefined; // For any other columns that might exist
+  [key: string]: string | undefined; // Allow any column name
 }
 
 // Interface for a single learning goal note
@@ -102,6 +94,9 @@ export default function TranscriptPage() {
   const [extraColumns, setExtraColumns] = useState<string[]>([]);
   const [extraColumnVisibility, setExtraColumnVisibility] = useState<{[key: string]: boolean}>({});
   const [hasSegmentColumn, setHasSegmentColumn] = useState(false);
+  const [hasSelectableColumn, setHasSelectableColumn] = useState(false);
+  const [forceReloadAnnotations, setForceReloadAnnotations] = useState(0);
+  const [lastFeatureDefinitionCheck, setLastFeatureDefinitionCheck] = useState(Date.now());
 
   // CRITICAL FIX: Move dropdown states to parent level to persist across re-renders
   const [expandedDropdowns, setExpandedDropdowns] = useState<{[key: string]: boolean}>({});
@@ -243,8 +238,18 @@ export default function TranscriptPage() {
 
   // Function to check if a table row is selectable by row data
   const isTableRowSelectable = (rowData: TableRow): boolean => {
-    const selectableValue = rowData.col7?.toLowerCase();
-      return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
+    // If no "Selectable" column exists in the data, all rows are annotatable
+    if (!hasSelectableColumn) {
+      return true;
+    }
+    
+    // If "Selectable" column exists, check the value
+    if (!rowData.col7 || rowData.col7.trim() === '') {
+      return false; // Empty values in selectable column mean not selectable
+    }
+    
+    const selectableValue = rowData.col7.toLowerCase().trim();
+    return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
   };
 
   // Function to parse learning goal note IDs from a comma-separated string
@@ -771,7 +776,7 @@ export default function TranscriptPage() {
   const [showNotesColumn, setShowNotesColumn] = useState(true);
 
   // ALLOWED_SHEETS will be loaded dynamically from API
-let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
+let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Function to save all annotations
   const saveAllAnnotations = (data: AnnotationData | null) => {
@@ -1164,8 +1169,7 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
                             checked={rowAnnotations[code] || false}
                             onChange={(e) => {
                               e.stopPropagation();
-                              e.preventDefault();
-                                onFeatureChange(rowData.col2 - 1, code, e.target.checked);
+                              onFeatureChange(rowData.col2 - 1, code, e.target.checked);
                             }}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1567,7 +1571,7 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
         )}
 
         {/* Replace feature columns with the new component */}
-        {ALLOWED_SHEETS.map(category => (
+        {annotationData && Object.keys(annotationData).map(category => (
           <CollapsibleFeatureCell
             key={category}
           rowData={rowData}
@@ -1615,18 +1619,8 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
     const savedAnnotations = localStorage.getItem(`annotations-${number}`);
     if (savedAnnotations) {
       setAnnotationData(JSON.parse(savedAnnotations));
-    } else {
-      // Initialize empty annotation data for all sheets
-      const initialData: AnnotationData = {};
-      ALLOWED_SHEETS.forEach(sheet => {
-        initialData[sheet] = {
-          codes: [],
-          definitions: {},
-          annotations: {}
-        };
-      });
-      setAnnotationData(initialData);
     }
+    // Note: Don't initialize empty data here - let loadFeatureCategoriesAndAnnotationData handle it
   }, [number]);
 
   // Save annotations when unmounting the component
@@ -1652,7 +1646,8 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
         
         console.log('Starting to load annotation data from XLSX');
         
-        let newData = annotationData ? { ...annotationData } : {};
+        // Start with saved data if available, otherwise start fresh
+        let newData = annotationData && Object.keys(annotationData).length > 0 ? { ...annotationData } : {};
         
           console.log('Loading XLSX file /MOL Roles Features.xlsx');
           const xlsxResponse = await fetch('/MOL%20Roles%20Features.xlsx');
@@ -1665,16 +1660,17 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
         
         console.log('Setting annotation data:', newData);
         setAnnotationData(newData);
+        setLastFeatureDefinitionCheck(Date.now());
       } catch (error) {
         console.error('Error loading annotation data:', error);
       }
     };
     
-    // Load annotation data when component mounts or tableData changes
+    // Load annotation data when component mounts or tableData changes or when forced to reload
     if (tableData.length > 0) {
       loadFeatureCategoriesAndAnnotationData();
     }
-  }, [tableData.length]);
+  }, [tableData.length, forceReloadAnnotations]);
 
 
 
@@ -1686,9 +1682,8 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
     
     const newData = { ...existingData };
     
-    // Load all allowed sheets
-    ALLOWED_SHEETS.forEach(sheetName => {
-      if (workbook.SheetNames.includes(sheetName)) {
+    // Process all sheets in the workbook
+    workbook.SheetNames.forEach(sheetName => {
         console.log('Processing sheet:', sheetName);
         const sheet = workbook.Sheets[sheetName];
         const jsonData = utils.sheet_to_json(sheet);
@@ -1732,14 +1727,14 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
         // Initialize annotations only if they don't exist for this sheet
         if (!newData[sheetName] || newData[sheetName].codes.length === 0) {
           console.log('Creating new annotation data for:', sheetName);
-        const annotations: {
-          [key: number]: {
-            [code: string]: boolean;
-          };
-        } = {};
-        
-        for (let i = 0; i < tableData.length; i++) {
-          annotations[i] = {};
+          const annotations: {
+            [key: number]: {
+              [code: string]: boolean;
+            };
+          } = {};
+          
+          for (let i = 0; i < tableData.length; i++) {
+            annotations[i] = {};
             codes.forEach(code => {
               annotations[i][code] = false;
             });
@@ -1748,8 +1743,8 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
           newData[sheetName] = {
             codes,
             definitions,
-          annotations
-        };
+            annotations
+          };
         } else {
           // Update codes and definitions while preserving existing annotations
           newData[sheetName] = {
@@ -1758,7 +1753,6 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
             definitions
           };
         }
-      }
     });
     
     return newData;
@@ -1777,6 +1771,36 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
     localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
     console.log("Annotations auto-saved");
   };
+
+  // Function to reload annotation data when feature definitions are updated
+  const reloadAnnotationData = () => {
+    setForceReloadAnnotations(prev => prev + 1);
+  };
+
+  // Periodically check for feature definition updates
+  useEffect(() => {
+    const checkForFeatureDefinitionUpdates = async () => {
+      try {
+        const response = await fetch('/feature-definitions.json');
+        if (response.ok) {
+          const data = await response.json();
+          const uploadTime = new Date(data.uploadedAt).getTime();
+          
+          if (uploadTime > lastFeatureDefinitionCheck) {
+            console.log('Feature definitions have been updated, reloading...');
+            reloadAnnotationData();
+          }
+        }
+      } catch (error) {
+        // Silently ignore errors - feature-definitions.json might not exist
+      }
+    };
+
+    // Check every 5 seconds for updates
+    const interval = setInterval(checkForFeatureDefinitionUpdates, 5000);
+    
+    return () => clearInterval(interval);
+  }, [lastFeatureDefinitionCheck]);
 
   // Update the state interface to include examples and non-examples
   const [selectedFeaturePopup, setSelectedFeaturePopup] = useState<{
@@ -1845,14 +1869,31 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
               return;
             }
             
-            // Get headers and detect extra columns
+            // Get headers and dynamically find the right columns
             const headers = Object.keys((result.data as CsvRow[])[0] || {});
-            const coreColumns = ["#", "In cue", "Out cue", "Speaker", "Dialogue", "Segment", "selectable", "Selectable"];
-            const extraCols = headers.filter(header => !coreColumns.includes(header));
             
-            // Check if Segment column exists
-            const hasSegment = headers.includes("Segment");
+            // Find the line number column (could be "#", "Line #", "Line Number", etc.)
+            const lineNumberCol = headers.find(h => h.toLowerCase().includes("#") || h.toLowerCase().includes("line")) || "#";
+            
+            // Find the speaker column
+            const speakerCol = headers.find(h => h.toLowerCase().includes("speaker")) || "Speaker";
+            
+            // Find the dialogue/utterance column
+            const dialogueCol = headers.find(h => h.toLowerCase().includes("dialogue") || h.toLowerCase().includes("utterance")) || "Dialogue";
+            
+            // Find timing columns
+            const startCol = headers.find(h => h.toLowerCase().includes("in") || h.toLowerCase().includes("start")) || "In cue";
+            const endCol = headers.find(h => h.toLowerCase().includes("out") || h.toLowerCase().includes("end")) || "Out cue";
+            
+            // Find segment column if it exists
+            const segmentCol = headers.find(h => h.toLowerCase() === "segment");
+            const hasSegment = !!segmentCol;
             setHasSegmentColumn(hasSegment);
+            
+            // Find selectable column if it exists
+            const selectableCol = headers.find(h => h.toLowerCase().includes("selectable"));
+            const hasSelectableCol = !!selectableCol;
+            setHasSelectableColumn(hasSelectableCol);
             
             // Ensure segment column is visible if it exists
             if (hasSegment) {
@@ -1861,6 +1902,12 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
                 segment: true
               }));
             }
+            
+            // All other columns are considered extra
+            const coreColumns = [lineNumberCol, startCol, endCol, speakerCol, dialogueCol];
+            if (segmentCol) coreColumns.push(segmentCol);
+            if (selectableCol) coreColumns.push(selectableCol);
+            const extraCols = headers.filter(header => !coreColumns.includes(header));
             
             // Setup extra columns
             setExtraColumns(extraCols);
@@ -1873,13 +1920,13 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
             // Add the type assertion here with updated schema
             const updatedData = (result.data as CsvRow[]).map((row, index) => {
               const baseData: TableRow = {
-                col1: hasSegment ? (row["Segment"] || null) : null,
-                col2: parseInt(row["#"], 10) || 10,
-                col3: row["In cue"] || `Row ${index + 1} Col 3`,
-                col4: row["Out cue"] || `Row ${index + 1} Col 4`,
-                col5: row["Speaker"] || `Row ${index + 1} Col 5`,
-                col6: row["Dialogue"] || `Row ${index + 1} Col 6`,
-                col7: row["selectable"] || row["Selectable"] || "false",
+                col1: hasSegment ? (row[segmentCol!] || null) : null,
+                col2: parseInt(row[lineNumberCol] || "", 10) || index + 1,
+                col3: row[startCol] || `Row ${index + 1} Col 3`,
+                col4: row[endCol] || `Row ${index + 1} Col 4`,
+                col5: row[speakerCol] || `Row ${index + 1} Col 5`,
+                col6: row[dialogueCol] || `Row ${index + 1} Col 6`,
+                col7: selectableCol ? (row[selectableCol] || "") : "", // Use selectable column if it exists
                 noteIds: "",
               };
               
@@ -1995,6 +2042,11 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
                 segment: true
               }));
             }
+            
+            // Check if there's a selectable column by looking at the data
+            // If any row has a non-empty col7 value, assume selectable column exists
+            const hasSelectableCol = parsedData.tableData.some((row: any) => row.col7 && row.col7.trim() !== '');
+            setHasSelectableColumn(hasSelectableCol);
           }
           
 
@@ -2093,33 +2145,35 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
     // Create workbook
     const wb = utils.book_new();
 
-    // For each feature sheet
-    Object.entries(annotationData).forEach(([sheetName, sheetData]) => {
-      // Create array for the current sheet's data
-      const sheetRows = [];
+    // For each feature sheet in annotationData
+    if (annotationData) {
+      Object.entries(annotationData).forEach(([sheetName, sheetData]) => {
+        // Create array for the current sheet's data
+        const sheetRows = [];
 
-      // Add header row with codes
-      sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
+        // Add header row with codes
+        sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
 
-      // Add data rows
-      tableData.forEach((row, index) => {
-        const isSelectable = isTableRowSelectable(row);
-        const rowData = [
-          row.col2, // Line #
-          row.col5, // Speaker
-          row.col6, // Utterance
-          ...sheetData.codes.map(code => {
-            if (!isSelectable) return ''; // Empty for non-selectable rows
-            return sheetData.annotations[index]?.[code] ? '1' : '0';
-          })
-        ];
-        sheetRows.push(rowData);
+        // Add data rows
+        tableData.forEach((row, index) => {
+          const isSelectable = isTableRowSelectable(row);
+          const rowData = [
+            row.col2, // Line #
+            row.col5, // Speaker
+            row.col6, // Utterance
+            ...sheetData.codes.map(code => {
+              if (!isSelectable) return ''; // Empty for non-selectable rows
+              return sheetData.annotations[index]?.[code] ? '1' : '0';
+            })
+          ];
+          sheetRows.push(rowData);
+        });
+
+        // Create worksheet and add to workbook
+        const ws = utils.aoa_to_sheet(sheetRows);
+        utils.book_append_sheet(wb, ws, sheetName);
       });
-
-      // Create worksheet and add to workbook
-      const ws = utils.aoa_to_sheet(sheetRows);
-      utils.book_append_sheet(wb, ws, sheetName);
-    });
+    }
 
     // Add Notes sheet if there are any notes
     if (notes.length > 0) {
@@ -2176,28 +2230,30 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
       // Create the Excel workbook (same logic as export)
       const wb = utils.book_new();
 
-      // For each feature sheet
-      Object.entries(annotationData).forEach(([sheetName, sheetData]) => {
-        const sheetRows = [];
-        sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
+      // For each feature sheet in annotationData
+      if (annotationData) {
+        Object.entries(annotationData).forEach(([sheetName, sheetData]) => {
+          const sheetRows = [];
+          sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
 
-        tableData.forEach((row, index) => {
-          const isSelectable = isTableRowSelectable(row);
-          const rowData = [
-            row.col2, // Line #
-            row.col5, // Speaker
-            row.col6, // Utterance
-            ...sheetData.codes.map(code => {
-              if (!isSelectable) return '';
-              return sheetData.annotations[index]?.[code] ? '1' : '0';
-            })
-          ];
-          sheetRows.push(rowData);
+          tableData.forEach((row, index) => {
+            const isSelectable = isTableRowSelectable(row);
+            const rowData = [
+              row.col2, // Line #
+              row.col5, // Speaker
+              row.col6, // Utterance
+              ...sheetData.codes.map(code => {
+                if (!isSelectable) return '';
+                return sheetData.annotations[index]?.[code] ? '1' : '0';
+              })
+            ];
+            sheetRows.push(rowData);
+          });
+
+          const ws = utils.aoa_to_sheet(sheetRows);
+          utils.book_append_sheet(wb, ws, sheetName);
         });
-
-        const ws = utils.aoa_to_sheet(sheetRows);
-        utils.book_append_sheet(wb, ws, sheetName);
-      });
+      }
 
       // Add Notes sheet if there are any notes
       if (notes.length > 0) {
@@ -2297,10 +2353,8 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
           
           console.log('LLM annotation file loaded. Sheet names:', workbook.SheetNames);
           
-          const ALL_SHEETS = ["Conceptual", "Discursive", "Lexical", "Talk"];
-          
           // Load all sheets from LLM annotations
-          ALL_SHEETS.forEach(sheetName => {
+          Object.keys(annotationData || {}).forEach(sheetName => {
             if (workbook.SheetNames.includes(sheetName)) {
               console.log('Processing LLM sheet:', sheetName);
               const sheet = workbook.Sheets[sheetName];
@@ -2399,7 +2453,7 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
                           // For Lexical category, keep numeric values
                           processedValue = typeof value === 'number' ? value : (parseInt(value) || 0);
                         } else {
-                          // For Conceptual, Discursive categories, convert to boolean
+                          // For most categories, convert to boolean
                           if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) {
                             processedValue = false;
                           } else {
@@ -3153,6 +3207,7 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
         onBack={() => setShowLLMComparison(false)}
         speakerColors={speakerColors}
         whichSegment={whichSegment}
+        hasSelectableColumn={hasSelectableColumn}
       />
     );
   }
@@ -3206,12 +3261,15 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
   // Show Multi-Annotator comparison view if requested
   if (showMultiAnnotatorComparison) {
     return (
-      <MultiAnnotatorComparisonView 
-        tableData={tableData}
-        currentAnnotatorData={annotationData}
-        onBack={() => setShowMultiAnnotatorComparison(false)}
-        speakerColors={speakerColors}
-      />
+                <MultiAnnotatorComparisonView
+            tableData={tableData}
+            currentAnnotatorData={annotationData}
+            onBack={() => setShowMultiAnnotatorComparison(false)}
+            speakerColors={speakerColors}
+            notes={notes}
+            getNoteDisplayText={getNoteDisplayText}
+            hasSelectableColumn={hasSelectableColumn}
+          />
     );
   }
 
@@ -3567,22 +3625,10 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
             ) : (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleCompareWithLLM}
-                  className="px-3 py-1 bg-purple-500 text-white rounded-md hover:bg-purple-700 text-sm"
-                >
-                  Compare with LLM
-                </button>
-                <button
                   onClick={() => setShowMultiAnnotatorComparison(true)}
                   className="px-3 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-700 text-sm"
                 >
                   Compare with Other Annotators
-                </button>
-                <button
-                  onClick={handleUnifiedComparison}
-                  className="px-3 py-1 bg-indigo-500 text-white rounded-md hover:bg-indigo-700 text-sm"
-                >
-                  Compare with Notes
                 </button>
               </div>
             )}
@@ -3837,7 +3883,7 @@ let ALLOWED_SHEETS = ["Conceptual", "Discursive"]; // Default fallback
                     )}
 
                     {/* Feature Columns */}
-                    {ALLOWED_SHEETS.map(category => (
+                    {annotationData && Object.keys(annotationData).map(category => (
                       <th 
                         key={category} 
                         className="px-2 py-2 border border-black border-2 text-sm w-20 text-center cursor-pointer hover:bg-blue-50"

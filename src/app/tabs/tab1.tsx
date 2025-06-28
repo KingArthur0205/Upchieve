@@ -683,6 +683,9 @@ export default function Tab1({ number, selectedSegment }: Tab1Props) {
             className="hidden"
             id="image-upload"
             disabled={isUploading}
+            lang="en"
+            title="Choose image files to upload"
+            aria-label="Upload image files"
           />
           <label
             htmlFor="image-upload"
