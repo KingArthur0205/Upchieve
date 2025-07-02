@@ -2,13 +2,13 @@
 
 ## Overview
 
-The Transcript Viewer now includes a feature to upload new transcript files via Excel (.xlsx or .xls) files. This feature allows users to add new transcripts to the system without manual file placement.
+EduCoder now includes a feature to upload new transcript files via Excel (.xlsx or .xls) files. This feature allows users to add new transcripts to the system without manual file placement.
 
 ## How to Use
 
 ### 1. Access the Upload Feature
 
-1. Navigate to the main page of the Transcript Viewer
+1. Navigate to the main page of EduCoder
 2. Click the green "Add New Transcript" button
 3. The upload interface will appear below the button
 

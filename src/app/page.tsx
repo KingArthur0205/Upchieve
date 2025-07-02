@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import TranscriptUpload from "./components/TranscriptUpload";
 import FeatureDefinitionUpload from "./components/FeatureDefinitionUpload";
 import FeatureDefinitionsViewer from "./components/FeatureDefinitionsViewer";
@@ -26,9 +26,75 @@ export default function Home() {
   const [showFeatureViewer, setShowFeatureViewer] = useState(false);
   const [showZipUpload, setShowZipUpload] = useState(false);
   const [visitedTranscripts, setVisitedTranscripts] = useState<Set<string>>(new Set());
+  const [featureViewerRefreshTrigger, setFeatureViewerRefreshTrigger] = useState(0);
 
+  // Function to extract a meaningful lesson title from content data
+  const extractLessonTitle = useCallback((content: Record<string, unknown>, transcriptId: string): string => {
+    // Priority 1: Custom lesson title
+    if (typeof content.customLessonTitle === 'string' && content.customLessonTitle.trim() !== '') {
+      return content.customLessonTitle.trim();
+    }
+    
+    // Priority 2: Lesson title field (if not default)
+    if (typeof content.lesson_title === 'string' && content.lesson_title !== 'Lesson Title' && content.lesson_title.trim() !== '') {
+      return content.lesson_title.trim();
+    }
+    
+    // Priority 3: Extract lesson name from gradeLevel if it contains lesson info
+    if (typeof content.gradeLevel === 'string') {
+      // Look for patterns like "Lesson X: Title" or "Unit X: Title, Lesson Y: Title"
+      const lessonMatch = content.gradeLevel.match(/Lesson \d+: ([^,]+)/);
+      if (lessonMatch && lessonMatch[1]) {
+        return lessonMatch[1].trim();
+      }
+    }
+    
+    // Priority 4: Use grade_level if it exists and is meaningful
+    if (typeof content.grade_level === 'string' && content.grade_level !== 'Grade Level' && content.grade_level.trim() !== '') {
+      return content.grade_level.trim();
+    }
+    
+    // Priority 5: Use activityPurpose if available
+    if (typeof content.activityPurpose === 'string' && content.activityPurpose.trim() !== '') {
+      // Take first line or first 50 characters
+      const purpose = content.activityPurpose.trim().split('\n')[0];
+      return purpose.length > 50 ? purpose.substring(0, 47) + '...' : purpose;
+    }
+    
+    // Fallback: Use the generic format
+    return `Transcript ${transcriptId}`;
+  }, []);
 
-  const loadTranscripts = async () => {
+  // Function to load content for a single transcript
+  const loadTranscriptContent = useCallback(async (transcriptId: string): Promise<string> => {
+    try {
+      // First try API (public folder)
+      try {
+        const response = await fetch(`/api/transcript/${transcriptId}?file=content.json`);
+        if (response.ok) {
+          const content = await response.json();
+          return extractLessonTitle(content, transcriptId);
+        }
+      } catch {
+        // Fallback to localStorage
+      }
+      
+      // Try localStorage
+      const contentData = localStorage.getItem(`${transcriptId}-content.json`);
+      if (contentData) {
+        const content = JSON.parse(contentData);
+        return extractLessonTitle(content, transcriptId);
+      }
+      
+      // If no content found, return generic name
+      return `Transcript ${transcriptId}`;
+    } catch (error) {
+      console.error(`Error loading content for ${transcriptId}:`, error);
+      return `Transcript ${transcriptId}`;
+    }
+  }, [extractLessonTitle]);
+
+  const loadTranscripts = useCallback(async () => {
     try {
       const allTranscripts: TranscriptInfo[] = [];
       
@@ -70,8 +136,20 @@ export default function Home() {
           return aNum - bNum;
         });
         
-        setTranscripts(allTranscripts);
-        console.log('Final transcript list:', allTranscripts);
+        // Load actual lesson titles for all transcripts
+        console.log('Loading lesson titles for transcripts...');
+        const transcriptsWithTitles = await Promise.all(
+          allTranscripts.map(async (transcript) => {
+            const lessonTitle = await loadTranscriptContent(transcript.id);
+            return {
+              ...transcript,
+              displayName: lessonTitle
+            };
+          })
+        );
+        
+        setTranscripts(transcriptsWithTitles);
+        console.log('Final transcript list with titles:', transcriptsWithTitles);
       }
     } catch (error) {
       console.error('Error loading transcripts:', error);
@@ -79,7 +157,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadTranscriptContent]);
 
   // Load visited transcripts from localStorage
   const loadVisitedTranscripts = () => {
@@ -118,7 +196,7 @@ export default function Home() {
     setMounted(true);
     loadTranscripts();
     loadVisitedTranscripts();
-  }, []);
+  }, [loadTranscripts]);
 
   const handleTranscriptUploaded = () => {
     // Refresh transcript list when a new transcript is uploaded
@@ -176,6 +254,9 @@ export default function Home() {
     
     // Auto-generate annotation columns for any existing transcripts
     generateAnnotationColumnsForAllTranscripts();
+    
+    // Trigger refresh of feature definitions viewer
+    setFeatureViewerRefreshTrigger(prev => prev + 1);
     
     // Show a notification to the user about the automatic generation
     alert('Feature definition uploaded successfully!\n\nAnnotation columns have been automatically generated for all transcripts based on the new codebook.\nPlease refresh any open transcript pages to see the new feature definitions.');
@@ -425,8 +506,6 @@ export default function Home() {
     }
   };
 
-
-
   if (!mounted) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-white">
@@ -448,7 +527,7 @@ export default function Home() {
     <div className="min-h-screen bg-white p-8">
       {/* Header with Title and Actions */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-black">Transcript Viewer</h1>
+        <h1 className="text-3xl font-bold text-black">EduCoder</h1>
         
         {/* Top Right Actions */}
         <div className="flex items-center gap-3">
@@ -661,6 +740,7 @@ export default function Home() {
       <FeatureDefinitionsViewer 
         isOpen={showFeatureViewer} 
         onClose={() => setShowFeatureViewer(false)} 
+        refreshTrigger={featureViewerRefreshTrigger}
       />
 
     </div>

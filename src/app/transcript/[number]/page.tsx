@@ -25,6 +25,7 @@ import LLMAnalysisComparisonView from "../../components/LLMAnalysisComparisonVie
 import ExpertsComparisonView from "../../components/ExpertsComparisonView";
 import UnifiedComparisonView from "../../components/UnifiedComparisonView";
 import MultiAnnotatorComparisonView from "../../components/MultiAnnotatorComparisonView";
+import LLMAnnotationModal from "../../components/LLMAnnotationModal";
 
 
 interface CsvRow {
@@ -105,6 +106,7 @@ export default function TranscriptPage() {
   const [showFeatureOverview, setShowFeatureOverview] = useState<string | null>(null);
   const [showLLMComparison, setShowLLMComparison] = useState(false);
   const [llmAnnotationData, setLlmAnnotationData] = useState<AnnotationData | null>(null);
+  const [separateLlmAnnotationData, setSeparateLlmAnnotationData] = useState<{[provider: string]: AnnotationData} | null>(null);
   const [showLLMAnalysisComparison, setShowLLMAnalysisComparison] = useState(false);
   const [llmAnalysisData, setLlmAnalysisData] = useState<{
     notes: Record<string, unknown>[];
@@ -117,6 +119,7 @@ export default function TranscriptPage() {
   } | null>(null);
   const [showUnifiedComparison, setShowUnifiedComparison] = useState(false);
   const [showMultiAnnotatorComparison, setShowMultiAnnotatorComparison] = useState(false);
+  const [showLLMAnnotationModal, setShowLLMAnnotationModal] = useState(false);
 
   // Add these state variables at the top of your component
   const [leftPanelWidth, setLeftPanelWidth] = useState("33.33%");
@@ -929,6 +932,61 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     return prevRow === nextRow; // Direct reference comparison instead of JSON stringify
   });
 
+  // LLM Feature Cell component for displaying LLM annotations (read-only)
+  const LLMFeatureCell = React.memo(({ 
+    rowData,
+    category,
+    llmAnnotationData,
+    provider
+  }: {
+    rowData: TableRow;
+    category: string;
+    llmAnnotationData: AnnotationData | null;
+    provider: string;
+  }) => {
+    if (!llmAnnotationData?.[category]) {
+      return (
+        <td className="px-2 py-1 border border-black border-2 text-center bg-purple-50">
+          <div className="text-xs text-gray-400">—</div>
+        </td>
+      );
+    }
+
+    const rowIndex = rowData.col2 - 1;
+    const rowAnnotations = llmAnnotationData[category].annotations[rowIndex] || {};
+    const codes = llmAnnotationData[category].codes;
+    
+    // Count how many features are marked as true
+    const trueCount = codes.filter(code => rowAnnotations[code]).length;
+    const totalCount = codes.length;
+    
+    // Determine cell color based on annotation density and provider
+    const getCellColor = () => {
+      const baseClass = provider.includes('ChatGPT') ? 'bg-green' : 'bg-purple';
+      if (trueCount === 0) return `${baseClass}-50`;
+      if (trueCount === totalCount) return `${baseClass}-200`;
+      return `${baseClass}-100`;
+    };
+    
+    const getTextColor = () => {
+      return provider.includes('ChatGPT') ? 'text-green-700' : 'text-purple-700';
+    };
+    
+    return (
+      <td className={`px-2 py-1 border border-black border-2 text-center ${getCellColor()}`}>
+        <div className={`text-xs font-medium ${getTextColor()}`}>
+          {trueCount > 0 ? (
+            <span title={`${provider} found ${trueCount} features: ${codes.filter(code => rowAnnotations[code]).join(', ')}`}>
+              {trueCount}/{totalCount}
+            </span>
+          ) : (
+            <span className="text-gray-400">—</span>
+          )}
+        </div>
+      </td>
+    );
+  });
+
   // New CollapsibleFeatureCell component for the new design
   const CollapsibleFeatureCell = React.memo(({ 
     rowData,
@@ -1375,6 +1433,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     rowData, 
     rowIndex,
     annotationData,
+    separateLlmAnnotationData,
     onFeatureChange,
     speakerColors,
     columnVisibility,
@@ -1393,6 +1452,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     rowData: TableRow;
     rowIndex: number;
     annotationData: AnnotationData | null;
+    separateLlmAnnotationData: {[provider: string]: AnnotationData} | null;
     onFeatureChange: (lineNumber: number, code: string, value: boolean) => void;
     speakerColors: { [key: string]: string };
     columnVisibility: any;
@@ -1582,6 +1642,19 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         />
         ))}
 
+        {/* LLM Feature Columns */}
+        {separateLlmAnnotationData && Object.entries(separateLlmAnnotationData).map(([provider, providerData]) => 
+          Object.keys(providerData).map(category => (
+            <LLMFeatureCell
+              key={`llm-${provider}-${category}`}
+              rowData={rowData}
+              category={category}
+              llmAnnotationData={providerData}
+              provider={provider}
+            />
+          ))
+        )}
+
         {/* Extra Columns */}
         {extraColumns.map(colName => 
           extraColumnVisibility[colName] && (
@@ -1620,6 +1693,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     if (savedAnnotations) {
       setAnnotationData(JSON.parse(savedAnnotations));
     }
+    
+    // Also load LLM annotations
+    reloadAnnotationData();
     // Note: Don't initialize empty data here - let loadFeatureCategoriesAndAnnotationData handle it
   }, [number]);
 
@@ -1862,6 +1938,30 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   // Function to reload annotation data when feature definitions are updated
   const reloadAnnotationData = () => {
     setForceReloadAnnotations(prev => prev + 1);
+    
+    // Load separate LLM annotations for all providers
+    const llmAnnotationKey = `llm-annotations-${number}`;
+    const storedLlmAnnotations = localStorage.getItem(llmAnnotationKey);
+    if (storedLlmAnnotations) {
+      try {
+        const parsedLlmAnnotations = JSON.parse(storedLlmAnnotations);
+        // Check if it's the old format (single provider) and convert it
+        if (parsedLlmAnnotations && typeof parsedLlmAnnotations === 'object' && parsedLlmAnnotations.codes) {
+          // Old format - convert to new format
+          const convertedData = { 'Unknown': parsedLlmAnnotations };
+          setSeparateLlmAnnotationData(convertedData);
+          localStorage.setItem(llmAnnotationKey, JSON.stringify(convertedData));
+        } else {
+          // New format - use as is
+          setSeparateLlmAnnotationData(parsedLlmAnnotations);
+        }
+      } catch (error) {
+        console.error('Error parsing LLM annotations:', error);
+        setSeparateLlmAnnotationData(null);
+      }
+    } else {
+      setSeparateLlmAnnotationData(null);
+    }
   };
 
   // Periodically check for feature definition updates
@@ -2296,81 +2396,100 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Add the export function after handleSubmit
   const handleExport = () => {
-    if (!annotationData) return;
+    if (!annotationData && (!separateLlmAnnotationData || Object.keys(separateLlmAnnotationData).length === 0)) return;
 
-    // Create workbook
-    const wb = utils.book_new();
+    const createWorkbook = (data: AnnotationData | null, notesData: Note[], suffix: string) => {
+      const wb = utils.book_new();
+      
+      if (data) {
+        Object.entries(data).forEach(([sheetName, sheetData]) => {
+          const sheetRows = [];
+          sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
 
-    // For each feature sheet in annotationData
-    if (annotationData) {
-      Object.entries(annotationData).forEach(([sheetName, sheetData]) => {
-        // Create array for the current sheet's data
-        const sheetRows = [];
+          tableData.forEach((row, index) => {
+            const isSelectable = isTableRowSelectable(row);
+            const rowData = [
+              row.col2, // Line #
+              row.col5, // Speaker
+              row.col6, // Utterance
+              ...sheetData.codes.map(code => {
+                if (!isSelectable) return '';
+                return sheetData.annotations[index]?.[code] ? '1' : '0';
+              })
+            ];
+            sheetRows.push(rowData);
+          });
 
-        // Add header row with codes
-        sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
-
-        // Add data rows
-        tableData.forEach((row, index) => {
-          const isSelectable = isTableRowSelectable(row);
-          const rowData = [
-            row.col2, // Line #
-            row.col5, // Speaker
-            row.col6, // Utterance
-            ...sheetData.codes.map(code => {
-              if (!isSelectable) return ''; // Empty for non-selectable rows
-              return sheetData.annotations[index]?.[code] ? '1' : '0';
-            })
-          ];
-          sheetRows.push(rowData);
+          const ws = utils.aoa_to_sheet(sheetRows);
+          utils.book_append_sheet(wb, ws, sheetName);
         });
+      }
 
-        // Create worksheet and add to workbook
-        const ws = utils.aoa_to_sheet(sheetRows);
-        utils.book_append_sheet(wb, ws, sheetName);
-      });
-    }
-
-    // Add Notes sheet if there are any notes
-    if (notes.length > 0) {
-      const notesRows = [];
-      
-      // Add header row for notes
-      notesRows.push(['Note ID', 'Title', 'Note Abstract', 'Full Context', 'Associated Lines', 'Associated Utterances']);
-      
-      // Add each note as a row
-      notes.forEach(note => {
-        // Get the line numbers and utterances for this note
-        const associatedLines = note.lineNumbers?.length > 0 
-          ? note.lineNumbers.join(', ')
-          : note.rowIndices.map(index => {
-              const tableRow = tableData[index];
-              return tableRow ? tableRow.col2 : '';
-            }).filter(line => line !== '').join(', ');
+      // Add Notes sheet if there are any notes for human annotations
+      if (notesData.length > 0 && suffix === 'human') {
+        const notesRows = [];
+        notesRows.push(['Note ID', 'Title', 'Note Abstract', 'Full Context', 'Associated Lines', 'Associated Utterances']);
         
-        const associatedUtterances = note.rowIndices.map(index => {
-          const tableRow = tableData[index];
-          return tableRow ? `"${tableRow.col6}"` : '';
-        }).filter(utterance => utterance !== '""').join('; ');
+        notesData.forEach(note => {
+          const associatedLines = note.lineNumbers?.length > 0 
+            ? note.lineNumbers.join(', ')
+            : note.rowIndices.map(index => {
+                const tableRow = tableData[index];
+                return tableRow ? tableRow.col2 : '';
+              }).filter(line => line !== '').join(', ');
+          
+          const associatedUtterances = note.rowIndices.map(index => {
+            const tableRow = tableData[index];
+            return tableRow ? `"${tableRow.col6}"` : '';
+          }).filter(utterance => utterance !== '""').join('; ');
+          
+          notesRows.push([
+            note.id,
+            note.title,
+            note.content_1,
+            note.content_2,
+            associatedLines,
+            associatedUtterances
+          ]);
+        });
         
-        notesRows.push([
-          note.id,
-          note.title,
-          note.content_1,
-          note.content_2,
-          associatedLines,
-          associatedUtterances
-        ]);
+        const notesWs = utils.aoa_to_sheet(notesRows);
+        utils.book_append_sheet(wb, notesWs, 'Notes');
+      }
+
+      return wb;
+    };
+
+    // If we have LLM annotations, create separate files for each provider
+    if (separateLlmAnnotationData) {
+      const exportedFiles: string[] = [];
+      
+      // Create separate files for each LLM provider
+      Object.entries(separateLlmAnnotationData).forEach(([provider, providerData]) => {
+        const llmWb = createWorkbook(providerData, [], 'llm');
+        const providerFileName = provider.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+        const llmFileName = `transcript_${number}_${providerFileName}_annotations.xlsx`;
+        writeFile(llmWb, llmFileName);
+        exportedFiles.push(`${provider} annotations`);
       });
       
-      // Create notes worksheet and add to workbook
-      const notesWs = utils.aoa_to_sheet(notesRows);
-      utils.book_append_sheet(wb, notesWs, 'Notes');
+      // Create human annotations file if we have human annotations
+      if (annotationData) {
+        const humanWb = createWorkbook(annotationData, notes, 'human');
+        const humanFileName = `transcript_${number}_human_annotations.xlsx`;
+        writeFile(humanWb, humanFileName);
+        exportedFiles.unshift('Human annotations with notes');
+      }
+      
+      const fileList = exportedFiles.map((file, index) => `${index + 1}. ${file}`).join('\n');
+      alert(`Exported ${exportedFiles.length} files:\n${fileList}`);
+    } else if (annotationData) {
+      // Only human annotations exist
+      const wb = createWorkbook(annotationData, notes, 'human');
+      const fileName = `transcript_${number}_annotations.xlsx`;
+      writeFile(wb, fileName);
+      alert('Exported human annotations file');
     }
-
-    // Save the workbook
-    const fileName = `transcript_${number}_annotations.xlsx`;
-    writeFile(wb, fileName);
   };
 
   // Function to upload XLSX file to Google Cloud Storage
@@ -2977,6 +3096,90 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   };
 
   // Handle Unified Comparison (combines both Expert and LLM Analysis)
+  const handleLLMAnnotationComplete = (annotations: any, provider?: string) => {
+    // Convert LLM annotations to the format expected by the annotation system
+    const convertedAnnotations: AnnotationData = {};
+    
+    Object.keys(annotations).forEach(category => {
+      convertedAnnotations[category] = {
+        codes: [],
+        definitions: {},
+        annotations: {}
+      };
+      
+      // Get feature definitions for this category
+      const featureDefinitions = localStorage.getItem('feature-definitions');
+      if (featureDefinitions) {
+        const parsed = JSON.parse(featureDefinitions);
+        const categoryFeatures = parsed.features[category] || [];
+        
+        // Set codes and definitions
+        convertedAnnotations[category].codes = categoryFeatures.map((f: any) => f.Code);
+        categoryFeatures.forEach((feature: any) => {
+          convertedAnnotations[category].definitions[feature.Code] = {
+            Definition: feature.Definition || '',
+            example1: feature.Example1 || feature.example1 || '',
+            example2: feature.Example2 || feature.example2 || '',
+            nonexample1: feature.NonExample1 || feature.nonexample1 || '',
+            nonexample2: feature.NonExample2 || feature.nonexample2 || ''
+          };
+        });
+      }
+      
+      // Set annotations
+      Object.keys(annotations[category]).forEach(lineNumber => {
+        const lineIndex = parseInt(lineNumber) - 1; // Convert to 0-based index
+        convertedAnnotations[category].annotations[lineIndex] = annotations[category][lineNumber];
+      });
+    });
+    
+    // Save the LLM annotations separately from human annotations, organized by provider
+    const providerKey = provider === 'openai' ? 'ChatGPT-4o' : provider === 'claude' ? 'Claude-4-Sonnet' : (provider || 'Unknown');
+    const llmAnnotationKey = `llm-annotations-${number}`;
+    
+    // Load existing LLM annotations from all providers
+    const existingLlmAnnotations = localStorage.getItem(llmAnnotationKey);
+    let allLlmAnnotations: {[provider: string]: AnnotationData} = {};
+    
+    if (existingLlmAnnotations) {
+      try {
+        allLlmAnnotations = JSON.parse(existingLlmAnnotations);
+      } catch (error) {
+        console.error('Error parsing existing LLM annotations:', error);
+      }
+    }
+    
+    // Add or update annotations for this provider
+    allLlmAnnotations[providerKey] = convertedAnnotations;
+    localStorage.setItem(llmAnnotationKey, JSON.stringify(allLlmAnnotations));
+    
+    // Add timestamp for tracking
+    const llmMetaKey = `llm-meta-${number}`;
+    const existingMeta = localStorage.getItem(llmMetaKey);
+    let allMeta: {[provider: string]: any} = {};
+    
+    if (existingMeta) {
+      try {
+        allMeta = JSON.parse(existingMeta);
+      } catch (error) {
+        console.error('Error parsing existing LLM metadata:', error);
+      }
+    }
+    
+    allMeta[providerKey] = {
+      generatedAt: new Date().toISOString(),
+      provider: providerKey,
+      featuresAnnotated: Object.keys(annotations)
+    };
+    localStorage.setItem(llmMetaKey, JSON.stringify(allMeta));
+    
+    // Reload annotation data to show the new annotations
+    reloadAnnotationData();
+    
+    // Show success message
+    alert(`${providerKey} annotations have been generated and saved separately from human annotations!`);
+  };
+
   const handleUnifiedComparison = async () => {
     try {
       console.log('Loading unified comparison data...');
@@ -3340,6 +3543,28 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showHiddenColumnsDropdown]);
+
+  // Helper to get transcript data for LLM
+  const getTranscriptDataForLLM = () => {
+    return tableData.map((row, idx) => ({
+      lineNumber: row.col2,
+      speaker: row.col5,
+      utterance: row.col6
+    }));
+  };
+
+  // Helper to get feature definitions for LLM
+  const getFeatureDefinitionsForLLM = () => {
+    const featureDefinitionsData = localStorage.getItem('feature-definitions');
+    if (featureDefinitionsData) {
+      const parsed = JSON.parse(featureDefinitionsData);
+      return {
+        categories: parsed.categories,
+        features: parsed.features
+      };
+    }
+    return { categories: [], features: {} };
+  };
 
   if (!mounted) {
     return (
@@ -3781,6 +4006,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             ) : (
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => setShowLLMAnnotationModal(true)}
+                  className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
+                >
+                  Annotate with LLM
+                </button>
+                <button
                   onClick={() => setShowMultiAnnotatorComparison(true)}
                   className="px-3 py-1 bg-orange-500 text-white rounded-md hover:bg-orange-700 text-sm"
                 >
@@ -4052,6 +4283,25 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                       </th>
                     ))}
 
+                    {/* LLM Feature Columns */}
+                    {separateLlmAnnotationData && Object.entries(separateLlmAnnotationData).map(([provider, providerData]) => 
+                      Object.keys(providerData).map(category => (
+                        <th 
+                          key={`llm-${provider}-${category}`} 
+                          className={`px-2 py-2 border border-black border-2 text-sm w-20 text-center ${
+                            provider.includes('ChatGPT') ? 'bg-green-50' : 'bg-purple-50'
+                          }`}
+                          title={`${provider} annotations for ${category} features (read-only)`}
+                        >
+                          <div className={`font-medium text-xs ${
+                            provider.includes('ChatGPT') ? 'text-green-600' : 'text-purple-600'
+                          }`}>
+                            {provider}<br/>{category}
+                          </div>
+                        </th>
+                      ))
+                    )}
+
                     {/* Extra Columns */}
                     {extraColumns.map(colName => 
                       extraColumnVisibility[colName] && (
@@ -4080,6 +4330,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                       rowData={rowData}
                       rowIndex={index}
                       annotationData={annotationData}
+                      separateLlmAnnotationData={separateLlmAnnotationData}
                       onFeatureChange={handleFeatureChange}
                       speakerColors={speakerColors}
                       columnVisibility={columnVisibility}
@@ -4571,6 +4822,17 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         </div>
       )}
 
+      {/* LLM Annotation Modal */}
+      {showLLMAnnotationModal && (
+        <LLMAnnotationModal
+          isOpen={showLLMAnnotationModal}
+          onClose={() => setShowLLMAnnotationModal(false)}
+          onAnnotationComplete={handleLLMAnnotationComplete}
+          transcriptId={number}
+          transcriptData={getTranscriptDataForLLM()}
+          featureDefinitions={getFeatureDefinitionsForLLM()}
+        />
+      )}
 
     </div>
   );

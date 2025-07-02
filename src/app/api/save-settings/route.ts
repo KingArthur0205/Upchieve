@@ -4,7 +4,14 @@ import path from 'path';
 
 export async function POST(request: NextRequest) {
   try {
-    const { googleCredentialsBase64, googleCloudBucketName } = await request.json();
+    const { 
+      googleCredentialsBase64, 
+      googleCloudBucketName,
+      openaiApiKey,
+      claudeApiKey,
+      defaultSystemPrompt,
+      defaultMachinePrompt
+    } = await request.json();
     
     const envPath = path.join(process.cwd(), '.env.local');
     
@@ -36,6 +43,22 @@ export async function POST(request: NextRequest) {
       envVars['GOOGLE_CLOUD_BUCKET_NAME'] = `"${googleCloudBucketName}"`;
     }
     
+    // Update or add LLM API keys
+    if (openaiApiKey !== undefined) {
+      envVars['OPENAI_API_KEY'] = `"${openaiApiKey}"`;
+    }
+    if (claudeApiKey !== undefined) {
+      envVars['CLAUDE_API_KEY'] = `"${claudeApiKey}"`;
+    }
+    
+    // Update or add default prompts
+    if (defaultSystemPrompt !== undefined) {
+      envVars['DEFAULT_SYSTEM_PROMPT'] = `"${defaultSystemPrompt.replace(/"/g, '\\"')}"`;
+    }
+    if (defaultMachinePrompt !== undefined) {
+      envVars['DEFAULT_MACHINE_PROMPT'] = `"${defaultMachinePrompt.replace(/"/g, '\\"')}"`;
+    }
+    
     // Reconstruct the .env.local file content
     const newEnvContent = Object.entries(envVars)
       .map(([key, value]) => `${key}=${value}`)
@@ -63,7 +86,11 @@ export async function GET() {
     
     const settings = {
       googleCredentialsBase64: '',
-      googleCloudBucketName: ''
+      googleCloudBucketName: '',
+      openaiApiKey: '',
+      claudeApiKey: '',
+      defaultSystemPrompt: '',
+      defaultMachinePrompt: ''
     };
     
     if (fs.existsSync(envPath)) {
@@ -76,10 +103,20 @@ export async function GET() {
           const [key, ...valueParts] = trimmedLine.split('=');
           if (key && valueParts.length > 0) {
             const value = valueParts.join('=').trim().replace(/^"(.*)"$/, '$1');
-            if (key.trim() === 'GOOGLE_CREDENTIALS_BASE64') {
+            const keyTrimmed = key.trim();
+            
+            if (keyTrimmed === 'GOOGLE_CREDENTIALS_BASE64') {
               settings.googleCredentialsBase64 = value;
-            } else if (key.trim() === 'GOOGLE_CLOUD_BUCKET_NAME') {
+            } else if (keyTrimmed === 'GOOGLE_CLOUD_BUCKET_NAME') {
               settings.googleCloudBucketName = value;
+            } else if (keyTrimmed === 'OPENAI_API_KEY') {
+              settings.openaiApiKey = value;
+            } else if (keyTrimmed === 'CLAUDE_API_KEY') {
+              settings.claudeApiKey = value;
+            } else if (keyTrimmed === 'DEFAULT_SYSTEM_PROMPT') {
+              settings.defaultSystemPrompt = value;
+            } else if (keyTrimmed === 'DEFAULT_MACHINE_PROMPT') {
+              settings.defaultMachinePrompt = value;
             }
           }
         }

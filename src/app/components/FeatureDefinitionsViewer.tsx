@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 interface FeatureDefinitionsViewerProps {
   isOpen: boolean;
   onClose: () => void;
+  refreshTrigger?: number;
 }
 
 interface FeatureDefinition {
@@ -23,7 +24,20 @@ interface FeatureData {
   originalFileName?: string;
 }
 
-export default function FeatureDefinitionsViewer({ isOpen, onClose }: FeatureDefinitionsViewerProps) {
+interface ParsedFeature {
+  Code?: string;
+  Definition?: string;
+  Example1?: string;
+  example1?: string;
+  Example2?: string;
+  example2?: string;
+  NonExample1?: string;
+  nonexample1?: string;
+  NonExample2?: string;
+  nonexample2?: string;
+}
+
+export default function FeatureDefinitionsViewer({ isOpen, onClose, refreshTrigger }: FeatureDefinitionsViewerProps) {
   const [featureData, setFeatureData] = useState<FeatureData | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -32,7 +46,46 @@ export default function FeatureDefinitionsViewer({ isOpen, onClose }: FeatureDef
   const loadFeatureDefinitions = useCallback(async () => {
     setLoading(true);
     try {
-      // First get the categories
+      // First check localStorage for uploaded feature definitions
+      const storedFeatureDefinitions = localStorage.getItem('feature-definitions');
+      if (storedFeatureDefinitions) {
+        try {
+          const parsedData = JSON.parse(storedFeatureDefinitions);
+          console.log('Loading feature definitions from localStorage:', parsedData);
+          
+          // Convert the stored format to the viewer format
+          const viewerData: FeatureData = {
+            categories: parsedData.categories || [],
+            data: {},
+            uploadedAt: parsedData.uploadedAt,
+            originalFileName: parsedData.originalFileName
+          };
+          
+          // Convert features format to match viewer expectations
+          if (parsedData.features) {
+            Object.keys(parsedData.features).forEach(category => {
+              viewerData.data[category] = parsedData.features[category].map((feature: ParsedFeature) => ({
+                Code: feature.Code || '',
+                Definition: feature.Definition || '',
+                Example1: feature.Example1 || feature.example1 || '',
+                Example2: feature.Example2 || feature.example2 || '',
+                NonExample1: feature.NonExample1 || feature.nonexample1 || '',
+                NonExample2: feature.NonExample2 || feature.nonexample2 || ''
+              }));
+            });
+          }
+          
+          setFeatureData(viewerData);
+          setSelectedCategory(viewerData.categories[0] || null);
+          setLoading(false);
+          return;
+        } catch (error) {
+          console.error('Error parsing localStorage feature definitions:', error);
+          // Continue to fallback methods
+        }
+      }
+
+      // Fallback: Get categories from API
       const categoriesResponse = await fetch('/api/get-feature-categories');
       const categoriesData = await categoriesResponse.json();
 
@@ -77,6 +130,13 @@ export default function FeatureDefinitionsViewer({ isOpen, onClose }: FeatureDef
       loadFeatureDefinitions();
     }
   }, [isOpen, loadFeatureDefinitions]);
+
+  // Refresh when refreshTrigger changes (when new feature definitions are uploaded)
+  useEffect(() => {
+    if (isOpen && refreshTrigger) {
+      loadFeatureDefinitions();
+    }
+  }, [refreshTrigger, isOpen, loadFeatureDefinitions]);
 
   // Close modal when clicking outside
   useEffect(() => {

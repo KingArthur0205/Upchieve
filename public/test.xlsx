@@ -1,16 +1,2 @@
-Code	Definition	example1	example1_obsid_uttid	example2	example2_obsid_uttid	example3	example3_obsid_uttid	nonexample1	nonexample1_obsid_uttid	nonexample2	nonexample2_obsid_uttid	nonexample3	nonexample3_obsid_uttid
-Math Claim	Makes a factual mathematical statement or conjecture.	"qua, quarta inter quartile range, IQR, is found by calculating difference between the third quartile and the first quartile it is the range of the middle 50 percent of the data after [unintelligible] the inter-quartile range for the temperature data from 1975, that wait, we're supposed to do a first so by looking at your box plots from problems 80, 8-46 and 8-47, determine which year, wait guys, do we not do a because it has 8-46 and don't do that"	158_179	"They're like, 3.5 would be half so it's like [unintelligible] 3.5 divided by 2 we get the answer."	296_57	"7 times 4 is... Come on, green don't fail me now. 28."	296_73	"They're like, 3.5 would be half so it's like [unintelligible] 3.5 divided by 2 we get the answer."	296_57	I may do 1.75 times 4and see if that works.	296_69	"But, like... I feel like... You did 12,500 divided by 350, right?"	307_420
-Explain (Action)	Reports on the steps of a mathematical procedure.	So first off I figured out how many minutes it'd take for one lap	267_324	I divided her time by 60 and then I  divided Rebecca's time by 60	267_348	"Alight so, first off, me and you, we did number 1, we do number 2. All right, so first off I figured out how many minutes it'd take to run one lap by multiplying 8... First off, for Amy, by multiplying their minutes per mile by 3. Did you write that down? Write that down."	267_354	Copy me. First of all...	267_343	That's what we're doing first.	267_451	"So, don't I just need to times it by..."	307_553
-Explain (Reason)	Explains why something is justified or true.	"Yeah three fourths divided by eight, divided by eight because three four is going to eight."	156_217	Because out of the 100 he was about to let 20 away. So it's 20%	298_19	"I think it's X plus two to the power of two, like this. Because X, if it was three plus two, then it'd be five and five to the power two is 25."	308_218	It wouldn't work. It would only work for nine and figure one and figure two.	308_239	"No, we're not supposed to do the questions first. We're supposed to do the table and then we find figure 100."	308_248	"No. I mean, in all of these, we're supposed to show how figure 100 would be like."	308_392
-Agree	Student expresses agreement with idea	"That's right. 6 times 4 and then times 3, 72"	242_144	"Yes it does. 6 30. 1 fifth. It has the same ratio, it doesn't mean it's the same number but it has the same ratio"	246_224	I am probably gonna get that but I am not sure 'cause I am at 1.7 right now. Yeah I got 1.75.	296_68	"Yeah, because we did another problem just like this."	308_185	He doesn't want the chicken at Sweet Hearts. Don't you agree that Sweet Heart's pumpkin chicken is better than Quickly's?	33_254	"No, show me and I'll see if I agree. If I don't, then, yeah, it's just too bad. But if I do agree, [unintelligible]. Sometimes I don't. What are you doing?"	337_43
-Disagree	Student expresses disagreement with idea	"No, maybe you graphed it wrong."	399_555	"Here, wait. No, this one is incorrect."	210_178	"Oh, no, they would never lap because Rebecca's time has to be over double Amy's time..."	267_472	Same. And nobody agreed with me because somebody has to maybe change my answer.	340_20	"this is, no it's not oh wait yes it is, my bad [unintelligible]"	362_195	"I kind of agree, and I don't agree. We do."	66_83
-													
-													
-													
-													
-													
-													
-													
-													
-													
-													
+Code	Definition
+e	b

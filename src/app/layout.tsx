@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Stanford Feedback Study",
-  description: "Measure of feedback quality",
+  title: "EduCoder",
+  description: "Educational transcript tagging and annotation tool",
   other: {
     'Content-Language': 'en'
   }

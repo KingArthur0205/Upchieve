@@ -10,10 +10,15 @@ interface SettingsProps {
 export default function Settings({ isOpen, onClose }: SettingsProps) {
   const [googleCredentialsBase64, setGoogleCredentialsBase64] = useState('');
   const [googleCloudBucketName, setGoogleCloudBucketName] = useState('');
+  const [openaiApiKey, setOpenaiApiKey] = useState('');
+  const [claudeApiKey, setClaudeApiKey] = useState('');
+  const [defaultSystemPrompt, setDefaultSystemPrompt] = useState('');
+  const [defaultMachinePrompt, setDefaultMachinePrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [showEnvModal, setShowEnvModal] = useState(false);
+  const [showLLMModal, setShowLLMModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load current settings when component opens
@@ -26,8 +31,8 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Don't close if the modal is open
-      if (showEnvModal) {
+      // Don't close if any modal is open
+      if (showEnvModal || showLLMModal) {
         return;
       }
       
@@ -43,7 +48,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen, onClose, showEnvModal]);
+  }, [isOpen, onClose, showEnvModal, showLLMModal]);
 
   const loadSettings = async () => {
     setLoading(true);
@@ -54,6 +59,10 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
       if (data.success) {
         setGoogleCredentialsBase64(data.settings.googleCredentialsBase64 || '');
         setGoogleCloudBucketName(data.settings.googleCloudBucketName || '');
+        setOpenaiApiKey(data.settings.openaiApiKey || '');
+        setClaudeApiKey(data.settings.claudeApiKey || '');
+        setDefaultSystemPrompt(data.settings.defaultSystemPrompt || 'You are an expert educational researcher analyzing classroom transcripts. Your task is to identify specific educational features in the dialogue.');
+        setDefaultMachinePrompt(data.settings.defaultMachinePrompt || 'Please analyze the following classroom transcript and identify which educational features are present in each line. For each line, indicate whether each feature is present (true) or absent (false).');
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -65,6 +74,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
 
   const handleCloseModal = () => {
     setShowEnvModal(false);
+    setShowLLMModal(false);
     setMessage('');
   };
 
@@ -81,6 +91,10 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         body: JSON.stringify({
           googleCredentialsBase64,
           googleCloudBucketName,
+          openaiApiKey,
+          claudeApiKey,
+          defaultSystemPrompt,
+          defaultMachinePrompt,
         }),
       });
 
@@ -91,6 +105,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         setTimeout(() => {
           setMessage('');
           setShowEnvModal(false);
+          setShowLLMModal(false);
           onClose();
         }, 2000);
       } else {
@@ -125,6 +140,16 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
               </svg>
               Configure Google Cloud
+            </button>
+            
+            <button
+              onClick={() => setShowLLMModal(true)}
+              className="w-full text-left px-3 py-2 rounded-md hover:bg-gray-100 transition flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Configure LLM Settings
             </button>
           </div>
         </div>
@@ -199,17 +224,135 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                   <div className="flex justify-end space-x-3 pt-4">
                     <button
                       onClick={handleCloseModal}
-                      className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition"
-                      disabled={saving}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={saveSettings}
                       disabled={saving}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition disabled:bg-blue-300"
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300 transition"
                     >
-                      {saving ? 'Saving...' : 'Save to .env.local'}
+                      {saving ? 'Saving...' : 'Save Settings'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LLM Settings Modal */}
+      {showLLMModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+          onClick={handleCloseModal}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Configure LLM Settings</h2>
+                <button
+                  onClick={handleCloseModal}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {loading ? (
+                <div className="text-center py-4">
+                  <div className="text-gray-600">Loading settings...</div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      OpenAI API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={openaiApiKey}
+                      onChange={(e) => setOpenaiApiKey(e.target.value)}
+                      placeholder="sk-..."
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Your OpenAI API key for GPT models
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Claude API Key
+                    </label>
+                    <input
+                      type="password"
+                      value={claudeApiKey}
+                      onChange={(e) => setClaudeApiKey(e.target.value)}
+                      placeholder="sk-ant-..."
+                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Your Anthropic Claude API key
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Default System Prompt
+                    </label>
+                    <textarea
+                      value={defaultSystemPrompt}
+                      onChange={(e) => setDefaultSystemPrompt(e.target.value)}
+                      placeholder="Default system prompt for LLM annotation..."
+                      className="w-full h-24 p-3 border border-gray-300 rounded-md resize-vertical focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      The default system prompt used for LLM annotation
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Default Machine Prompt
+                    </label>
+                    <textarea
+                      value={defaultMachinePrompt}
+                      onChange={(e) => setDefaultMachinePrompt(e.target.value)}
+                      placeholder="Default machine prompt for LLM annotation..."
+                      className="w-full h-24 p-3 border border-gray-300 rounded-md resize-vertical focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      The default machine prompt used for LLM annotation
+                    </p>
+                  </div>
+
+                  {message && (
+                    <div className={`p-3 rounded-md ${
+                      message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                    }`}>
+                      {message}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end space-x-3 pt-4">
+                    <button
+                      onClick={handleCloseModal}
+                      className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveSettings}
+                      disabled={saving}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300 transition"
+                    >
+                      {saving ? 'Saving...' : 'Save Settings'}
                     </button>
                   </div>
                 </div>

@@ -97,25 +97,37 @@ export async function POST(request: NextRequest) {
     } else {
       // Parse Excel file
       try {
+        console.log(`📊 Processing XLSX file: ${file.name} (${file.size} bytes)`);
         const workbook = XLSX.read(buffer, { type: 'buffer' });
         
+        console.log(`📋 Found ${workbook.SheetNames.length} sheets: ${JSON.stringify(workbook.SheetNames)}`);
+        
         // Process each sheet as a category
-        workbook.SheetNames.forEach(sheetName => {
+        workbook.SheetNames.forEach((sheetName, index) => {
+          console.log(`\n🔍 Processing sheet ${index + 1}/${workbook.SheetNames.length}: "${sheetName}"`);
+          
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
           
           if (jsonData.length === 0) {
-            console.warn(`Empty sheet: ${sheetName}`);
+            console.warn(`⚠️  Empty sheet: ${sheetName} - skipping`);
             return;
           }
           
+          console.log(`   📊 Sheet has ${jsonData.length} rows (including header)`);
+          
           // Get headers from first row
           const headers = jsonData[0] as string[];
+          console.log(`   📄 Headers: ${JSON.stringify(headers)}`);
+          
           const codeIndex = headers.findIndex(h => h && h.toString().toLowerCase().includes('code'));
           const definitionIndex = headers.findIndex(h => h && h.toString().toLowerCase().includes('definition'));
           
+          console.log(`   🔤 Code column index: ${codeIndex}`);
+          console.log(`   📝 Definition column index: ${definitionIndex}`);
+          
           if (codeIndex === -1) {
-            console.warn(`No 'Code' column found in sheet: ${sheetName}`);
+            console.warn(`❌ No 'Code' column found in sheet: ${sheetName} - skipping`);
             return;
           }
           
@@ -143,14 +155,25 @@ export async function POST(request: NextRequest) {
             }
           }
           
+          console.log(`   ✅ Extracted ${features.length} features from sheet "${sheetName}"`);
           if (features.length > 0) {
+            console.log(`   📝 Feature codes: ${features.map(f => f.Code).join(', ')}`);
             categories.push(sheetName);
             featureData[sheetName] = features;
+            console.log(`   ✅ Successfully added sheet "${sheetName}" to categories`);
+          } else {
+            console.warn(`   ⚠️  No valid features found in sheet "${sheetName}" - skipping`);
           }
         });
         
+        console.log(`\n📊 Final processing summary:`);
+        console.log(`   Total sheets processed: ${workbook.SheetNames.length}`);
+        console.log(`   Sheets with valid data: ${categories.length}`);
+        console.log(`   Final categories: ${JSON.stringify(categories)}`);
+        console.log(`   Feature data keys: ${JSON.stringify(Object.keys(featureData))}`);
+        
       } catch (error) {
-        console.error('Error parsing Excel file:', error);
+        console.error('❌ Error parsing Excel file:', error);
         return NextResponse.json({ 
           success: false, 
           error: 'Invalid Excel file format' 
@@ -168,6 +191,8 @@ export async function POST(request: NextRequest) {
     // Prepare feature definition for client-side storage
     const prepareResult = await prepareFeatureDefinition(file, buffer, categories, featureData, isXLSX);
 
+    console.log(`✅ Upload successful! Returning ${categories.length} categories: ${categories.join(', ')}`);
+
     return NextResponse.json({ 
       success: true, 
       message: `Feature definition uploaded successfully with ${categories.length} categories: ${categories.join(', ')}`,
@@ -177,7 +202,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error processing feature definition upload:', error);
+    console.error('❌ Error processing feature definition upload:', error);
     return NextResponse.json({ 
       success: false, 
       error: 'Failed to process feature definition file' 

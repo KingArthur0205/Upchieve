@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Feature Upload Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; padding: 15px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; white-space: pre-wrap; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .step { margin: 10px 0; padding: 10px; border-left: 4px solid #007cba; background: #f8f9fa; }
+        .result { margin: 10px 0; padding: 10px; border-left: 4px solid #28a745; background: #d4edda; }
+        .fail { margin: 10px 0; padding: 10px; border-left: 4px solid #dc3545; background: #f8d7da; }
+        table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Comprehensive Feature Upload Test</h1>
+    <p>This test verifies that feature codebook uploads correctly process ALL sheets and generate the proper annotation columns.</p>
+    
+    <div class="test-section">
+        <h2>📋 Test Results Summary</h2>
+        <div id="test-summary">
+            <p>Click "Run Complete Test" to start the comprehensive test.</p>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🚀 Run Test</h2>
+        <button onclick="runCompleteTest()" id="run-test-btn">Run Complete Test</button>
+        <button onclick="clearResults()">Clear Results</button>
+        <div id="test-progress"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📊 Test Steps</h2>
+        <div id="test-steps"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📁 File Analysis</h2>
+        <div id="file-analysis"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔧 Upload Results</h2>
+        <div id="upload-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>💾 LocalStorage Verification</h2>
+        <div id="localStorage-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📝 Annotation Generation Test</h2>
+        <div id="annotation-results"></div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        let testResults = {
+            fileCreation: false,
+            fileAnalysis: false,
+            apiUpload: false,
+            localStorage: false,
+            annotationGeneration: false
+        };
+        
+        function updateTestSummary() {
+            const summary = document.getElementById('test-summary');
+            const totalTests = Object.keys(testResults).length;
+            const passedTests = Object.values(testResults).filter(result => result === true).length;
+            const failedTests = totalTests - passedTests;
+            
+            const color = passedTests === totalTests ? 'success' : failedTests > 0 ? 'error' : 'warning';
+            
+            summary.innerHTML = `
+                <div class="${color}">
+                    <h3>Test Summary: ${passedTests}/${totalTests} tests passed</h3>
+                    <table>
+                        <tr><th>Test</th><th>Status</th></tr>
+                        <tr><td>Test File Creation</td><td>${testResults.fileCreation ? '✅ PASS' : '❌ FAIL'}</td></tr>
+                        <tr><td>File Analysis</td><td>${testResults.fileAnalysis ? '✅ PASS' : '❌ FAIL'}</td></tr>
+                        <tr><td>API Upload</td><td>${testResults.apiUpload ? '✅ PASS' : '❌ FAIL'}</td></tr>
+                        <tr><td>LocalStorage Storage</td><td>${testResults.localStorage ? '✅ PASS' : '❌ FAIL'}</td></tr>
+                        <tr><td>Annotation Generation</td><td>${testResults.annotationGeneration ? '✅ PASS' : '❌ FAIL'}</td></tr>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function clearResults() {
+            testResults = {
+                fileCreation: false,
+                fileAnalysis: false,
+                apiUpload: false,
+                localStorage: false,
+                annotationGeneration: false
+            };
+            
+            document.getElementById('test-steps').innerHTML = '';
+            document.getElementById('file-analysis').innerHTML = '';
+            document.getElementById('upload-results').innerHTML = '';
+            document.getElementById('localStorage-results').innerHTML = '';
+            document.getElementById('annotation-results').innerHTML = '';
+            document.getElementById('test-progress').innerHTML = '';
+            updateTestSummary();
+        }
+        
+        function logStep(stepName, content, isError = false) {
+            const stepsDiv = document.getElementById('test-steps');
+            const className = isError ? 'fail' : 'step';
+            stepsDiv.innerHTML += `<div class="${className}"><strong>${stepName}</strong><br>${content}</div>`;
+        }
+        
+        function logResult(stepName, content, isSuccess = true) {
+            const stepsDiv = document.getElementById('test-steps');
+            const className = isSuccess ? 'result' : 'fail';
+            stepsDiv.innerHTML += `<div class="${className}"><strong>✅ ${stepName} - SUCCESS</strong><br>${content}</div>`;
+        }
+        
+        async function runCompleteTest() {
+            document.getElementById('run-test-btn').disabled = true;
+            document.getElementById('test-progress').innerHTML = '<p class="info">🔄 Running comprehensive test...</p>';
+            
+            try {
+                // Step 1: Create test file
+                logStep('Step 1', 'Creating test XLSX file with multiple sheets...');
+                const testFile = await createTestFile();
+                testResults.fileCreation = true;
+                logResult('File Creation', 'Successfully created test file with 3 sheets: Conceptual, Discursive, CustomCategory');
+                
+                // Step 2: Analyze test file
+                logStep('Step 2', 'Analyzing test file structure...');
+                await analyzeTestFile(testFile);
+                testResults.fileAnalysis = true;
+                logResult('File Analysis', 'Successfully analyzed file structure and validated all sheets');
+                
+                // Step 3: Upload via API
+                logStep('Step 3', 'Uploading file via API...');
+                await uploadTestFile(testFile);
+                testResults.apiUpload = true;
+                logResult('API Upload', 'Successfully uploaded file and processed all sheets');
+                
+                // Step 4: Verify localStorage
+                logStep('Step 4', 'Verifying localStorage data...');
+                await verifyLocalStorage();
+                testResults.localStorage = true;
+                logResult('LocalStorage', 'Successfully verified localStorage contains all categories');
+                
+                // Step 5: Test annotation generation
+                logStep('Step 5', 'Testing annotation column generation...');
+                await testAnnotationGeneration();
+                testResults.annotationGeneration = true;
+                logResult('Annotation Generation', 'Successfully generated annotation columns for all categories');
+                
+                updateTestSummary();
+                document.getElementById('test-progress').innerHTML = '<p class="success">✅ All tests completed successfully!</p>';
+                
+            } catch (error) {
+                logStep('ERROR', `Test failed: ${error.message}`, true);
+                document.getElementById('test-progress').innerHTML = `<p class="error">❌ Test failed: ${error.message}</p>`;
+                updateTestSummary();
+            } finally {
+                document.getElementById('run-test-btn').disabled = false;
+            }
+        }
+        
+        async function createTestFile() {
+            const wb = XLSX.utils.book_new();
+            
+            // Sheet 1: "Conceptual"
+            const conceptualData = [
+                ['Code', 'Definition', 'Example1', 'Example2'],
+                ['C.1', 'Mathematical reasoning', 'Student uses logical thinking', 'Student explains their reasoning'],
+                ['C.2', 'Problem solving', 'Student breaks down problems', 'Student uses systematic approach']
+            ];
+            const conceptualSheet = XLSX.utils.aoa_to_sheet(conceptualData);
+            XLSX.utils.book_append_sheet(wb, conceptualSheet, 'Conceptual');
+            
+            // Sheet 2: "Discursive"
+            const discursiveData = [
+                ['Code', 'Definition', 'Example1', 'Example2'],
+                ['D.1', 'Mathematical argumentation', 'Student makes mathematical claims', 'Student supports claims with evidence'],
+                ['D.2', 'Explanation', 'Student explains their thinking', 'Student clarifies their approach']
+            ];
+            const discursiveSheet = XLSX.utils.aoa_to_sheet(discursiveData);
+            XLSX.utils.book_append_sheet(wb, discursiveSheet, 'Discursive');
+            
+            // Sheet 3: "CustomCategory"
+            const customData = [
+                ['Code', 'Definition', 'Example1', 'Example2'],
+                ['X.1', 'Custom feature alpha', 'Custom example 1', 'Custom example 2']
+            ];
+            const customSheet = XLSX.utils.aoa_to_sheet(customData);
+            XLSX.utils.book_append_sheet(wb, customSheet, 'CustomCategory');
+            
+            // Convert to blob/file
+            const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const file = new File([blob], 'test_comprehensive.xlsx', { type: blob.type });
+            
+            logStep('File Created', `Created ${file.name} (${file.size} bytes) with 3 sheets`);
+            
+            return file;
+        }
+        
+        async function analyzeTestFile(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer);
+            
+            logStep('Analysis', `Found ${workbook.SheetNames.length} sheets: ${workbook.SheetNames.join(', ')}`);
+            
+            if (workbook.SheetNames.length !== 3) {
+                throw new Error(`Expected 3 sheets, found ${workbook.SheetNames.length}`);
+            }
+            
+            const expectedSheets = ['Conceptual', 'Discursive', 'CustomCategory'];
+            const missingSheets = expectedSheets.filter(sheet => !workbook.SheetNames.includes(sheet));
+            if (missingSheets.length > 0) {
+                throw new Error(`Missing expected sheets: ${missingSheets.join(', ')}`);
+            }
+        }
+        
+        async function uploadTestFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const response = await fetch('/api/upload-feature-definition', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            logStep('Upload Result', `API returned: ${result.success ? 'SUCCESS' : 'FAILURE'}, Categories: ${JSON.stringify(result.categories)}`);
+            
+            if (!result.success) {
+                throw new Error(`Upload failed: ${result.error || 'Unknown error'}`);
+            }
+            
+            if (!result.categories || result.categories.length !== 3) {
+                throw new Error(`Expected 3 categories, got ${result.categories ? result.categories.length : 0}`);
+            }
+            
+            const expectedCategories = ['Conceptual', 'Discursive', 'CustomCategory'];
+            const missingCategories = expectedCategories.filter(cat => !result.categories.includes(cat));
+            if (missingCategories.length > 0) {
+                throw new Error(`Missing expected categories: ${missingCategories.join(', ')}`);
+            }
+        }
+        
+        async function verifyLocalStorage() {
+            // Wait a moment for localStorage to be updated
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const featureDefinitions = localStorage.getItem('feature-definitions');
+            
+            if (!featureDefinitions) {
+                throw new Error('No feature-definitions found in localStorage');
+            }
+            
+            const data = JSON.parse(featureDefinitions);
+            
+            logStep('LocalStorage', `Found data with ${data.categories ? data.categories.length : 0} categories: ${JSON.stringify(data.categories)}`);
+            
+            if (!data.categories || data.categories.length !== 3) {
+                throw new Error(`Expected 3 categories in localStorage, found ${data.categories ? data.categories.length : 0}`);
+            }
+            
+            const expectedCategories = ['Conceptual', 'Discursive', 'CustomCategory'];
+            const missingCategories = expectedCategories.filter(cat => !data.categories.includes(cat));
+            if (missingCategories.length > 0) {
+                throw new Error(`Missing expected categories in localStorage: ${missingCategories.join(', ')}`);
+            }
+        }
+        
+        async function testAnnotationGeneration() {
+            // Simulate creating annotation data for a mock transcript
+            const mockTableData = [
+                { col2: 1, col5: 'Student 1', col6: 'Test utterance 1' },
+                { col2: 2, col5: 'Student 2', col6: 'Test utterance 2' }
+            ];
+            
+            // Save mock table data
+            localStorage.setItem('tableData-test', JSON.stringify(mockTableData));
+            
+            // Get feature definitions
+            const featureDefinitions = JSON.parse(localStorage.getItem('feature-definitions'));
+            
+            // Generate annotation data (simulate the same logic as the app)
+            const annotationData = {};
+            
+            featureDefinitions.categories.forEach(category => {
+                const categoryFeatures = featureDefinitions.features[category] || [];
+                const codes = categoryFeatures.map(feature => feature.Code).filter(Boolean);
+                
+                const annotations = {};
+                for (let i = 0; i < mockTableData.length; i++) {
+                    annotations[i] = {};
+                    codes.forEach(code => {
+                        annotations[i][code] = false;
+                    });
+                }
+                
+                annotationData[category] = {
+                    codes,
+                    definitions: {},
+                    annotations
+                };
+            });
+            
+            logStep('Annotation Gen', `Generated annotation data for ${Object.keys(annotationData).length} categories: ${Object.keys(annotationData).join(', ')}`);
+            
+            // Cleanup
+            localStorage.removeItem('tableData-test');
+            
+            if (Object.keys(annotationData).length !== 3) {
+                throw new Error(`Expected 3 annotation categories, generated ${Object.keys(annotationData).length}`);
+            }
+        }
+        
+        // Initialize
+        updateTestSummary();
+    </script>
+</body>
+</html> 

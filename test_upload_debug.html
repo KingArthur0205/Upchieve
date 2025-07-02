@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Upload Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { border: 1px solid #ccc; padding: 15px; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Feature Upload Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Upload</h2>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" />
+        <button onclick="testUploadAndDebug()">Upload and Debug</button>
+        <div id="upload-output"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>LocalStorage Content</h2>
+        <button onclick="checkLocalStorage()">Check localStorage</button>
+        <button onclick="clearLocalStorage()">Clear localStorage</button>
+        <div id="localStorage-output"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Create Test Data</h2>
+        <button onclick="createTestData()">Create Test XLSX with Multiple Sheets</button>
+        <div id="test-data-output"></div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        function checkLocalStorage() {
+            const output = document.getElementById('localStorage-output');
+            const featureDefinitions = localStorage.getItem('feature-definitions');
+            
+            if (featureDefinitions) {
+                try {
+                    const data = JSON.parse(featureDefinitions);
+                    
+                    output.innerHTML = `
+                        <h4>localStorage Data Found:</h4>
+                        <p><strong>Categories:</strong> ${JSON.stringify(data.categories || 'Not found')}</p>
+                        <p><strong>Number of categories:</strong> ${data.categories ? data.categories.length : 0}</p>
+                        <p><strong>Feature keys:</strong> ${data.features ? JSON.stringify(Object.keys(data.features)) : 'Not found'}</p>
+                        <h5>Full Data Structure:</h5>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } catch (error) {
+                    output.innerHTML = `<p class="error">Error parsing localStorage data: ${error.message}</p>`;
+                }
+            } else {
+                output.innerHTML = '<p>No localStorage data found.</p>';
+            }
+        }
+        
+        function clearLocalStorage() {
+            localStorage.removeItem('feature-definitions');
+            document.getElementById('localStorage-output').innerHTML = '<p class="success">localStorage cleared!</p>';
+        }
+        
+        async function testUploadAndDebug() {
+            const fileInput = document.getElementById('fileInput');
+            const output = document.getElementById('upload-output');
+            
+            if (!fileInput.files[0]) {
+                output.innerHTML = '<p class="error">Please select a file first!</p>';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            
+            // First, let's read the file client-side to see what sheets it contains
+            const arrayBuffer = await file.arrayBuffer();
+            const workbook = XLSX.read(arrayBuffer);
+            
+            output.innerHTML = `
+                <h4>File Analysis (Client-side):</h4>
+                <p><strong>File name:</strong> ${file.name}</p>
+                <p><strong>File size:</strong> ${file.size} bytes</p>
+                <p><strong>Sheet names found:</strong> ${JSON.stringify(workbook.SheetNames)}</p>
+                <p><strong>Number of sheets:</strong> ${workbook.SheetNames.length}</p>
+                <br>
+                <h4>Processing each sheet:</h4>
+            `;
+            
+            // Analyze each sheet
+            workbook.SheetNames.forEach(sheetName => {
+                const sheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                
+                if (jsonData.length > 0) {
+                    const headers = jsonData[0];
+                    const codeIndex = headers.findIndex(h => h && h.toString().toLowerCase().includes('code'));
+                    const definitionIndex = headers.findIndex(h => h && h.toString().toLowerCase().includes('definition'));
+                    
+                    const features = [];
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (row && row[codeIndex] && String(row[codeIndex]).trim() !== '') {
+                            features.push(String(row[codeIndex]).trim());
+                        }
+                    }
+                    
+                    output.innerHTML += `
+                        <div style="margin-left: 20px; border-left: 2px solid #ccc; padding-left: 10px;">
+                            <p><strong>Sheet: ${sheetName}</strong></p>
+                            <p>Headers: ${JSON.stringify(headers)}</p>
+                            <p>Code column index: ${codeIndex}</p>
+                            <p>Definition column index: ${definitionIndex}</p>
+                            <p>Number of features: ${features.length}</p>
+                            <p>Feature codes: ${JSON.stringify(features.slice(0, 5))}${features.length > 5 ? '...' : ''}</p>
+                        </div>
+                    `;
+                } else {
+                    output.innerHTML += `<p style="margin-left: 20px;"><strong>Sheet: ${sheetName}</strong> - Empty sheet</p>`;
+                }
+            });
+            
+            // Now test the upload
+            output.innerHTML += '<br><h4>Testing Upload API:</h4><p>Uploading...</p>';
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const response = await fetch('/api/upload-feature-definition', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    output.innerHTML += `
+                        <div class="success">
+                            <h5>Upload Successful!</h5>
+                            <p><strong>Categories returned by API:</strong> ${JSON.stringify(result.categories)}</p>
+                            <p><strong>Number of categories:</strong> ${result.categories ? result.categories.length : 0}</p>
+                            <p><strong>Message:</strong> ${result.message}</p>
+                            
+                            <h5>Storage Data:</h5>
+                            <pre>${JSON.stringify(result.storage.data, null, 2)}</pre>
+                        </div>
+                    `;
+                    
+                    // Check localStorage after upload
+                    setTimeout(() => {
+                        checkLocalStorage();
+                    }, 100);
+                } else {
+                    output.innerHTML += `<div class="error"><h5>Upload Failed:</h5><p>${result.error}</p></div>`;
+                }
+            } catch (error) {
+                output.innerHTML += `<div class="error"><h5>Upload Error:</h5><p>${error.message}</p></div>`;
+            }
+        }
+        
+        function createTestData() {
+            const output = document.getElementById('test-data-output');
+            
+            try {
+                // Create a workbook with multiple sheets
+                const wb = XLSX.utils.book_new();
+                
+                // Sheet 1: "Conceptual"
+                const conceptualData = [
+                    ['Code', 'Definition', 'Example1', 'Example2'],
+                    ['C.1', 'Mathematical reasoning', 'Example reasoning 1', 'Example reasoning 2'],
+                    ['C.2', 'Problem solving', 'Example solving 1', 'Example solving 2'],
+                    ['C.3', 'Mathematical concepts', 'Example concepts 1', 'Example concepts 2']
+                ];
+                const conceptualSheet = XLSX.utils.aoa_to_sheet(conceptualData);
+                XLSX.utils.book_append_sheet(wb, conceptualSheet, 'Conceptual');
+                
+                // Sheet 2: "Discursive"
+                const discursiveData = [
+                    ['Code', 'Definition', 'Example1', 'Example2'],
+                    ['D.1', 'Mathematical argumentation', 'Example arg 1', 'Example arg 2'],
+                    ['D.2', 'Explanation', 'Example exp 1', 'Example exp 2'],
+                    ['D.3', 'Justification', 'Example just 1', 'Example just 2']
+                ];
+                const discursiveSheet = XLSX.utils.aoa_to_sheet(discursiveData);
+                XLSX.utils.book_append_sheet(wb, discursiveSheet, 'Discursive');
+                
+                // Sheet 3: "MyCustomSheet"
+                const customData = [
+                    ['Code', 'Definition', 'Example1', 'Example2'],
+                    ['M.1', 'Custom feature 1', 'Custom example 1', 'Custom example 2'],
+                    ['M.2', 'Custom feature 2', 'Custom example 3', 'Custom example 4']
+                ];
+                const customSheet = XLSX.utils.aoa_to_sheet(customData);
+                XLSX.utils.book_append_sheet(wb, customSheet, 'MyCustomSheet');
+                
+                // Save the file
+                XLSX.writeFile(wb, 'test_multiple_sheets.xlsx');
+                
+                output.innerHTML = `
+                    <div class="success">
+                        <p>✅ Test XLSX file created successfully!</p>
+                        <p><strong>File name:</strong> test_multiple_sheets.xlsx</p>
+                        <p><strong>Sheets created:</strong></p>
+                        <ul>
+                            <li><strong>Conceptual</strong> - 3 features (C.1, C.2, C.3)</li>
+                            <li><strong>Discursive</strong> - 3 features (D.1, D.2, D.3)</li>
+                            <li><strong>MyCustomSheet</strong> - 2 features (M.1, M.2)</li>
+                        </ul>
+                        <p>Please download the file and test uploading it using the upload section above.</p>
+                    </div>
+                `;
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error creating test file: ${error.message}</div>`;
+            }
+        }
+        
+        // Auto-check localStorage on page load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html> 

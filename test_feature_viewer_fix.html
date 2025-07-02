@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Viewer Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Feature Definitions Viewer Fix Test</h1>
+        <p>This test verifies that the Feature Definitions Viewer now properly loads uploaded feature definitions from localStorage.</p>
+
+        <div class="test-section info">
+            <h3>Test Steps:</h3>
+            <ol>
+                <li>Check if localStorage has feature definitions</li>
+                <li>Simulate uploading new feature definitions</li>
+                <li>Verify the viewer would load the new data</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 1: Check Current localStorage</h3>
+            <button onclick="checkLocalStorage()">Check localStorage</button>
+            <div id="localStorage-status"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 2: Simulate Upload</h3>
+            <button onclick="simulateUpload()">Simulate Feature Definition Upload</button>
+            <div id="upload-status"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 3: Verify Viewer Would Load New Data</h3>
+            <button onclick="testViewerLoading()">Test Viewer Loading Logic</button>
+            <div id="viewer-test-status"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Step 4: Clear Test Data</h3>
+            <button onclick="clearTestData()">Clear Test Data</button>
+            <div id="clear-status"></div>
+        </div>
+    </div>
+
+    <script>
+        function checkLocalStorage() {
+            const statusDiv = document.getElementById('localStorage-status');
+            const featureDefs = localStorage.getItem('feature-definitions');
+            
+            if (featureDefs) {
+                try {
+                    const parsed = JSON.parse(featureDefs);
+                    statusDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Feature definitions found in localStorage</h4>
+                            <p><strong>File:</strong> ${parsed.originalFileName || 'Unknown'}</p>
+                            <p><strong>Categories:</strong> ${parsed.categories?.length || 0}</p>
+                            <p><strong>Uploaded:</strong> ${parsed.uploadedAt ? new Date(parsed.uploadedAt).toLocaleString() : 'Unknown'}</p>
+                            <details>
+                                <summary>View Data Structure</summary>
+                                <pre>${JSON.stringify(parsed, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } catch (error) {
+                    statusDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Error parsing localStorage data</h4>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="info">
+                        <h4>ℹ️ No feature definitions in localStorage</h4>
+                        <p>This is normal if no feature definitions have been uploaded yet.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function simulateUpload() {
+            const statusDiv = document.getElementById('upload-status');
+            
+            // Create test feature definitions data
+            const testData = {
+                uploadedAt: new Date().toISOString(),
+                originalFileName: 'test_feature_sheet.xlsx',
+                isXLSX: true,
+                categories: ['Conceptual', 'Discursive', 'CustomCategory'],
+                features: {
+                    'Conceptual': [
+                        {
+                            Code: 'C.1',
+                            Definition: 'Mathematical reasoning',
+                            Example1: 'Example reasoning 1',
+                            Example2: 'Example reasoning 2'
+                        },
+                        {
+                            Code: 'C.2',
+                            Definition: 'Problem solving',
+                            Example1: 'Example solving 1',
+                            Example2: 'Example solving 2'
+                        }
+                    ],
+                    'Discursive': [
+                        {
+                            Code: 'D.1',
+                            Definition: 'Mathematical argumentation',
+                            Example1: 'Example arg 1',
+                            Example2: 'Example arg 2'
+                        },
+                        {
+                            Code: 'D.2',
+                            Definition: 'Explanation',
+                            Example1: 'Example exp 1',
+                            Example2: 'Example exp 2'
+                        }
+                    ],
+                    'CustomCategory': [
+                        {
+                            Code: 'X.1',
+                            Definition: 'Custom feature 1',
+                            Example1: 'Custom example 1',
+                            Example2: 'Custom example 2'
+                        }
+                    ]
+                }
+            };
+
+            // Save to localStorage (simulating upload)
+            localStorage.setItem('feature-definitions', JSON.stringify(testData));
+            
+            statusDiv.innerHTML = `
+                <div class="success">
+                    <h4>✅ Test feature definitions uploaded to localStorage</h4>
+                    <p><strong>File:</strong> ${testData.originalFileName}</p>
+                    <p><strong>Categories:</strong> ${testData.categories.length}</p>
+                    <p><strong>Total Features:</strong> ${Object.values(testData.features).reduce((sum, features) => sum + features.length, 0)}</p>
+                    <details>
+                        <summary>View Uploaded Data</summary>
+                        <pre>${JSON.stringify(testData, null, 2)}</pre>
+                    </details>
+                </div>
+            `;
+        }
+
+        function testViewerLoading() {
+            const statusDiv = document.getElementById('viewer-test-status');
+            
+            // Simulate the viewer's loading logic
+            const storedFeatureDefinitions = localStorage.getItem('feature-definitions');
+            
+            if (storedFeatureDefinitions) {
+                try {
+                    const parsedData = JSON.parse(storedFeatureDefinitions);
+                    
+                    // Convert to viewer format (same logic as in FeatureDefinitionsViewer)
+                    const viewerData = {
+                        categories: parsedData.categories || [],
+                        data: {},
+                        uploadedAt: parsedData.uploadedAt,
+                        originalFileName: parsedData.originalFileName
+                    };
+                    
+                    // Convert features format to match viewer expectations
+                    if (parsedData.features) {
+                        Object.keys(parsedData.features).forEach(category => {
+                            viewerData.data[category] = parsedData.features[category].map((feature) => ({
+                                Code: feature.Code || '',
+                                Definition: feature.Definition || '',
+                                Example1: feature.Example1 || feature.example1 || '',
+                                Example2: feature.Example2 || feature.example2 || '',
+                                NonExample1: feature.NonExample1 || feature.nonexample1 || '',
+                                NonExample2: feature.NonExample2 || feature.nonexample2 || ''
+                            }));
+                        });
+                    }
+                    
+                    statusDiv.innerHTML = `
+                        <div class="success">
+                            <h4>✅ Viewer loading logic test passed!</h4>
+                            <p>The FeatureDefinitionsViewer would successfully load the uploaded data.</p>
+                            <p><strong>Categories loaded:</strong> ${viewerData.categories.length}</p>
+                            <p><strong>Features per category:</strong></p>
+                            <ul>
+                                ${viewerData.categories.map(cat => 
+                                    `<li>${cat}: ${viewerData.data[cat]?.length || 0} features</li>`
+                                ).join('')}
+                            </ul>
+                            <details>
+                                <summary>View Converted Data</summary>
+                                <pre>${JSON.stringify(viewerData, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } catch (error) {
+                    statusDiv.innerHTML = `
+                        <div class="error">
+                            <h4>❌ Error in viewer loading logic</h4>
+                            <p>${error.message}</p>
+                        </div>
+                    `;
+                }
+            } else {
+                statusDiv.innerHTML = `
+                    <div class="info">
+                        <h4>ℹ️ No data to test</h4>
+                        <p>Please upload test data first using Step 2.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function clearTestData() {
+            const statusDiv = document.getElementById('clear-status');
+            localStorage.removeItem('feature-definitions');
+            statusDiv.innerHTML = `
+                <div class="success">
+                    <h4>✅ Test data cleared</h4>
+                    <p>localStorage has been cleared of test feature definitions.</p>
+                </div>
+            `;
+        }
+
+        // Auto-check localStorage on page load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html> 
