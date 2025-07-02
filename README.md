@@ -1,9 +1,9 @@
 # EduCoder
 
-**EduCoder** is an open-source user interface designed to facilitate the study of conversation language data in educational settings.
+**EduCoder** is an open-source user interface(UI) designed to facilitate the study of conversation language data in educational settings.
 It provides a practical and efficient interface for essential tasks such as data annotation, cross-annotator comparison, and analysis, tailored to meet the needs of researchers and teachers.
 This toolkit aims to enhance the accessibility and efficiency of educational language data annotation, as well as advance both natural language processing (NLP) and education research.
-By simplifying these key operations, EduCoder supports the efficient exploration of text data annotation in education.
+By simplifying these key operations, the UI supports the efficient exploration of text data annotation in education.
 
 ## 📖 Table of Contents
 [**Overview**](#overview)| [**Installation**](#installation) ｜ [**Tutorials**](#tutorials) | [File Formats](#file-formats) ｜ [**Troubleshooting**](#troubleshooting) | [**Future Extensions**](#future-extensions) | [**Citation**](#citation)
@@ -11,7 +11,7 @@ By simplifying these key operations, EduCoder supports the efficient exploration
 ## Overview
 
 ## Installation
-You can install EduCoder with ```npm```: 
+You can install the UI with ```npm```: 
    ```bash
    git clone https://github.com/KingArthur0205/summit_mol
    cd summit_mol
@@ -19,7 +19,7 @@ You can install EduCoder with ```npm```:
    ```
 
 ## Getting Started
-To run EduCoder:
+To run the UI:
 ```bash
 npm run dev
 ```
@@ -56,9 +56,9 @@ This project reads and writes data to Google Cloud Storage. To allow this integr
 3. Create a new Service Account.
 4. The service account comes with an email address that ends in @cosmic-anthem-412619.iam.gserviceaccount.com -- share the Google sheet to access with this account.
 5. Download the service account details as JSON -- this should include a private key and client email.
-6. Save the private key and client email as local environment variables. Convert to BASE64 format, and set in the settings of EduCoder.
+6. Save the private key and client email as local environment variables. Convert to BASE64 format, and set in the settings of UI.
 7. Select Cloud Storage, then select Storage Bucket
-8. Create a storage bucket and set the name in the settings of EduCoder.
+8. Create a storage bucket and set the name in the settings of UI.
 
 
 ### Tutorials
