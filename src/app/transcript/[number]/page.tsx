@@ -679,37 +679,12 @@ export default function TranscriptPage() {
     alert("Data saved successfully!");
   };
 
-  // State for save status indicator
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+
   
   // State for upload status
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
 
-  // Auto-save function (silent save without alert)
-  const autoSave = useCallback(() => {
-    setSaveStatus('saving');
-    const dataToSave = { tableData, notes, nextNoteId, availableIds };
-    localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
-    console.log("Data auto-saved");
-    
-    // Show saved status for 2 seconds
-    setTimeout(() => setSaveStatus('saved'), 500);
-  }, [tableData, notes, nextNoteId, availableIds, number]);
 
-  // Auto-save whenever data changes (debounced to avoid excessive saves)
-  const debouncedAutoSave = useCallback(
-    debounce(autoSave, 1000), // Save 1 second after last change
-    [autoSave]
-  );
-
-  // Effect to trigger auto-save when data changes
-  useEffect(() => {
-    // Don't auto-save on initial load or when data is still loading
-    if (loading || !mounted) return;
-    
-    setSaveStatus('unsaved');
-    debouncedAutoSave();
-  }, [tableData, notes, nextNoteId, availableIds, debouncedAutoSave, loading, mounted]);
 
   // Save data before page unload
   useEffect(() => {
@@ -4754,37 +4729,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               Save
             </button>
             
-            {/* Auto-save status indicator */}
-            <div className="flex items-center space-x-2 text-sm">
-              {saveStatus === 'saving' && (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                </>
-              )}
-              {saveStatus === 'saved' && (
-                <>
-                </>
-              )}
-              {saveStatus === 'unsaved' && (
-                <>
-                  <div className="h-4 w-4 rounded-full bg-yellow-500"></div>
-                </>
-              )}
-            </div>
+
           </div>
           
 
 
-          {/* Auto-save status indicator */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-md border">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-gray-700 font-medium">Auto-save enabled</span>
-            </div>
-            <div className="text-xs text-gray-500">
-              Every 30s • Cleanup after 5h inactivity
-            </div>
-          </div>
+
 
           <button
             onClick={handleExport}

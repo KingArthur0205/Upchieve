@@ -1010,12 +1010,7 @@ export default function MultiAnnotatorComparisonView({
                 <h2 className="text-sm font-semibold text-gray-800">
                   Loaded Annotators ({otherAnnotators.length})
                 </h2>
-                {otherAnnotators.length > 0 && (
-                  <div className="flex items-center gap-1 text-xs text-green-600">
-                    <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span>Auto-saved</span>
-                  </div>
-                )}
+
               </div>
               
               {otherAnnotators.length > 0 ? (
