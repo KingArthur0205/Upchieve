@@ -66,6 +66,21 @@ interface FeatureColumnsProps {
   onHoverChange?: (isHovering: boolean) => void;
 }
 
+// Utility functions to filter out unwanted metadata columns
+const METADATA_COLUMNS = ['lastSaved', 'lastActivity', 'lastModifiedBy'];
+
+const cleanTableRow = (row: any): any => {
+  const cleanedRow = { ...row };
+  METADATA_COLUMNS.forEach(col => {
+    delete cleanedRow[col];
+  });
+  return cleanedRow;
+};
+
+const filterMetadataColumns = (columns: string[]): string[] => {
+  return columns.filter(col => !METADATA_COLUMNS.includes(col));
+};
+
 export default function TranscriptPage() {
   const params = useParams();
   const router = useRouter();
@@ -135,6 +150,8 @@ export default function TranscriptPage() {
 
   // Add state for hidden columns dropdown
   const [showHiddenColumnsDropdown, setShowHiddenColumnsDropdown] = useState(false);
+  
+
   
   // Add useEffect to handle click outside for dropdowns
   useEffect(() => {
@@ -1049,8 +1066,14 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     }
 
     const rowIndex = rowData.col2 - 1;
-    const rowAnnotations = annotationData[category].annotations[rowIndex] || {};
-    const codes = annotationData[category].codes;
+    const rowAnnotations = (annotationData[category] && 
+                           annotationData[category].annotations && 
+                           annotationData[category].annotations[rowIndex]) ? 
+                           annotationData[category].annotations[rowIndex] : {};
+    const codes = (annotationData[category] && 
+                   annotationData[category].codes && 
+                   Array.isArray(annotationData[category].codes)) ? 
+                   annotationData[category].codes : [];
     
     // Calculate how many features are "Yes" (true)
     const yesCount = codes.filter(code => rowAnnotations[code]).length;
@@ -1073,7 +1096,10 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       event.preventDefault();
       event.stopPropagation();
       const rect = event.currentTarget.getBoundingClientRect();
-      const details = annotationData[category].definitions[code];
+      const details = (annotationData[category] && 
+                       annotationData[category].definitions && 
+                       annotationData[category].definitions[code]) ? 
+                       annotationData[category].definitions[code] : null;
       if (details) {
         setSelectedDefinition({
           code,
@@ -1219,7 +1245,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                     </div>
                   </div>
                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {codes.map((code: string) => (
+                    {codes && Array.isArray(codes) ? codes.map((code: string) => (
                       <div key={code} className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
                         <div className="flex items-center flex-1">
                           <input
@@ -1253,7 +1279,11 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                           </button>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="text-center text-gray-500 py-4">
+                        <p>No feature codes available</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1286,7 +1316,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 </button>
               </div>
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {codes.map((code: string) => (
+                {codes && Array.isArray(codes) ? codes.map((code: string) => (
                   <div key={code} className="flex items-center justify-between">
                     <button
                       className="text-sky-600 hover:text-sky-800 hover:underline text-left mr-3 flex-1 text-sm"
@@ -1305,7 +1335,11 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                       />
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center text-gray-500 py-4">
+                    <p>No feature codes available</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1380,12 +1414,17 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     if (!prevCategoryData || !nextCategoryData) return false;
     
     const rowIndex = prevRowData.col2 - 1;
-    const prevRowAnnotations = prevCategoryData.annotations[rowIndex];
-    const nextRowAnnotations = nextCategoryData.annotations[rowIndex];
+    const prevRowAnnotations = (prevCategoryData.annotations && 
+                                prevCategoryData.annotations[rowIndex]) ? 
+                                prevCategoryData.annotations[rowIndex] : {};
+    const nextRowAnnotations = (nextCategoryData.annotations && 
+                                nextCategoryData.annotations[rowIndex]) ? 
+                                nextCategoryData.annotations[rowIndex] : {};
     
     // Only re-render if THIS row's annotations changed
     return JSON.stringify(prevRowAnnotations) === JSON.stringify(nextRowAnnotations);
   });
+
 
   // Memoize the filtered table data
   const filteredTableData = React.useMemo(() => {
@@ -1634,12 +1673,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         {annotationData && Object.keys(annotationData).map(category => (
           <CollapsibleFeatureCell
             key={category}
-            rowData={rowData}
+          rowData={rowData}
             category={category}
-            annotationData={annotationData}
-            isStudent={isStudent}
-            onFeatureChange={onFeatureChange}
-          />
+          annotationData={annotationData}
+          isStudent={isStudent}
+          onFeatureChange={onFeatureChange}
+        />
         ))}
 
         {/* LLM Feature Columns */}
@@ -1688,15 +1727,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Load data once when page loads
   useEffect(() => {
-    // Try to load saved annotation data
-    const savedAnnotations = localStorage.getItem(`annotations-${number}`);
-    if (savedAnnotations) {
-      setAnnotationData(JSON.parse(savedAnnotations));
-    }
-    
     // Also load LLM annotations
     reloadAnnotationData();
-    // Note: Don't initialize empty data here - let loadFeatureCategoriesAndAnnotationData handle it
+    // Note: loadFeatureCategoriesAndAnnotationData will handle loading saved annotation data properly
   }, [number]);
 
   // Save annotations when unmounting the component
@@ -1727,42 +1760,82 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             // Check if annotation data already exists for this transcript
             const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
             let newData = {};
+            let hasExistingData = false;
+            let shouldSave = false;
             
             if (existingAnnotationData) {
               try {
-                newData = JSON.parse(existingAnnotationData);
-                console.log('Found existing annotation data for transcript:', number);
-                
-                // Check if existing data matches current codebook structure
-                const needsRegeneration = featureDefinitions.categories.some((category: string) => {
-                  const categoryFeatures = featureDefinitions.features[category] || [];
-                  const expectedCodes = categoryFeatures.map((feature: any) => feature.Code);
-                  const existingCodes = (newData as any)[category]?.codes || [];
-                  
-                  // Check if codes match
-                  return expectedCodes.length !== existingCodes.length || 
-                         !expectedCodes.every((code: string) => existingCodes.includes(code));
+                const parsedData = JSON.parse(existingAnnotationData);
+                // Validate the data structure to prevent array access errors
+                const isValidData = Object.keys(parsedData).some(key => {
+                  if (key === 'lastSaved' || key === 'lastActivity') return false; // Skip metadata
+                  const categoryData = parsedData[key];
+                  return categoryData && 
+                         typeof categoryData === 'object' && 
+                         Array.isArray(categoryData.codes) && 
+                         typeof categoryData.annotations === 'object';
                 });
                 
-                if (needsRegeneration) {
-                  console.log('Codebook has changed, regenerating annotation data...');
-                  newData = {};
+                if (isValidData) {
+                  newData = parsedData;
+                  hasExistingData = true;
+                  console.log('Found and validated existing annotation data for transcript:', number);
+                  
+                  // Check if this data was modified by user - if so, preserve it more carefully
+                  const wasUserModified = parsedData.lastModifiedBy === 'user';
+                  console.log('Data was user modified:', wasUserModified);
+                  
+                  // Check if existing data matches current codebook structure
+                  const needsRegeneration = featureDefinitions.categories.some((category: string) => {
+                    const categoryFeatures = featureDefinitions.features?.[category];
+                    if (!categoryFeatures || !Array.isArray(categoryFeatures)) return false;
+                    
+                    const expectedCodes = categoryFeatures.map((feature: any) => feature?.Code).filter(Boolean);
+                    const existingCodes = (newData as any)[category]?.codes || [];
+                    
+                    // Check if codes match
+                    return expectedCodes.length !== existingCodes.length || 
+                           !expectedCodes.every((code: string) => existingCodes.includes(code));
+                  });
+                  
+                  if (needsRegeneration) {
+                    if (wasUserModified) {
+                      console.log('Codebook has changed, but preserving user annotations while updating structure...');
+                    } else {
+                      console.log('Codebook has changed, will update annotation structure...');
+                    }
+                    shouldSave = true;
+                  }
+                } else {
+                  console.warn('Invalid annotation data structure, will regenerate');
+                  hasExistingData = false;
+                  shouldSave = true;
                 }
               } catch (error) {
-                console.log('Error parsing existing annotation data, regenerating...');
-                newData = {};
+                console.log('Error parsing existing annotation data, will regenerate...');
+                hasExistingData = false;
+                shouldSave = true;
               }
             } else {
               console.log('No existing annotation data found, generating from codebook...');
+              shouldSave = true;
             }
             
             // Generate or update annotation data from feature definitions
             featureDefinitions.categories.forEach((category: string) => {
-              const categoryFeatures = featureDefinitions.features[category] || [];
-              const codes = categoryFeatures.map((feature: any) => feature.Code);
+              const categoryFeatures = featureDefinitions.features?.[category];
+              if (!categoryFeatures || !Array.isArray(categoryFeatures)) {
+                console.warn(`No features found for category: ${category}`);
+                return;
+              }
+              
+              const codes = (categoryFeatures && Array.isArray(categoryFeatures)) ? 
+                categoryFeatures.map((feature: any) => feature?.Code).filter(Boolean) : [];
               const definitions: { [key: string]: any } = {};
               
+              if (categoryFeatures && Array.isArray(categoryFeatures)) {
               categoryFeatures.forEach((feature: any) => {
+                  if (feature?.Code) {
                 definitions[feature.Code] = {
                   Definition: feature.Definition || '',
                   example1: feature.Example1 || '',
@@ -1770,18 +1843,25 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   nonexample1: feature.NonExample1 || '',
                   nonexample2: feature.NonExample2 || ''
                 };
+                  }
               });
+              }
               
               // Initialize annotations only if they don't exist for this category or need regeneration
-              if (!(newData as any)[category] || (newData as any)[category].codes.length === 0) {
+              if (!hasExistingData || !(newData as any)[category] || !(newData as any)[category]?.codes || (newData as any)[category].codes.length === 0) {
                 console.log('Creating new annotation data for:', category);
                 const annotations: { [key: number]: { [code: string]: boolean } } = {};
                 
+                // Ensure tableData is available and is an array
+                if (tableData && Array.isArray(tableData)) {
                 for (let i = 0; i < tableData.length; i++) {
                   annotations[i] = {};
                   codes.forEach((code: string) => {
+                      if (code) {
                     annotations[i][code] = false;
+                      }
                   });
+                  }
                 }
                 
                 (newData as any)[category] = {
@@ -1791,17 +1871,19 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 };
               } else {
                 // Update codes and definitions while preserving existing annotations
-                const existingAnnotations = (newData as any)[category].annotations || {};
+                const existingAnnotations = (newData as any)[category]?.annotations || {};
                 
                 // Ensure all lines have annotations for all codes
                 const updatedAnnotations: { [key: number]: { [code: string]: boolean } } = {};
+                if (tableData && Array.isArray(tableData)) {
                 for (let i = 0; i < tableData.length; i++) {
                   updatedAnnotations[i] = existingAnnotations[i] || {};
                   codes.forEach((code: string) => {
-                    if (!(code in updatedAnnotations[i])) {
+                      if (code && !(code in updatedAnnotations[i])) {
                       updatedAnnotations[i][code] = false;
                     }
                   });
+                  }
                 }
                 
                 (newData as any)[category] = {
@@ -1815,8 +1897,13 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             console.log('Setting annotation data:', newData);
             setAnnotationData(newData as AnnotationData);
             
-            // Save the updated annotation data
-            localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
+            // Only save if there were changes or no existing data
+            if (shouldSave) {
+              console.log('Saving updated annotation data to localStorage');
+              localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
+            } else {
+              console.log('No changes needed, preserving existing annotation data');
+            }
           } else {
             // Check if it's the new direct format (category names as keys)
             const isDirectFormat = typeof featureDefinitions === 'object' && 
@@ -1835,45 +1922,91 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               // Check if annotation data already exists for this transcript
               const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
               let newData = {};
+              let hasExistingData = false;
+              let shouldSave = false;
               
               if (existingAnnotationData) {
                 try {
-                  newData = JSON.parse(existingAnnotationData);
-                  console.log('Found existing annotation data for transcript:', number);
+                  const parsedData = JSON.parse(existingAnnotationData);
+                  // Validate the data structure to prevent array access errors
+                  const isValidData = Object.keys(parsedData).some(key => {
+                    if (key === 'lastSaved' || key === 'lastActivity') return false; // Skip metadata
+                    const categoryData = parsedData[key];
+                    return categoryData && 
+                           typeof categoryData === 'object' && 
+                           Array.isArray(categoryData.codes) && 
+                           typeof categoryData.annotations === 'object';
+                  });
+                  
+                  if (isValidData) {
+                    newData = parsedData;
+                    hasExistingData = true;
+                    console.log('Found and validated existing annotation data for transcript:', number);
+                    
+                    // Check if this data was modified by user - if so, preserve it more carefully
+                    const wasUserModified = parsedData.lastModifiedBy === 'user';
+                    console.log('Data was user modified:', wasUserModified);
+                    
+                    // For direct format, we also want to preserve user data
+                    if (wasUserModified) {
+                      console.log('Preserving user-modified annotation data');
+                    }
+                  } else {
+                    console.warn('Invalid annotation data structure, will regenerate');
+                    hasExistingData = false;
+                    shouldSave = true;
+                  }
                 } catch (error) {
-                  console.log('Error parsing existing annotation data, regenerating...');
-                  newData = {};
+                  console.log('Error parsing existing annotation data, will regenerate...');
+                  hasExistingData = false;
+                  shouldSave = true;
                 }
               } else {
                 console.log('No existing annotation data found, generating from codebook...');
+                shouldSave = true;
               }
               
               // Generate or update annotation data from feature definitions
               categories.forEach((category: string) => {
-                const categoryFeatures = featureDefinitions[category] || [];
-                const codes = categoryFeatures.map((feature: any) => feature.Code);
+                const categoryFeatures = featureDefinitions[category];
+                if (!categoryFeatures || !Array.isArray(categoryFeatures)) {
+                  console.warn(`No features found for category: ${category}`);
+                  return;
+                }
+                
+                const codes = (categoryFeatures && Array.isArray(categoryFeatures)) ? 
+                  categoryFeatures.map((feature: any) => feature?.Code).filter(Boolean) : [];
                 const definitions: { [key: string]: any } = {};
                 
-                categoryFeatures.forEach((feature: any) => {
-                  definitions[feature.Code] = {
-                    Definition: feature.Definition || '',
-                    example1: feature.Example1 || feature.example1 || '',
-                    example2: feature.Example2 || feature.example2 || '',
-                    nonexample1: feature.NonExample1 || feature.nonexample1 || '',
-                    nonexample2: feature.NonExample2 || feature.nonexample2 || ''
-                  };
-                });
+                if (categoryFeatures && Array.isArray(categoryFeatures)) {
+                  categoryFeatures.forEach((feature: any) => {
+                    if (feature?.Code) {
+                      definitions[feature.Code] = {
+                        Definition: feature.Definition || '',
+                        example1: feature.Example1 || feature.example1 || '',
+                        example2: feature.Example2 || feature.example2 || '',
+                        nonexample1: feature.NonExample1 || feature.nonexample1 || '',
+                        nonexample2: feature.NonExample2 || feature.nonexample2 || ''
+                      };
+                    }
+                  });
+                }
                 
                 // Initialize annotations only if they don't exist for this category or need regeneration
-                if (!(newData as any)[category] || (newData as any)[category].codes.length === 0) {
+                if (!hasExistingData || !(newData as any)[category] || !(newData as any)[category]?.codes || (newData as any)[category].codes.length === 0) {
                   console.log('Creating new annotation data for:', category);
                   const annotations: { [key: number]: { [code: string]: boolean } } = {};
                   
-                  for (let i = 0; i < tableData.length; i++) {
-                    annotations[i] = {};
-                    codes.forEach((code: string) => {
-                      annotations[i][code] = false;
-                    });
+                  // Ensure tableData is available and is an array
+                  if (tableData && Array.isArray(tableData)) {
+                    for (let i = 0; i < tableData.length; i++) {
+                      annotations[i] = {};
+                      codes.forEach((code: string) => {
+                        if (code) {
+                          annotations[i][code] = false;
+                        }
+                      });
+                    }
                   }
                   
                   (newData as any)[category] = {
@@ -1883,17 +2016,19 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   };
                 } else {
                   // Update codes and definitions while preserving existing annotations
-                  const existingAnnotations = (newData as any)[category].annotations || {};
+                  const existingAnnotations = (newData as any)[category]?.annotations || {};
                   
                   // Ensure all lines have annotations for all codes
                   const updatedAnnotations: { [key: number]: { [code: string]: boolean } } = {};
-                  for (let i = 0; i < tableData.length; i++) {
-                    updatedAnnotations[i] = existingAnnotations[i] || {};
-                    codes.forEach((code: string) => {
-                      if (!(code in updatedAnnotations[i])) {
-                        updatedAnnotations[i][code] = false;
-                      }
-                    });
+                  if (tableData && Array.isArray(tableData)) {
+                    for (let i = 0; i < tableData.length; i++) {
+                      updatedAnnotations[i] = existingAnnotations[i] || {};
+                      codes.forEach((code: string) => {
+                        if (code && !(code in updatedAnnotations[i])) {
+                          updatedAnnotations[i][code] = false;
+                        }
+                      });
+                    }
                   }
                   
                   (newData as any)[category] = {
@@ -1905,13 +2040,18 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               });
               
               console.log('Setting annotation data (direct format):', newData);
-              setAnnotationData(newData as AnnotationData);
-              
-              // Save the updated annotation data
+            setAnnotationData(newData as AnnotationData);
+            
+            // Only save if there were changes or no existing data
+            if (shouldSave) {
+              console.log('Saving updated annotation data to localStorage');
               localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
             } else {
-              console.log('No feature categories found in localStorage');
-              setAnnotationData({});
+              console.log('No changes needed, preserving existing annotation data');
+            }
+          } else {
+            console.log('No feature categories found in localStorage');
+            setAnnotationData({});
             }
           }
         } else {
@@ -1926,7 +2066,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     };
     
     // Load annotation data when component mounts or tableData changes or when forced to reload
-    if (tableData.length > 0) {
+    if (tableData && Array.isArray(tableData) && tableData.length > 0) {
       loadFeatureCategoriesAndAnnotationData();
     }
   }, [tableData.length, forceReloadAnnotations]);
@@ -2024,11 +2164,13 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   };
 
   const handleAnnotationChange = (data: AnnotationData) => {
-    setAnnotationData(data);
+    // Validate the data structure before setting it
+    if (!data || typeof data !== 'object') {
+      console.error('Invalid annotation data provided:', data);
+      return;
+    }
     
-    // Auto-save annotations when they change
-    localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
-    console.log("Annotations auto-saved");
+    setAnnotationData(data);
   };
 
   // Function to reload annotation data when feature definitions are updated
@@ -2255,7 +2397,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               const coreColumns = [lineNumberCol, startCol, endCol, speakerCol, dialogueCol];
               if (segmentCol) coreColumns.push(segmentCol);
               if (selectableCol) coreColumns.push(selectableCol);
-              const extraCols = headers.filter(header => !coreColumns.includes(header));
+              const extraCols = filterMetadataColumns(headers.filter(header => 
+                !coreColumns.includes(header)
+              ));
               
               // Setup extra columns
               setExtraColumns(extraCols);
@@ -2304,6 +2448,38 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         setLoading(false);
       }
     };
+    
+    // EMERGENCY CLEANUP: Force remove metadata columns from localStorage RIGHT NOW
+    const emergencyCleanup = () => {
+      try {
+        const currentData = localStorage.getItem(`tableData-${number}`);
+        if (currentData) {
+          const parsed = JSON.parse(currentData);
+          if (parsed.tableData && Array.isArray(parsed.tableData)) {
+            const ultraCleanedData = parsed.tableData.map((row: any) => {
+              const cleanRow = { ...row };
+              delete cleanRow.lastSaved;
+              delete cleanRow.lastActivity;
+              delete cleanRow.lastModifiedBy;
+              return cleanRow;
+            });
+            
+            const cleanedData = {
+              ...parsed,
+              tableData: ultraCleanedData
+            };
+            
+            localStorage.setItem(`tableData-${number}`, JSON.stringify(cleanedData));
+            console.log('EMERGENCY CLEANUP COMPLETED - Metadata columns removed');
+          }
+        }
+      } catch (error) {
+        console.error('Emergency cleanup failed:', error);
+      }
+    };
+    
+    // Run emergency cleanup first
+    emergencyCleanup();
     
     // Check localStorage first
     const savedData = localStorage.getItem(`tableData-${number}`);
@@ -2359,18 +2535,74 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               const oldTitles = row.noteTitle ? row.noteTitle.split(',').map((t: string) => t.trim()).filter((t: string) => t !== "") : [];
               const newIds = oldTitles.map((title: string) => titleToIdMap.get(title)).filter(Boolean);
               
+              // Filter out unwanted metadata columns from the row
+              const filteredRow = cleanTableRow(row);
+              
               return {
-                ...row,
+                ...filteredRow,
                 noteIds: newIds.join(', '),
               };
             });
             
+            // AGGRESSIVE CLEANUP: Save cleaned data back to localStorage immediately
+            const aggressivelyCleanedData = {
+              ...parsedData,
+              tableData: migratedTableData,
+              notes: migratedNotes,
+              nextNoteId: highestId + 1
+            };
+            localStorage.setItem(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
+            
             setTableData(migratedTableData);
             setNotes(migratedNotes);
             setNextNoteId(highestId + 1);
+            
+            // Set up extra columns from migrated data, excluding unwanted metadata columns
+            if (migratedTableData.length > 0) {
+              const firstRow = migratedTableData[0];
+              const allColumns = Object.keys(firstRow);
+              const coreColumns = ['col1', 'col2', 'col3', 'col4', 'col5', 'col6', 'col7', 'noteIds'];
+              const extraCols = filterMetadataColumns(allColumns.filter(col => 
+                !coreColumns.includes(col)
+              ));
+              
+              setExtraColumns(extraCols);
+              const initialExtraVisibility: {[key: string]: boolean} = {};
+              extraCols.forEach(col => {
+                initialExtraVisibility[col] = false; // Hidden by default
+              });
+              setExtraColumnVisibility(initialExtraVisibility);
+            }
           } else {
             // If data is already in the new format
-            setTableData(parsedData.tableData);
+            // Filter out unwanted metadata columns from existing data
+            const cleanedTableData = parsedData.tableData.map(cleanTableRow);
+            
+            // AGGRESSIVE CLEANUP: Remove metadata columns from localStorage immediately
+            const aggressivelyCleanedData = {
+              ...parsedData,
+              tableData: cleanedTableData
+            };
+            localStorage.setItem(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
+            
+            setTableData(cleanedTableData);
+            
+            // Set up extra columns from cleaned data, excluding unwanted metadata columns
+            if (cleanedTableData.length > 0) {
+              const firstRow = cleanedTableData[0];
+              const allColumns = Object.keys(firstRow);
+              const coreColumns = ['col1', 'col2', 'col3', 'col4', 'col5', 'col6', 'col7', 'noteIds'];
+              const extraCols = filterMetadataColumns(allColumns.filter(col => 
+                !coreColumns.includes(col)
+              ));
+              
+              setExtraColumns(extraCols);
+              const initialExtraVisibility: {[key: string]: boolean} = {};
+              extraCols.forEach(col => {
+                initialExtraVisibility[col] = false; // Hidden by default
+              });
+              setExtraColumnVisibility(initialExtraVisibility);
+            }
             
             // Ensure all notes have lineNumbers field
             const notesWithLineNumbers = (parsedData.notes || []).map((note: any) => ({
@@ -2495,63 +2727,63 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     if (!annotationData && (!separateLlmAnnotationData || Object.keys(separateLlmAnnotationData).length === 0)) return;
 
     const createWorkbook = (data: AnnotationData | null, notesData: Note[], suffix: string) => {
-      const wb = utils.book_new();
-      
+    const wb = utils.book_new();
+
       if (data) {
         Object.entries(data).forEach(([sheetName, sheetData]) => {
-          const sheetRows = [];
-          sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
+        const sheetRows = [];
+        sheetRows.push(['Line #', 'Speaker', 'Utterance', ...sheetData.codes]);
 
-          tableData.forEach((row, index) => {
-            const isSelectable = isTableRowSelectable(row);
-            const rowData = [
-              row.col2, // Line #
-              row.col5, // Speaker
-              row.col6, // Utterance
-              ...sheetData.codes.map(code => {
+        tableData.forEach((row, index) => {
+          const isSelectable = isTableRowSelectable(row);
+          const rowData = [
+            row.col2, // Line #
+            row.col5, // Speaker
+            row.col6, // Utterance
+            ...sheetData.codes.map(code => {
                 if (!isSelectable) return '';
-                return sheetData.annotations[index]?.[code] ? '1' : '0';
-              })
-            ];
-            sheetRows.push(rowData);
-          });
-
-          const ws = utils.aoa_to_sheet(sheetRows);
-          utils.book_append_sheet(wb, ws, sheetName);
+              return sheetData.annotations[index]?.[code] ? '1' : '0';
+            })
+          ];
+          sheetRows.push(rowData);
         });
-      }
+
+        const ws = utils.aoa_to_sheet(sheetRows);
+        utils.book_append_sheet(wb, ws, sheetName);
+      });
+    }
 
       // Add Notes sheet if there are any notes for human annotations
       if (notesData.length > 0 && suffix === 'human') {
-        const notesRows = [];
-        notesRows.push(['Note ID', 'Title', 'Note Abstract', 'Full Context', 'Associated Lines', 'Associated Utterances']);
-        
+      const notesRows = [];
+      notesRows.push(['Note ID', 'Title', 'Note Abstract', 'Full Context', 'Associated Lines', 'Associated Utterances']);
+      
         notesData.forEach(note => {
-          const associatedLines = note.lineNumbers?.length > 0 
-            ? note.lineNumbers.join(', ')
-            : note.rowIndices.map(index => {
-                const tableRow = tableData[index];
-                return tableRow ? tableRow.col2 : '';
-              }).filter(line => line !== '').join(', ');
-          
-          const associatedUtterances = note.rowIndices.map(index => {
-            const tableRow = tableData[index];
-            return tableRow ? `"${tableRow.col6}"` : '';
-          }).filter(utterance => utterance !== '""').join('; ');
-          
-          notesRows.push([
-            note.id,
-            note.title,
-            note.content_1,
-            note.content_2,
-            associatedLines,
-            associatedUtterances
-          ]);
-        });
+        const associatedLines = note.lineNumbers?.length > 0 
+          ? note.lineNumbers.join(', ')
+          : note.rowIndices.map(index => {
+              const tableRow = tableData[index];
+              return tableRow ? tableRow.col2 : '';
+            }).filter(line => line !== '').join(', ');
         
-        const notesWs = utils.aoa_to_sheet(notesRows);
-        utils.book_append_sheet(wb, notesWs, 'Notes');
-      }
+        const associatedUtterances = note.rowIndices.map(index => {
+          const tableRow = tableData[index];
+          return tableRow ? `"${tableRow.col6}"` : '';
+        }).filter(utterance => utterance !== '""').join('; ');
+        
+        notesRows.push([
+          note.id,
+          note.title,
+          note.content_1,
+          note.content_2,
+          associatedLines,
+          associatedUtterances
+        ]);
+      });
+      
+      const notesWs = utils.aoa_to_sheet(notesRows);
+      utils.book_append_sheet(wb, notesWs, 'Notes');
+    }
 
       return wb;
     };
@@ -2582,8 +2814,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     } else if (annotationData) {
       // Only human annotations exist
       const wb = createWorkbook(annotationData, notes, 'human');
-      const fileName = `transcript_${number}_annotations.xlsx`;
-      writeFile(wb, fileName);
+    const fileName = `transcript_${number}_annotations.xlsx`;
+    writeFile(wb, fileName);
       alert('Exported human annotations file');
     }
   };
@@ -2745,7 +2977,10 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 header !== 'Utterance' &&
                 header !== '#' &&
                 header !== 'Dialogue' &&
-                header !== 'Segment'  // For Talk sheet, exclude Segment from codes
+                header !== 'Segment' &&  // For Talk sheet, exclude Segment from codes
+                header !== 'lastSaved' &&
+                header !== 'lastActivity' &&
+                header !== 'lastModifiedBy'  // Prevent metadata from being treated as codes
               );
               
               console.log(`${sheetName} sheet codes:`, codes);
@@ -2869,7 +3104,11 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             console.log('CSV data loaded:', csvData.slice(0, 3));
             
             // Get all available annotation columns (excluding metadata columns)
-            const metadataColumns = ['#', 'In cue', 'Out cue', 'Duration', 'Speaker', 'Language', 'Dialogue', 'Annotations', 'Error Type', 'Segment', 'Selectable'];
+            const metadataColumns = [
+              '#', 'In cue', 'Out cue', 'Duration', 'Speaker', 'Language', 'Dialogue', 
+              'Annotations', 'Error Type', 'Segment', 'Selectable',
+              'lastSaved', 'lastActivity', 'lastModifiedBy'  // Prevent metadata from being treated as columns
+            ];
             const allHeaders = Object.keys(csvData[0] || {});
             const annotationColumns = allHeaders.filter(header => !metadataColumns.includes(header));
             
@@ -3446,53 +3685,73 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     }
   };
 
-  // Optimize feature change handler with batched updates
+
+
+  // Optimize feature change handler with batched updates and comprehensive error handling
   const handleFeatureChange = React.useCallback((lineNumber: number, code: string, value: boolean) => {
-    console.log('handleFeatureChange called:', { lineNumber, code, value, ALLOWED_SHEETS });
-    
-    setAnnotationData(prev => {
-      if (!prev) {
-        console.log('No previous annotation data');
-        return prev;
+    try {
+      // Validate inputs
+      if (typeof lineNumber !== 'number' || lineNumber < 0) {
+        console.error('Invalid line number:', lineNumber);
+        return;
       }
       
-      // Find which category this code belongs to by searching through all categories in annotationData
-      let targetCategory = null;
-      const availableCategories = Object.keys(prev);
-      console.log('Available categories in annotationData:', availableCategories);
+      if (typeof code !== 'string' || !code.trim()) {
+        console.error('Invalid code:', code);
+        return;
+      }
       
-      for (const category of availableCategories) {
-        if (prev[category]?.codes.includes(code)) {
+      console.log('handleFeatureChange called:', { lineNumber, code, value, ALLOWED_SHEETS });
+      
+    setAnnotationData(prev => {
+        if (!prev || typeof prev !== 'object') {
+          console.log('No previous annotation data or invalid data type');
+          return prev;
+        }
+      
+        // Find which category this code belongs to by searching through all categories in annotationData
+      let targetCategory = null;
+        const availableCategories = Object.keys(prev);
+        console.log('Available categories in annotationData:', availableCategories);
+        
+        for (const category of availableCategories) {
+          if (prev[category]?.codes && Array.isArray(prev[category].codes) && prev[category].codes.includes(code)) {
           targetCategory = category;
-          console.log('Found target category:', targetCategory, 'for code:', code);
+            console.log('Found target category:', targetCategory, 'for code:', code);
           break;
         }
       }
       
-      if (!targetCategory) {
-        console.log('No target category found for code:', code, 'Available categories:', availableCategories);
-        // Try to find by checking all codes in all categories
-        for (const category of availableCategories) {
-          console.log(`Category ${category} codes:`, prev[category]?.codes);
+        if (!targetCategory) {
+          console.log('No target category found for code:', code, 'Available categories:', availableCategories);
+          // Try to find by checking all codes in all categories
+          for (const category of availableCategories) {
+            console.log(`Category ${category} codes:`, prev[category]?.codes);
+          }
+          return prev;
         }
-        return prev;
-      }
       
       const currentSheet = prev[targetCategory];
-      if (!currentSheet) {
-        console.log('No current sheet found for category:', targetCategory);
-        return prev;
-      }
+        if (!currentSheet || typeof currentSheet !== 'object') {
+          console.log('No current sheet found for category:', targetCategory);
+          return prev;
+        }
+
+        // Validate currentSheet structure
+        if (!Array.isArray(currentSheet.codes) || !currentSheet.annotations || typeof currentSheet.annotations !== 'object') {
+          console.error('Invalid current sheet structure for category:', targetCategory);
+          return prev;
+        }
 
       const currentAnnotations = currentSheet.annotations[lineNumber];
-      if (currentAnnotations?.[code] === value) {
-        console.log('Value unchanged, skipping update');
-        return prev;
-      }
+        if (currentAnnotations?.[code] === value) {
+          console.log('Value unchanged, skipping update');
+          return prev;
+        }
 
-      console.log('Updating annotation:', { targetCategory, lineNumber, code, value });
-      
-      const newAnnotationData = {
+        console.log('Updating annotation:', { targetCategory, lineNumber, code, value });
+        
+        const newAnnotationData = {
         ...prev,
         [targetCategory]: {
           ...currentSheet,
@@ -3505,12 +3764,14 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           }
         }
       };
-      
-      // Auto-save to localStorage
-      localStorage.setItem(`annotations-${number}`, JSON.stringify(newAnnotationData));
-      
-      return newAnnotationData;
-    });
+        
+
+        
+        return newAnnotationData;
+      });
+    } catch (error) {
+      console.error('Error in handleFeatureChange:', error);
+    }
   }, [number]);
 
   const [showOnlyStudent, setShowOnlyStudent] = useState(false);
@@ -3795,6 +4056,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       
       {/* Header area with title */}
       <div className="w-full max-w-6xl p-4 mb-4">
+        
         <div className="bg-gray-100 border rounded-lg p-4 mb-4">
           <div className="flex justify-between items-start mb-3">
             {/* Editable Grade Level */}
@@ -4513,6 +4775,17 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           
 
 
+          {/* Auto-save status indicator */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-md border">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm text-gray-700 font-medium">Auto-save enabled</span>
+            </div>
+            <div className="text-xs text-gray-500">
+              Every 30s • Cleanup after 5h inactivity
+            </div>
+          </div>
+
           <button
             onClick={handleExport}
             className="px-6 py-2 bg-green-500 text-white font-semibold rounded-md hover:bg-green-700 transition"
@@ -4584,7 +4857,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             </div>
             
             <div className="space-y-4">
-              {annotationData[showFeatureOverview].codes.map((code: string) => {
+              {annotationData && annotationData[showFeatureOverview] && annotationData[showFeatureOverview].codes && Array.isArray(annotationData[showFeatureOverview].codes) ? 
+                annotationData[showFeatureOverview].codes.map((code: string) => {
                 const definition = annotationData[showFeatureOverview].definitions[code];
                 return (
                   <div key={code} className="border border-gray-200 rounded-lg p-4">
@@ -4628,7 +4902,11 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                     )}
                   </div>
                 );
-              })}
+                }) : (
+                  <div className="text-center text-gray-500 py-8">
+                    <p>No feature codes available for this category.</p>
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -4696,7 +4974,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   </div>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <p>Lines: {selectedNotePopup.note.rowIndices.map(idx => tableData[idx]?.col2).join(', ')}</p>
+                  <p>Lines: {selectedNotePopup.note.rowIndices && Array.isArray(selectedNotePopup.note.rowIndices) && tableData && Array.isArray(tableData) ? 
+                    selectedNotePopup.note.rowIndices.map(idx => tableData[idx]?.col2).filter(Boolean).join(', ') : 'N/A'}</p>
                   <button
                     onClick={() => {
                       if (confirm('Are you sure you want to delete this note?')) {
@@ -4750,12 +5029,17 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <h3 className="font-semibold text-gray-800 mb-3">Evidence from Transcript:</h3>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {selectedNotePopup.noteRows.map((row, rowIdx) => (
+                  {selectedNotePopup.noteRows && Array.isArray(selectedNotePopup.noteRows) ? 
+                    selectedNotePopup.noteRows.map((row, rowIdx) => (
                     <div key={rowIdx} className="pb-3 border-b border-gray-200 last:border-b-0">
                       <p className="text-sm text-gray-800 mb-1">{row.col6}</p>
                       <p className="text-xs text-gray-500">Line {row.col2} • {row.col5}</p>
                     </div>
-                  ))}
+                    )) : (
+                      <div className="text-center text-gray-500 py-4">
+                        <p>No note rows available</p>
+                      </div>
+                    )}
                 </div>
               </div>
 
