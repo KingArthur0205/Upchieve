@@ -1566,15 +1566,21 @@ export default function MultiAnnotatorComparisonView({
                             
                             return (
                               <td key={feature} className={`p-2 border border-gray-300 text-center ${
-                                !isSelectable ? 'bg-gray-50' : hasDisagreement ? 'bg-red-50' : ''
+                                !isSelectable ? 'bg-gray-50' : hasDisagreement ? 'bg-red-200 border-red-400 border-2' : ''
                               }`}>
                                 {/* Always show stacked layout with boxes */}
                                 <div className="flex flex-col gap-2">
                                   {/* Current user value on top */}
                                   <div className={`px-3 py-2 rounded-md border text-sm font-medium ${
-                                    currentValue === true ? 'bg-blue-100 border-blue-300 text-blue-800' : 
-                                    currentValue === false ? 'bg-gray-100 border-gray-300 text-gray-700' : 
-                                    'bg-gray-50 border-gray-200 text-gray-400'
+                                    hasDisagreement ? (
+                                      currentValue === true ? 'bg-blue-100 border-blue-400 text-blue-800 border-2' : 
+                                      currentValue === false ? 'bg-gray-100 border-gray-400 text-gray-700 border-2' : 
+                                      'bg-gray-50 border-gray-300 text-gray-400 border-2'
+                                    ) : (
+                                      currentValue === true ? 'bg-blue-100 border-blue-300 text-blue-800' : 
+                                      currentValue === false ? 'bg-gray-100 border-gray-300 text-gray-700' : 
+                                      'bg-gray-50 border-gray-200 text-gray-400'
+                                    )
                                   }`}>
                                     {currentValue === true ? 'Yes' : currentValue === false ? 'No' : '—'}
                                   </div>
@@ -1583,9 +1589,15 @@ export default function MultiAnnotatorComparisonView({
                                     const otherValue = otherValues[annotatorIndex];
                                     return (
                                       <div key={annotator.annotator_id} className={`px-3 py-2 rounded-md border text-sm font-medium ${
-                                        otherValue === true ? 'bg-green-100 border-green-300 text-green-800' : 
-                                        otherValue === false ? 'bg-gray-100 border-gray-300 text-gray-700' : 
-                                        'bg-gray-50 border-gray-200 text-gray-400'
+                                        hasDisagreement ? (
+                                          otherValue === true ? 'bg-green-100 border-green-400 text-green-800 border-2' : 
+                                          otherValue === false ? 'bg-gray-100 border-gray-400 text-gray-700 border-2' : 
+                                          'bg-gray-50 border-gray-300 text-gray-400 border-2'
+                                        ) : (
+                                          otherValue === true ? 'bg-green-100 border-green-300 text-green-800' : 
+                                          otherValue === false ? 'bg-gray-100 border-gray-300 text-gray-700' : 
+                                          'bg-gray-50 border-gray-200 text-gray-400'
+                                        )
                                       }`}>
                                         {otherValue === true ? 'Yes' : otherValue === false ? 'No' : '—'}
                                       </div>

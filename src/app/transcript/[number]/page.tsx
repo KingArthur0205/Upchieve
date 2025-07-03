@@ -1233,7 +1233,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                               e.stopPropagation();
                             }}
                             className="mr-2 form-checkbox h-3 w-3 text-blue-600"
-                            disabled={!isStudent}
+                            disabled={!isStudent || !isSelectable}
                           />
                           <button
                             className="text-sky-600 hover:text-sky-800 hover:underline text-left flex-1"
@@ -1298,7 +1298,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                     <div onClick={(e) => e.stopPropagation()}>
                       <FeatureToggle
                         isChecked={rowAnnotations[code] || false}
-                        isDisabled={!isStudent}
+                        isDisabled={!isStudent || !isSelectable}
                         onToggle={(checked) => {
                           onFeatureChange(rowIndex, code, checked);
                         }}
@@ -1634,12 +1634,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         {annotationData && Object.keys(annotationData).map(category => (
           <CollapsibleFeatureCell
             key={category}
-          rowData={rowData}
+            rowData={rowData}
             category={category}
-          annotationData={annotationData}
-          isStudent={isStudent}
-          onFeatureChange={onFeatureChange}
-        />
+            annotationData={annotationData}
+            isStudent={isStudent}
+            onFeatureChange={onFeatureChange}
+          />
         ))}
 
         {/* LLM Feature Columns */}
@@ -1716,10 +1716,13 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         
         if (featureDefinitionsData) {
           const featureDefinitions = JSON.parse(featureDefinitionsData);
+          console.log('Parsed feature definitions:', featureDefinitions);
+          console.log('Feature definitions structure:', Object.keys(featureDefinitions));
           
           if (featureDefinitions.categories && featureDefinitions.categories.length > 0) {
             ALLOWED_SHEETS = featureDefinitions.categories;
             console.log('Loaded feature categories from localStorage:', ALLOWED_SHEETS);
+            console.log('Setting ALLOWED_SHEETS to:', featureDefinitions.categories);
             
             // Check if annotation data already exists for this transcript
             const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
@@ -1815,8 +1818,101 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             // Save the updated annotation data
             localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
           } else {
-            console.log('No feature categories found in localStorage');
-            setAnnotationData({});
+            // Check if it's the new direct format (category names as keys)
+            const isDirectFormat = typeof featureDefinitions === 'object' && 
+                                  featureDefinitions !== null && 
+                                  !featureDefinitions.categories && 
+                                  !featureDefinitions.features &&
+                                  Object.keys(featureDefinitions).length > 0;
+            console.log('Direct format check:', isDirectFormat);
+            
+            if (isDirectFormat) {
+              // Direct format: { "Conceptual": [...], "Discursive": [...] }
+              const categories = Object.keys(featureDefinitions);
+              ALLOWED_SHEETS = categories;
+              console.log('Loaded categories from localStorage (direct format):', ALLOWED_SHEETS);
+              
+              // Check if annotation data already exists for this transcript
+              const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
+              let newData = {};
+              
+              if (existingAnnotationData) {
+                try {
+                  newData = JSON.parse(existingAnnotationData);
+                  console.log('Found existing annotation data for transcript:', number);
+                } catch (error) {
+                  console.log('Error parsing existing annotation data, regenerating...');
+                  newData = {};
+                }
+              } else {
+                console.log('No existing annotation data found, generating from codebook...');
+              }
+              
+              // Generate or update annotation data from feature definitions
+              categories.forEach((category: string) => {
+                const categoryFeatures = featureDefinitions[category] || [];
+                const codes = categoryFeatures.map((feature: any) => feature.Code);
+                const definitions: { [key: string]: any } = {};
+                
+                categoryFeatures.forEach((feature: any) => {
+                  definitions[feature.Code] = {
+                    Definition: feature.Definition || '',
+                    example1: feature.Example1 || feature.example1 || '',
+                    example2: feature.Example2 || feature.example2 || '',
+                    nonexample1: feature.NonExample1 || feature.nonexample1 || '',
+                    nonexample2: feature.NonExample2 || feature.nonexample2 || ''
+                  };
+                });
+                
+                // Initialize annotations only if they don't exist for this category or need regeneration
+                if (!(newData as any)[category] || (newData as any)[category].codes.length === 0) {
+                  console.log('Creating new annotation data for:', category);
+                  const annotations: { [key: number]: { [code: string]: boolean } } = {};
+                  
+                  for (let i = 0; i < tableData.length; i++) {
+                    annotations[i] = {};
+                    codes.forEach((code: string) => {
+                      annotations[i][code] = false;
+                    });
+                  }
+                  
+                  (newData as any)[category] = {
+                    codes,
+                    definitions,
+                    annotations
+                  };
+                } else {
+                  // Update codes and definitions while preserving existing annotations
+                  const existingAnnotations = (newData as any)[category].annotations || {};
+                  
+                  // Ensure all lines have annotations for all codes
+                  const updatedAnnotations: { [key: number]: { [code: string]: boolean } } = {};
+                  for (let i = 0; i < tableData.length; i++) {
+                    updatedAnnotations[i] = existingAnnotations[i] || {};
+                    codes.forEach((code: string) => {
+                      if (!(code in updatedAnnotations[i])) {
+                        updatedAnnotations[i][code] = false;
+                      }
+                    });
+                  }
+                  
+                  (newData as any)[category] = {
+                    codes,
+                    definitions,
+                    annotations: updatedAnnotations
+                  };
+                }
+              });
+              
+              console.log('Setting annotation data (direct format):', newData);
+              setAnnotationData(newData as AnnotationData);
+              
+              // Save the updated annotation data
+              localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
+            } else {
+              console.log('No feature categories found in localStorage');
+              setAnnotationData({});
+            }
           }
         } else {
           console.log('No feature definitions found in localStorage');
@@ -3352,27 +3448,51 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Optimize feature change handler with batched updates
   const handleFeatureChange = React.useCallback((lineNumber: number, code: string, value: boolean) => {
+    console.log('handleFeatureChange called:', { lineNumber, code, value, ALLOWED_SHEETS });
+    
     setAnnotationData(prev => {
-      if (!prev) return prev;
+      if (!prev) {
+        console.log('No previous annotation data');
+        return prev;
+      }
       
-      // Find which category this code belongs to
+      // Find which category this code belongs to by searching through all categories in annotationData
       let targetCategory = null;
-      for (const category of ALLOWED_SHEETS) {
+      const availableCategories = Object.keys(prev);
+      console.log('Available categories in annotationData:', availableCategories);
+      
+      for (const category of availableCategories) {
         if (prev[category]?.codes.includes(code)) {
           targetCategory = category;
+          console.log('Found target category:', targetCategory, 'for code:', code);
           break;
         }
       }
       
-      if (!targetCategory) return prev;
+      if (!targetCategory) {
+        console.log('No target category found for code:', code, 'Available categories:', availableCategories);
+        // Try to find by checking all codes in all categories
+        for (const category of availableCategories) {
+          console.log(`Category ${category} codes:`, prev[category]?.codes);
+        }
+        return prev;
+      }
       
       const currentSheet = prev[targetCategory];
-      if (!currentSheet) return prev;
+      if (!currentSheet) {
+        console.log('No current sheet found for category:', targetCategory);
+        return prev;
+      }
 
       const currentAnnotations = currentSheet.annotations[lineNumber];
-      if (currentAnnotations?.[code] === value) return prev;
+      if (currentAnnotations?.[code] === value) {
+        console.log('Value unchanged, skipping update');
+        return prev;
+      }
 
-      return {
+      console.log('Updating annotation:', { targetCategory, lineNumber, code, value });
+      
+      const newAnnotationData = {
         ...prev,
         [targetCategory]: {
           ...currentSheet,
@@ -3385,8 +3505,13 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           }
         }
       };
+      
+      // Auto-save to localStorage
+      localStorage.setItem(`annotations-${number}`, JSON.stringify(newAnnotationData));
+      
+      return newAnnotationData;
     });
-  }, [annotationData]);
+  }, [number]);
 
   const [showOnlyStudent, setShowOnlyStudent] = useState(false);
   const [isNotesPanelCollapsed, setIsNotesPanelCollapsed] = useState(false);
@@ -4662,7 +4787,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               {/* Question 2 */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <h3 className="font-semibold text-gray-800 mb-3">
-                  Q2: What does this piece of evidence(s) tell you about students' understanding and/or progress toward the lesson's goals?
+                  Q2: What would you like to note about this utterance?
                 </h3>
                   <textarea
                   value={selectedNotePopup.note.content_2 || ''}
