@@ -20,12 +20,22 @@ You can upload files in two ways:
 
 ### 3. File Requirements
 
+## Example Excel File Format
+
+| # | Speaker | Dialogue | Selectable| Segment |
+|---|---------|----------|--------|---------|---------|
+| 1 | Teacher | Hello everyone, welcome to class. | | a |
+| 2 | Student 1 | Hi teacher! | yes | a |
+| 3 | Student 2 | Good morning! yes| a |
+
 The uploaded Excel file must contain the following **required columns**:
 - `#` - Line number or sequence number
 - `Speaker` - Name of the person speaking
 - `Dialogue` - The spoken content
 
 **Additional columns are allowed** and will be preserved in the CSV output.
+- `Selectable` - Indicates if the row can be annotated
+- `Segment` - Help organize the dialogue into segments
 
 ### 4. File Validation
 
@@ -39,7 +49,7 @@ The system will validate:
 ### 5. What Happens After Upload
 
 Upon successful upload:
-1. A new transcript folder is created with a timestamp-based ID (e.g., `t1703123456789`)
+1. A new transcript folder is created with a unique ID (e.g., `t001`)
 2. The Excel file is converted to CSV format
 3. A `speakers.json` file is generated with color assignments for each unique speaker
 4. The original Excel file is preserved
@@ -51,7 +61,7 @@ For each uploaded transcript, the following structure is created in the `public`
 
 ```
 public/
-└── t{timestamp}/
+└── t{id}/
     ├── transcript.csv          # Converted CSV file
     ├── transcript.xlsx         # Original Excel file
     └── speakers.json           # Speaker color assignments
@@ -65,59 +75,3 @@ The system automatically assigns colors to speakers using a predefined color pal
 - `bg-orange-200`, `bg-teal-200`, `bg-cyan-200`, `bg-lime-200`
 
 Colors are assigned in order, cycling through the palette if there are more speakers than colors.
-
-## Error Handling
-
-The system provides clear error messages for:
-- Missing required columns
-- Invalid file format
-- File too large
-- Empty or invalid data
-- Server processing errors
-
-## Example Excel File Format
-
-| # | Speaker | Dialogue | In cue | Out cue | Segment |
-|---|---------|----------|--------|---------|---------|
-| 1 | Teacher | Hello everyone, welcome to class. | 00:00:01 | 00:00:04 | a |
-| 2 | Student 1 | Hi teacher! | 00:00:05 | 00:00:07 | a |
-| 3 | Student 2 | Good morning! | 00:00:08 | 00:00:11 | a |
-
-## Technical Details
-
-### API Endpoint
-- **URL**: `/api/upload-transcript`
-- **Method**: POST
-- **Content-Type**: multipart/form-data
-
-### Response Format
-```json
-{
-  "success": true,
-  "transcriptId": "t1703123456789",
-  "speakers": ["Teacher", "Student 1", "Student 2"],
-  "rowCount": 3
-}
-```
-
-### Error Response Format
-```json
-{
-  "error": "Missing required columns: #, Speaker"
-}
-```
-
-## Security Considerations
-
-- File size is limited to 10MB
-- Only Excel files (.xlsx, .xls) are accepted
-- Files are validated for required content before processing
-- Invalid files are rejected with appropriate error messages
-
-## Browser Compatibility
-
-The upload feature works in all modern browsers that support:
-- File API
-- Drag and Drop API
-- Fetch API
-- FormData API 
