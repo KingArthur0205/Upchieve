@@ -18,7 +18,7 @@ The `EduCoder` pipeline consists of three steps: `data preparation`, `annotation
 
 
 ## 📖 Table of Contents
-[**Installation**](#installation)｜[**Tutorials**](#tutorials) | [**Documentation**](#documentation)| [**Citation**](#citation) | [**License**](#license)
+[**Installation**](#installation) | [**Tutorials**](#tutorials) | [**Documentation**](#documentation) | [**Citation**](#citation) | [**License**](#license)
 
 ## Installation
 You can install the UI with ```npm```: 
