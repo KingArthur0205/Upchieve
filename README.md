@@ -97,7 +97,7 @@ This project reads and writes data to Google Cloud Storage. To allow this integr
 
 
 
-## Citation
+## Cite `EduCoder`
 ```
 Coming Soon
 ```
