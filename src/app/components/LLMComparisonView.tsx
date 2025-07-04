@@ -54,6 +54,17 @@ export default function LLMComparisonView({
   const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(0);
   const [definitionPopup, setDefinitionPopup] = useState<{code: string, definition: string} | null>(null);
   const [showAllRows, setShowAllRows] = useState<boolean>(false);
+  const [expandedDropdowns, setExpandedDropdowns] = useState<{ [key: string]: boolean }>({});
+  const [showAnnotationWindow, setShowAnnotationWindow] = useState<string | null>(null);
+  const [showAllFeaturesWindow, setShowAllFeaturesWindow] = useState<number | null>(null);
+  const [selectedDefinition, setSelectedDefinition] = useState<{
+    code: string;
+    definition: string;
+    example1: string;
+    example2: string;
+    nonexample1: string;
+    nonexample2: string;
+  } | null>(null);
 
   // Helper function to get feature value for any code in a feature
   const getFeatureValue = (data: AnnotationData | null, feature: string, lineNumber: number): boolean => {
@@ -94,6 +105,113 @@ export default function LLMComparisonView({
     if (!data || !data[feature] || !data[feature].definitions) return '';
     return data[feature].definitions[code]?.Definition || '';
   };
+
+  // Get full feature definition with examples
+  const getFullCodeDefinition = (data: AnnotationData | null, feature: string, code: string) => {
+    if (!data || !data[feature] || !data[feature].definitions) return null;
+    const def = data[feature].definitions[code];
+    if (!def) return null;
+    
+    return {
+      code,
+      definition: def.Definition || '',
+      example1: def.example1 || '',
+      example2: def.example2 || '',
+      nonexample1: def.nonexample1 || '',
+      nonexample2: def.nonexample2 || ''
+    };
+  };
+
+  // Handle feature click to show definition
+  const handleFeatureClick = (code: string, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const fullDef = getFullCodeDefinition(llmAnnotations, selectedFeature!, code);
+    if (fullDef) {
+      setSelectedDefinition(fullDef);
+    }
+  };
+
+  // Handle cell click to show dropdown
+  const handleCellClick = (lineNumber: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const dropdownKey = `${selectedFeature}-${lineNumber}`;
+    setExpandedDropdowns(prev => ({
+      ...prev,
+      [dropdownKey]: !prev[dropdownKey]
+    }));
+  };
+
+  // Handle opening annotation window
+  const handleOpenAnnotationWindow = (lineNumber: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setShowAnnotationWindow(`${selectedFeature}-${lineNumber}`);
+    const dropdownKey = `${selectedFeature}-${lineNumber}`;
+    setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
+  };
+
+  // Handle opening all features window for a specific line
+  const handleOpenAllFeaturesWindow = (lineNumber: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setShowAllFeaturesWindow(lineNumber);
+    setExpandedDropdowns({});
+  };
+
+  // Handle closing dropdowns and windows
+  const handleCloseDropdown = (dropdownKey: string) => {
+    setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
+  };
+
+  const handleCloseAnnotationWindow = () => {
+    setShowAnnotationWindow(null);
+  };
+
+  const handleCloseAllFeaturesWindow = () => {
+    setShowAllFeaturesWindow(null);
+  };
+
+  const handleCloseDefinition = () => {
+    setSelectedDefinition(null);
+  };
+
+  // Get all annotation data for a specific line across all categories
+  const getAllAnnotationsForLine = (lineNumber: number) => {
+    const lineIndex = lineNumber - 1;
+    const allCategories = getAvailableFeatures();
+    const annotations: { [category: string]: { [code: string]: boolean | number } } = {};
+    
+    allCategories.forEach(category => {
+      if (llmAnnotations?.[category]) {
+        const codes = llmAnnotations[category].codes || [];
+        const lineAnnotations = llmAnnotations[category].annotations[lineIndex] || {};
+        
+        annotations[category] = {};
+        codes.forEach(code => {
+          annotations[category][code] = lineAnnotations[code] || false;
+        });
+      }
+    });
+    
+    return annotations;
+  };
+
+  // Click outside to close dropdowns
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('[data-dropdown="true"]') && !target.closest('[data-cell-key]')) {
+        setExpandedDropdowns({});
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // Check if a table row is selectable (same logic as main transcript)
   const isTableRowSelectable = (rowData: TableRow): boolean => {
@@ -634,6 +752,8 @@ export default function LLMComparisonView({
               </div>
           <div className="text-xs text-gray-500 mt-2">
             Tip: Enter a number to search by line, or text to search utterances. Use the toggle to show all rows or only annotatable ones. {searchTerm ? `Found ${searchResults.length} result${searchResults.length !== 1 ? 's' : ''}.` : `Showing ${displayTableData.length} ${showAllRows ? 'total' : 'annotatable'} rows.`}
+            <br />
+            <span className="text-blue-600 font-medium">💡 Click on any line number, speaker, or utterance to see all LLM annotations for that line.</span>
             </div>
             </div>
       )}
@@ -724,13 +844,19 @@ export default function LLMComparisonView({
 
                         return (
                           <tr key={index} className={`${rowBgColor} hover:bg-opacity-80 transition-colors`}>
-                            <td className={`p-3 border border-gray-300 font-mono sticky left-0 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm font-semibold text-gray-900`}>
+                            <td className={`p-3 border border-gray-300 font-mono sticky left-0 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm font-semibold text-gray-900 cursor-pointer hover:bg-blue-50`}
+                                onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                                title="Click to see all LLM annotations for this line">
                               {row.col2}
                             </td>
-                            <td className={`p-3 border border-gray-300 sticky left-16 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm font-medium text-gray-900`}>
+                            <td className={`p-3 border border-gray-300 sticky left-16 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm font-medium text-gray-900 cursor-pointer hover:bg-blue-50`}
+                                onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                                title="Click to see all LLM annotations for this line">
                               {row.col5}
                             </td>
-                            <td className={`p-3 border border-gray-300 sticky left-32 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm text-gray-900`} title={row.col6}>
+                            <td className={`p-3 border border-gray-300 sticky left-32 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm text-gray-900 cursor-pointer hover:bg-blue-50`} 
+                                onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                                title={`Click to see all LLM annotations for this line: ${row.col6}`}>
                               {row.col6}
                             </td>
                             {allCodes.map(code => {
@@ -819,37 +945,49 @@ export default function LLMComparisonView({
 
                 return (
                             <tr key={index} className={`${rowBgColor} hover:bg-opacity-80 transition-colors`}>
-                              <td className={`p-3 border border-gray-300 font-mono sticky left-0 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm font-semibold text-gray-900`}>
+                              <td className={`p-3 border border-gray-300 font-mono sticky left-0 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm font-semibold text-gray-900 cursor-pointer hover:bg-blue-50`}
+                                  onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                                  title="Click to see all LLM annotations for this line">
                                 {row.col2}
                     </td>
-                              <td className={`p-3 border border-gray-300 sticky left-16 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm font-medium text-gray-900`}>
+                              <td className={`p-3 border border-gray-300 sticky left-16 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm font-medium text-gray-900 cursor-pointer hover:bg-blue-50`}
+                                  onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                                  title="Click to see all LLM annotations for this line">
                                 {row.col5}
                     </td>
-                              <td className={`p-3 border border-gray-300 sticky left-32 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm text-gray-900`} title={row.col6}>
+                              <td className={`p-3 border border-gray-300 sticky left-32 z-10 ${rowBgColor} border-r-2 border-r-gray-400 shadow-sm text-gray-900 cursor-pointer hover:bg-blue-50`} 
+                                  onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                                  title={`Click to see all LLM annotations for this line: ${row.col6}`}>
                                 {row.col6}
                     </td>
-                                                             {allCodes.map(code => {
-                                 // Get LLM value as integer
-                                 const llmValue = llmAnnotations?.[selectedFeature]?.annotations[row.col2 - 1]?.[code] ?? 0;
-                                 const intValue = typeof llmValue === 'number' ? Math.round(llmValue) : parseInt(String(llmValue)) || 0;
-                                 const isRowAnnotatable = isTableRowSelectable(row);
-                      
-                      return (
-                                   <td key={code} className={`p-3 border border-gray-300 text-center ${!isRowAnnotatable ? 'bg-gray-50' : ''}`}>
-                                     {isRowAnnotatable ? (
-                                       intValue > 0 ? (
-                                         <div className="text-black font-normal text-base">
-                                           {intValue}
-                                         </div>
-                                       ) : (
-                                         <div className="h-8"></div>
-                                       )
-                                     ) : (
-                                       <div className="text-gray-400 text-sm">N/A</div>
-                                     )}
-                        </td>
-                      );
-                    })}
+                            {allCodes.map(code => {
+                              // Get LLM value as integer
+                              const llmValue = llmAnnotations?.[selectedFeature]?.annotations[row.col2 - 1]?.[code] ?? 0;
+                              const intValue = typeof llmValue === 'number' ? Math.round(llmValue) : parseInt(String(llmValue)) || 0;
+                              const isRowAnnotatable = isTableRowSelectable(row);
+                              
+                              return (
+                                <td 
+                                  key={code} 
+                                  className={`p-3 border border-gray-300 text-center cursor-pointer hover:bg-blue-50 relative ${!isRowAnnotatable ? 'bg-gray-50' : ''}`}
+                                  onClick={(e) => handleFeatureClick(code, e)}
+                                  title={`Click to see definition for ${code}`}
+                                  data-cell-key={`${selectedFeature}-${row.col2}-${code}`}
+                                >
+                                  {isRowAnnotatable ? (
+                                    intValue > 0 ? (
+                                      <div className="text-black font-normal text-base">
+                                        {intValue}
+                                      </div>
+                                    ) : (
+                                      <div className="h-8"></div>
+                                    )
+                                  ) : (
+                                    <div className="text-gray-400 text-sm">N/A</div>
+                                  )}
+                                </td>
+                              );
+                            })}
                   </tr>
                 );
               })}
@@ -1102,8 +1240,12 @@ export default function LLMComparisonView({
                     
                     return (
                       <tr key={index} className={`${rowClass} hover:bg-opacity-80 transition-colors`}>
-                        <td className={`p-3 border border-gray-300 font-mono font-semibold sticky left-0 z-10 ${rowClass} border-r-2 border-r-gray-400 shadow-sm text-gray-900`}>{row.col2}</td>
-                        <td className={`p-3 border border-gray-300 sticky left-16 z-10 ${rowClass} border-r-2 border-r-gray-400 shadow-sm`}>
+                        <td className={`p-3 border border-gray-300 font-mono font-semibold sticky left-0 z-10 ${rowClass} border-r-2 border-r-gray-400 shadow-sm text-gray-900 cursor-pointer hover:bg-blue-50`}
+                            onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                            title="Click to see all LLM annotations for this line">{row.col2}</td>
+                        <td className={`p-3 border border-gray-300 sticky left-16 z-10 ${rowClass} border-r-2 border-r-gray-400 shadow-sm cursor-pointer hover:bg-blue-50`}
+                            onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                            title="Click to see all LLM annotations for this line">
                           <span 
                             className="px-2 py-1 rounded text-xs font-medium"
           style={{
@@ -1114,7 +1256,9 @@ export default function LLMComparisonView({
                             {row.col5}
                           </span>
                         </td>
-                        <td className={`p-3 border border-gray-300 max-w-xs truncate sticky left-32 z-10 ${rowClass} border-r-2 border-r-gray-400 shadow-sm text-gray-900`}>{row.col6}</td>
+                        <td className={`p-3 border border-gray-300 max-w-xs truncate sticky left-32 z-10 ${rowClass} border-r-2 border-r-gray-400 shadow-sm text-gray-900 cursor-pointer hover:bg-blue-50`} 
+                            onClick={(e) => handleOpenAllFeaturesWindow(row.col2, e)}
+                            title={`Click to see all LLM annotations for this line: ${row.col6}`}>{row.col6}</td>
                         <td className="p-3 border border-gray-300">
                           {isRowAnnotatable ? (
                             <span className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
@@ -1187,7 +1331,220 @@ export default function LLMComparisonView({
         </div>
       </div>
 
-      {/* Definition Popup Modal */}
+      {/* Annotation Window */}
+      {showAnnotationWindow && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+          onClick={handleCloseAnnotationWindow}
+        >
+          <div 
+            className="bg-white border-2 border-gray-800 rounded-lg shadow-lg p-4 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-lg font-semibold text-gray-800">
+                {selectedFeature} Features - {showAnnotationWindow.split('-')[1] ? `Line ${showAnnotationWindow.split('-')[1]}` : ''}
+              </div>
+              <button
+                onClick={handleCloseAnnotationWindow}
+                className="text-gray-500 hover:text-gray-700 text-xl leading-none"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {selectedFeature && llmAnnotations?.[selectedFeature]?.codes?.map((code: string) => {
+                const lineNumber = parseInt(showAnnotationWindow!.split('-')[1]);
+                const llmValue = llmAnnotations?.[selectedFeature]?.annotations[lineNumber - 1]?.[code] ?? 0;
+                const intValue = typeof llmValue === 'number' ? Math.round(llmValue) : parseInt(String(llmValue)) || 0;
+                
+                return (
+                  <div key={code} className="flex items-center justify-between">
+                    <button
+                      className="text-sky-600 hover:text-sky-800 hover:underline text-left mr-3 flex-1 text-sm"
+                      onClick={(e) => handleFeatureClick(code, e)}
+                      title="Click for definition and examples"
+                    >
+                      {code}
+                    </button>
+                    <div className="text-sm text-gray-600">
+                      {intValue > 0 ? intValue : '—'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Features Window - Shows all features for a specific line */}
+      {showAllFeaturesWindow && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+          onClick={handleCloseAllFeaturesWindow}
+        >
+          <div 
+            className="bg-white border-2 border-gray-800 rounded-lg shadow-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <div className="text-xl font-bold text-gray-800">
+                All LLM Annotations - Line {showAllFeaturesWindow}
+              </div>
+              <button
+                onClick={handleCloseAllFeaturesWindow}
+                className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            
+            {/* Show the utterance for context */}
+            {(() => {
+              const rowData = tableData.find(row => row.col2 === showAllFeaturesWindow);
+              if (rowData) {
+                return (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-600 mb-2">
+                      <span className="font-semibold">Speaker:</span> {rowData.col5}
+                    </div>
+                    <div className="text-sm text-gray-800">
+                      <span className="font-semibold">Utterance:</span> {rowData.col6}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            
+            <div className="space-y-6">
+              {(() => {
+                const annotations = getAllAnnotationsForLine(showAllFeaturesWindow);
+                const categories = Object.keys(annotations);
+                
+                if (categories.length === 0) {
+                  return (
+                    <div className="text-center text-gray-500 py-8">
+                      No LLM annotations found for this line.
+                    </div>
+                  );
+                }
+                
+                return categories.map(category => (
+                  <div key={category} className="border rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">
+                      {category}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {Object.entries(annotations[category]).map(([code, value]) => {
+                        const isActive = typeof value === 'boolean' ? value : (typeof value === 'number' ? value > 0 : false);
+                        const displayValue = typeof value === 'number' ? value : (value ? 'Yes' : 'No');
+                        
+                        return (
+                          <div 
+                            key={code} 
+                            className={`p-3 rounded-lg border transition-colors ${
+                              isActive 
+                                ? 'bg-green-50 border-green-200 text-green-800' 
+                                : 'bg-gray-50 border-gray-200 text-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <button
+                                className="text-left font-medium hover:underline"
+                                onClick={(e) => {
+                                  const fullDef = getFullCodeDefinition(llmAnnotations, category, code);
+                                  if (fullDef) {
+                                    setSelectedDefinition(fullDef);
+                                  }
+                                  e.stopPropagation();
+                                }}
+                                title="Click to see definition"
+                              >
+                                {code}
+                              </button>
+                              <span className={`text-sm font-bold ${
+                                isActive ? 'text-green-700' : 'text-gray-500'
+                              }`}>
+                                {displayValue}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Definition Popup */}
+      {selectedDefinition && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+          onClick={handleCloseDefinition}
+        >
+          <div 
+            className="bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg p-4 max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-lg font-semibold text-blue-800">
+                {selectedDefinition.code}
+              </div>
+              <button
+                onClick={handleCloseDefinition}
+                className="text-blue-500 hover:text-blue-700 text-xl leading-none"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              <div className="bg-white p-3 rounded-lg border border-blue-200">
+                <div className="font-medium text-blue-900 mb-2">Definition:</div>
+                <div className="text-gray-700">{selectedDefinition.definition}</div>
+              </div>
+              
+              {selectedDefinition.example1 && (
+                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                  <div className="font-medium text-green-800 mb-2">Example:</div>
+                  <div className="text-green-700 italic">{selectedDefinition.example1}</div>
+                </div>
+              )}
+              
+              {selectedDefinition.example2 && (
+                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                  <div className="font-medium text-green-800 mb-2">Example 2:</div>
+                  <div className="text-green-700 italic">{selectedDefinition.example2}</div>
+                </div>
+              )}
+              
+              {selectedDefinition.nonexample1 && (
+                <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                  <div className="font-medium text-red-800 mb-2">Non-example:</div>
+                  <div className="text-red-700 italic">{selectedDefinition.nonexample1}</div>
+                </div>
+              )}
+              
+              {selectedDefinition.nonexample2 && (
+                <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                  <div className="font-medium text-red-800 mb-2">Non-example 2:</div>
+                  <div className="text-red-700 italic">{selectedDefinition.nonexample2}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Legacy Definition Popup (for backward compatibility) */}
       {definitionPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-96 overflow-y-auto">

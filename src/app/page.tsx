@@ -526,8 +526,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white p-8">
       {/* Header with Title and Actions */}
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-black">EduCoder</h1>
+      <div className="relative flex justify-end items-center mb-8">
+        {/* Icon positioned independently */}
+        <img 
+          src="/Icon.png" 
+          alt="EduCoder" 
+          className="fixed left-4 -top-8 h-80 w-auto z-0"
+        />
         
         {/* Top Right Actions */}
         <div className="flex items-center gap-3">

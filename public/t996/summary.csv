@@ -1,7 +1,0 @@
-Segment,Speaker,Turn Count,Turn %,Total Duration,Duration %,Ontask Count,Ontask %,Offtask Count,Offtask %,Crosstalk Count,Avg Response Latency (s),Num Latencies
-a,Student 1,71,46.0,0 days 00:02:18,41.0,52,73.0,19,27.0,0,133.2,46
-a,Student 2,44,28.999999999999996,0 days 00:01:15,23.0,35,80.0,9,20.0,0,89.71,28
-a,Student 3,34,22.0,0 days 00:01:32,28.000000000000004,30,88.0,4,12.0,0,52.0,22
-TOTAL,Student 1,71,,00:02:18,,52,73.24,19,26.76,0,,46
-TOTAL,Student 2,44,,00:01:15,,35,79.55,9,20.45,0,,28
-TOTAL,Student 3,34,,00:01:32,,30,88.24,4,11.76,0,,22

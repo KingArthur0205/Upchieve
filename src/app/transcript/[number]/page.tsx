@@ -148,6 +148,16 @@ export default function TranscriptPage() {
   const [tempGradeLevel, setTempGradeLevel] = useState("");
   const [tempLessonGoal, setTempLessonGoal] = useState("");
 
+  // Add state for LLM cell popup
+  const [showLLMCellPopup, setShowLLMCellPopup] = useState<{
+    lineNumber: number;
+    provider: string;
+    category: string;
+    rowData: TableRow;
+    position: { x: number; y: number };
+    dropdownPosition: 'top' | 'bottom' | 'left' | 'right';
+  } | null>(null);
+
   // Add state for hidden columns dropdown
   const [showHiddenColumnsDropdown, setShowHiddenColumnsDropdown] = useState(false);
   
@@ -165,16 +175,20 @@ export default function TranscriptPage() {
       if (showSegmentDropdown && !target.closest('[data-dropdown="segment"]')) {
         setShowSegmentDropdown(false);
       }
+      
+      if (showLLMCellPopup && !target.closest('[data-llm-popup="true"]')) {
+        setShowLLMCellPopup(null);
+      }
     };
 
-    if (showSpeakerDropdown || showSegmentDropdown) {
+    if (showSpeakerDropdown || showSegmentDropdown || showLLMCellPopup) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showSpeakerDropdown, showSegmentDropdown]);
+  }, [showSpeakerDropdown, showSegmentDropdown, showLLMCellPopup]);
 
   // Search functionality state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -688,13 +702,45 @@ export default function TranscriptPage() {
 
   // Save data before page unload
   useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
       // Force save data immediately before page closes
       const dataToSave = { tableData, notes, nextNoteId, availableIds };
       localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
       
       if (annotationData) {
         localStorage.setItem(`annotations-${number}`, JSON.stringify(annotationData));
+      }
+      
+      // Also save grade level and lesson goal to server before unload
+      try {
+        const getResponse = await fetch(`/api/update-content?transcriptId=t${number}`);
+        const { content: currentContent } = await getResponse.json();
+        
+        const updatedContent = {
+          ...currentContent,
+          gradeLevel: gradeLevel,
+          lessonGoal: lessonGoal
+        };
+        
+        // Use sendBeacon for reliable saving during page unload
+        const payload = JSON.stringify({
+          transcriptId: `t${number}`,
+          content: updatedContent,
+        });
+        
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/update-content', payload);
+        } else {
+          // Fallback for browsers that don't support sendBeacon
+          fetch('/api/update-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true
+          });
+        }
+      } catch (error) {
+        console.error('Error saving content before unload:', error);
       }
       
       console.log("Data saved before page unload");
@@ -706,6 +752,50 @@ export default function TranscriptPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [tableData, notes, nextNoteId, availableIds, annotationData, number]);
+
+  // Auto-save grade level and lesson goal when they change
+  useEffect(() => {
+    const saveContentToServer = async () => {
+      if (!mounted) return; // Don't save during initial load
+      
+      try {
+        // Get current content first
+        const getResponse = await fetch(`/api/update-content?transcriptId=t${number}`);
+        const { content: currentContent } = await getResponse.json();
+        
+        // Update with current values
+        const updatedContent = {
+          ...currentContent,
+          gradeLevel: gradeLevel,
+          lessonGoal: lessonGoal
+        };
+        
+        const response = await fetch('/api/update-content', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            transcriptId: `t${number}`,
+            content: updatedContent,
+          }),
+        });
+
+        if (response.ok) {
+          console.log('Grade level and lesson goal auto-saved successfully');
+        } else {
+          console.warn('Failed to auto-save grade level and lesson goal');
+        }
+      } catch (error) {
+        console.error('Error auto-saving grade level and lesson goal:', error);
+      }
+    };
+
+    // Debounce the save operation to avoid too many API calls
+    const timeoutId = setTimeout(saveContentToServer, 2000); // Save 2 seconds after last change
+    
+    return () => clearTimeout(timeoutId);
+  }, [gradeLevel, lessonGoal, number, mounted]);
 
   // Submit Function (Sends data to backend)
   const handleSubmit = async () => {
@@ -842,46 +932,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   );
   FeatureToggle.displayName = 'FeatureToggle';
 
-  // Memoize the header cell to prevent re-renders
-  const FeatureHeader = React.memo(({ 
-    code, 
-    definition,
-    example1,
-    nonexample1
-  }: { 
-    code: string;
-    definition: string;
-    example1: string;
-    nonexample1: string;
-  }) => (
-    <th
-      className="px-2 py-2 border border-black border-2 text-sm w-16 cursor-pointer group"
-      onClick={(e) => {
-        // const rect = e.currentTarget.getBoundingClientRect();
-        // setSelectedFeaturePopup({
-        //   code,
-        //   definition,
-        //   example1,
-        //   nonexample1,
-        //   position: {
-        //     x: rect.left + rect.width / 2,
-        //     y: rect.bottom + 10
-        //   }
-        // });
-      }}
-    >
-      <div className="
-        text-sky-600 
-        group-hover:text-sky-800
-        group-hover:underline 
-        group-hover:underline-offset-4
-        transition-all
-        font-medium
-      ">
-        {code}
-      </div>
-    </th>
-  ));
+
 
   // Optimize feature columns component
   const FeatureColumns = React.memo(({ 
@@ -929,12 +980,14 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     rowData,
     category,
     llmAnnotationData,
-    provider
+    provider,
+    onCellClick
   }: {
     rowData: TableRow;
     category: string;
     llmAnnotationData: AnnotationData | null;
     provider: string;
+    onCellClick?: (lineNumber: number, provider: string, category: string, event: React.MouseEvent) => void;
   }) => {
     if (!llmAnnotationData?.[category]) {
       return (
@@ -963,9 +1016,21 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     const getTextColor = () => {
       return provider.includes('ChatGPT') ? 'text-green-700' : 'text-purple-700';
     };
+
+    const handleClick = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (onCellClick) {
+        onCellClick(rowData.col2, provider, category, e);
+      }
+    };
     
     return (
-      <td className={`px-2 py-1 border border-black border-2 text-center ${getCellColor()}`}>
+      <td 
+        className={`px-2 py-1 border border-black border-2 text-center cursor-pointer hover:opacity-80 transition-opacity ${getCellColor()}`}
+        onClick={handleClick}
+        title={`Click to see ${provider} ${category} annotations for line ${rowData.col2}`}
+      >
         <div className={`text-xs font-medium ${getTextColor()}`}>
           {trueCount > 0 ? (
             <span title={`${provider} found ${trueCount} features: ${codes.filter(code => rowAnnotations[code]).join(', ')}`}>
@@ -1665,6 +1730,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               category={category}
               llmAnnotationData={providerData}
               provider={provider}
+              onCellClick={handleLLMCellClick}
             />
           ))
         )}
@@ -3407,8 +3473,27 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Handle Unified Comparison (combines both Expert and LLM Analysis)
   const handleLLMAnnotationComplete = (annotations: any, provider?: string) => {
+    // Load existing annotation data first to preserve other categories
+    let existingAnnotations: AnnotationData = {};
+    const existingData = localStorage.getItem(`annotations-${number}`);
+    if (existingData) {
+      try {
+        const parsed = JSON.parse(existingData);
+        // Filter out metadata columns that might have been saved
+        const cleanedParsed = Object.keys(parsed).reduce((acc, key) => {
+          if (!METADATA_COLUMNS.includes(key)) {
+            acc[key] = parsed[key];
+          }
+          return acc;
+        }, {} as any);
+        existingAnnotations = cleanedParsed;
+      } catch (error) {
+        console.error('Error parsing existing annotations:', error);
+      }
+    }
+    
     // Convert LLM annotations to the format expected by the annotation system
-    const convertedAnnotations: AnnotationData = {};
+    const convertedAnnotations: AnnotationData = { ...existingAnnotations };
     
     Object.keys(annotations).forEach(category => {
       convertedAnnotations[category] = {
@@ -3459,6 +3544,10 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       }
     }
     
+    // Update the main annotation data with merged results
+    setAnnotationData(convertedAnnotations);
+    localStorage.setItem(`annotations-${number}`, JSON.stringify(convertedAnnotations));
+    
     // Add or update annotations for this provider
     allLlmAnnotations[providerKey] = convertedAnnotations;
     localStorage.setItem(llmAnnotationKey, JSON.stringify(allLlmAnnotations));
@@ -3487,7 +3576,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     reloadAnnotationData();
     
     // Show success message
-    alert(`${providerKey} annotations have been generated and saved separately from human annotations!`);
+    const annotatedCategories = Object.keys(annotations).join(', ');
+    alert(`${providerKey} annotations have been generated for ${annotatedCategories} features and merged with your existing annotations!`);
   };
 
   const handleUnifiedComparison = async () => {
@@ -3925,6 +4015,98 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       };
     }
     return { categories: [], features: {} };
+  };
+
+  // Handle LLM cell click to show annotations for specific provider/category
+  const handleLLMCellClick = (lineNumber: number, provider: string, category: string, event: React.MouseEvent) => {
+    const rowData = tableData.find(row => row.col2 === lineNumber);
+    if (rowData) {
+      // Calculate position based on clicked cell
+      const cellElement = event.currentTarget as HTMLElement;
+      const rect = cellElement.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const dropdownHeight = 300; // Estimated dropdown height
+      const dropdownWidth = 320; // Estimated dropdown width
+
+      // Check vertical space
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      
+      // Check horizontal space
+      const spaceRight = viewportWidth - rect.right;
+      const spaceLeft = rect.left;
+
+      // Determine best position
+      let dropdownPosition: 'top' | 'bottom' | 'left' | 'right' = 'bottom';
+      let x: number;
+      let y: number;
+
+      if (spaceBelow >= dropdownHeight) {
+        dropdownPosition = 'bottom';
+        x = rect.left + rect.width / 2;
+        y = rect.bottom;
+      } else if (spaceAbove >= dropdownHeight) {
+        dropdownPosition = 'top';
+        x = rect.left + rect.width / 2;
+        y = rect.top;
+      } else if (spaceRight >= dropdownWidth) {
+        dropdownPosition = 'right';
+        x = rect.right;
+        y = rect.top;
+      } else if (spaceLeft >= dropdownWidth) {
+        dropdownPosition = 'left';
+        x = rect.left;
+        y = rect.top;
+      } else {
+        // Default fallback
+        dropdownPosition = 'bottom';
+        x = rect.left + rect.width / 2;
+        y = rect.bottom;
+      }
+
+      setShowLLMCellPopup({
+        lineNumber,
+        provider,
+        category,
+        rowData,
+        position: { x, y },
+        dropdownPosition
+      });
+    }
+  };
+
+  // Get annotation data for a specific line, provider, and category
+  const getLLMAnnotationsForLineAndCategory = (lineNumber: number, provider: string, category: string) => {
+    if (!separateLlmAnnotationData?.[provider]?.[category]) return {};
+    
+    const lineIndex = lineNumber - 1;
+    const categoryData = separateLlmAnnotationData[provider][category];
+    const lineAnnotations = categoryData.annotations[lineIndex] || {};
+    const codes = categoryData.codes || [];
+    
+    const annotations: { [code: string]: boolean | number } = {};
+    codes.forEach(code => {
+      annotations[code] = lineAnnotations[code] || false;
+    });
+    
+    return annotations;
+  };
+
+  // Get feature definition for a specific code in provider data
+  const getLLMCodeDefinition = (provider: string, category: string, code: string) => {
+    if (!separateLlmAnnotationData?.[provider]?.[category]?.definitions) return null;
+    const def = separateLlmAnnotationData[provider][category].definitions[code];
+    if (!def) return null;
+    
+    return {
+      code,
+      definition: def.Definition || '',
+      example1: def.example1 || '',
+      example2: def.example2 || '',
+      nonexample1: def.nonexample1 || '',
+      nonexample2: def.nonexample2 || ''
+    };
   };
 
   if (!mounted) {
@@ -4632,18 +4814,81 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                     )}
 
                     {/* Feature Columns */}
-                    {annotationData && Object.keys(annotationData).map(category => (
-                      <th 
-                        key={category} 
-                        className="px-2 py-2 border border-black border-2 text-sm w-20 text-center cursor-pointer hover:bg-blue-50"
-                        onClick={() => setShowFeatureOverview(category)}
-                        title={`Click to see all ${category} features and definitions`}
-                      >
-                        <div className="text-sky-600 font-medium hover:text-sky-800">
-                          {category}
-                        </div>
-                      </th>
-                    ))}
+                    {annotationData && Object.keys(annotationData).map(category => {
+                      return (
+                        <th 
+                          key={category} 
+                          className="px-2 py-2 border border-black border-2 text-sm w-20 text-center cursor-pointer hover:bg-blue-50 relative group"
+                          onClick={() => setShowFeatureOverview(category)}
+                        >
+                          <div className="text-sky-600 font-medium hover:text-sky-800">
+                            {category}
+                          </div>
+                          
+                          {/* Custom Hover Tooltip */}
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-96 bg-white border-2 border-gray-800 rounded-lg shadow-lg p-4 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none max-h-80 overflow-y-auto">
+                            <h3 className="text-lg font-bold text-gray-800 mb-3 text-center">{category} Features</h3>
+                            <div className="space-y-3 text-left">
+                              {annotationData[category] && annotationData[category].codes && Array.isArray(annotationData[category].codes) ? 
+                                annotationData[category].codes.map((code: string) => {
+                                  const definition = annotationData[category].definitions[code];
+                                  return (
+                                    <div key={code} className="border-b border-gray-200 pb-2 last:border-b-0">
+                                      <h4 className="text-sm font-semibold text-blue-700 mb-1">{code}</h4>
+                                      
+                                      {definition && (
+                                        <>
+                                          {definition.Definition && (
+                                            <div className="mb-2">
+                                              <span className="text-xs font-medium text-gray-800">Definition:</span>
+                                              <p className="text-xs text-gray-700 mt-1">{definition.Definition}</p>
+                                            </div>
+                                          )}
+                                          
+                                          {definition.example1 && (
+                                            <div className="mb-2">
+                                              <span className="text-xs font-medium text-green-800">Example:</span>
+                                              <p className="text-xs text-green-700 italic mt-1">{definition.example1}</p>
+                                            </div>
+                                          )}
+                                          
+                                          {definition.example2 && (
+                                            <div className="mb-2">
+                                              <span className="text-xs font-medium text-green-800">Example 2:</span>
+                                              <p className="text-xs text-green-700 italic mt-1">{definition.example2}</p>
+                                            </div>
+                                          )}
+                                          
+                                          {definition.nonexample1 && (
+                                            <div className="mb-2">
+                                              <span className="text-xs font-medium text-red-800">Non-example:</span>
+                                              <p className="text-xs text-red-700 italic mt-1">{definition.nonexample1}</p>
+                                            </div>
+                                          )}
+                                          
+                                          {definition.nonexample2 && (
+                                            <div className="mb-2">
+                                              <span className="text-xs font-medium text-red-800">Non-example 2:</span>
+                                              <p className="text-xs text-red-700 italic mt-1">{definition.nonexample2}</p>
+                                            </div>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  );
+                                }) : (
+                                  <div className="text-center text-gray-500 py-4 text-xs">
+                                    <p>No feature codes available for this category.</p>
+                                  </div>
+                                )}
+                            </div>
+                            <div className="text-center mt-3 pt-2 border-t border-gray-200">
+                              <p className="text-xs text-gray-500">Click header to open detailed view</p>
+                            </div>
+                          </div>
+                        </th>
+                      );
+                    })}
 
                     {/* LLM Feature Columns */}
                     {separateLlmAnnotationData && Object.entries(separateLlmAnnotationData).map(([provider, providerData]) => 
@@ -5113,7 +5358,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 className="px-3 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center gap-2"
               >
                 <span>+</span>
-                <span>Create New Learning Goal Note</span>
+                <span>Create New Note</span>
               </button>
               
               {notes.length > 0 && (
@@ -5179,6 +5424,100 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             </div>
           )}
         </div>
+      )}
+
+      {/* LLM Cell Popup - Shows specific category annotations for a line */}
+      {showLLMCellPopup && (
+        <>
+          {/* Backdrop to close popup */}
+          <div 
+            className="fixed inset-0 z-40"
+            onClick={() => setShowLLMCellPopup(null)}
+          />
+          
+          {/* Popup positioned next to clicked cell */}
+          <div 
+            className={`fixed bg-white border-2 border-gray-800 rounded-lg shadow-lg z-50 min-w-64 p-3 ${
+              showLLMCellPopup.dropdownPosition === 'top' ? 'mb-1' :
+              showLLMCellPopup.dropdownPosition === 'right' ? 'ml-1' :
+              showLLMCellPopup.dropdownPosition === 'left' ? 'mr-1' :
+              'mt-1'
+            }`}
+            style={{
+              left: showLLMCellPopup.dropdownPosition === 'top' || showLLMCellPopup.dropdownPosition === 'bottom' 
+                ? showLLMCellPopup.position.x - 128 // Center the popup (min-w-64 = 256px, so 128px to center)
+                : showLLMCellPopup.dropdownPosition === 'left' 
+                  ? showLLMCellPopup.position.x - 256 // Position to the left
+                  : showLLMCellPopup.position.x, // Position to the right
+              top: showLLMCellPopup.dropdownPosition === 'top'
+                ? showLLMCellPopup.position.y - 300 // Position above
+                : showLLMCellPopup.position.y, // Position below or at same level
+            }}
+            onClick={(e) => e.stopPropagation()}
+            data-llm-popup="true"
+          >
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-sm font-semibold text-gray-800">
+                {showLLMCellPopup.category} Features
+              </div>
+              <button
+                onClick={() => setShowLLMCellPopup(null)}
+                className="text-gray-500 hover:text-gray-700 text-lg leading-none"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {(() => {
+                const annotations = getLLMAnnotationsForLineAndCategory(
+                  showLLMCellPopup.lineNumber, 
+                  showLLMCellPopup.provider, 
+                  showLLMCellPopup.category
+                );
+                
+                if (Object.keys(annotations).length === 0) {
+                  return (
+                    <div className="text-center text-gray-500 py-4">
+                      <p>No feature codes available</p>
+                    </div>
+                  );
+                }
+                
+                return Object.entries(annotations).map(([code, value]) => {
+                  const isActive = typeof value === 'boolean' ? value : (typeof value === 'number' ? value > 0 : false);
+                  
+                  return (
+                    <div key={code} className="flex items-center justify-between text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
+                      <div className="flex items-center flex-1">
+                        <input
+                          type="checkbox"
+                          checked={isActive}
+                          readOnly
+                          className="mr-2 form-checkbox h-3 w-3 text-blue-600 cursor-not-allowed"
+                          disabled
+                        />
+                        <button
+                          className="text-sky-600 hover:text-sky-800 hover:underline text-left flex-1"
+                          onClick={(e) => {
+                            const fullDef = getLLMCodeDefinition(showLLMCellPopup.provider, showLLMCellPopup.category, code);
+                            if (fullDef) {
+                              alert(`${fullDef.code}: ${fullDef.definition}`);
+                            }
+                            e.stopPropagation();
+                          }}
+                          title="Click for definition and examples"
+                        >
+                          {code}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        </>
       )}
 
       {/* LLM Annotation Modal */}
