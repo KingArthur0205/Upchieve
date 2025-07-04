@@ -50,9 +50,10 @@ The feature codebook nees to be in either XLSX or CSV formats.  Each sheet (XLSX
 | `C.1`  | Use of mathematical language     | I added 12 and 18 to get 30.     | 12 + 18 = 30              |
 | `D.1`  | Asking a peer for clarification  | What do you mean by "flip it"?  | Can we move on to the next? |
 | `E.3`  | Justifying a reasoning step      | Because 4 times 2 is 8, we...    | It just feels right.      |
+
 `EduCoder` will then render the feature definition in the UI: 
 <p align="center">
-  <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/feature%20definition.png" width="500"/>
+  <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/feature%20definition.png" width="800"/>
 </p>
 
 
@@ -62,15 +63,16 @@ The transcripts need to be in either XLSX or CSV formats. The required columns a
 - `Segment` — Group rows (e.g., `"a"`, `"b"`, `"c"`) for better viewing and filtering.
 
 **Example Transcript Format**:
-| # | Speaker | Dialogue | Selectable| Segment |
-|---|---------|----------|--------|---------|---------|
-| 1 | Teacher | Hello everyone, welcome to class. | no | a |
-| 2 | Student 1 | Hi teacher! | yes | a |
-| 3 | Student 2 | Good morning! yes| a |
+| #  | Speaker   | Dialogue                                 | Selectable | Segment |
+|----|-----------|------------------------------------------|------------|---------|
+| 1  | Teacher   | Hello everyone, welcome to class.        | no         | a       |
+| 2  | Student 1 | Hi teacher!                              | yes        | a       |
+| 3  | Student 2 | Good morning!                            | yes        | a       |
+
 
 `EduCoder` will then create a workspace for annotation:
 <p align="center">
-  <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/annotation%20UI.png" width="500"/>
+  <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/annotation%20UI.png" width="800"/>
 </p>
 
 ### Configure LLM annotations
