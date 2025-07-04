@@ -43,6 +43,7 @@ We also provide one [exmaple transcript](https://github.com/KingArthur0205/EduCo
 
 ### Upload Feature Definition Codebook
 The feature codebook nees to be in either XLSX or CSV formats.  Each sheet (XLSX) or file (CSV) becomes a feature category. The required columns are `Code` and `Definition`(definition of the code). `EduCoder` also supports optional columns for examples:`Example1`, `Example2`, `NonExample1`, `NonExample2`, ...
+For this, read [this](https://github.com/KingArthur0205/EduCoder/blob/main/README_UPLOAD_FEATURE.md).
 
 **Example Codebook Format**:
 | Code   | Definition                      | Example1                         | NonExample1              |
@@ -61,6 +62,7 @@ The feature codebook nees to be in either XLSX or CSV formats.  Each sheet (XLSX
 The transcripts need to be in either XLSX or CSV formats. The required columns are `#`(line number), `Speaker`, and `Dialogue`. `EduCoder` also allows optional columns:
 - `Selectable` — Mark with `"yes"` to enable annotation. If omitted, all rows are annotatable.  
 - `Segment` — Group rows (e.g., `"a"`, `"b"`, `"c"`) for better viewing and filtering.
+For details, read [this](https://github.com/KingArthur0205/EduCoder/blob/main/README_UPLOAD_FEATURE.md).
 
 **Example Transcript Format**:
 | #  | Speaker   | Dialogue                                 | Selectable | Segment |
