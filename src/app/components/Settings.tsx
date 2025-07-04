@@ -19,6 +19,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   const [message, setMessage] = useState('');
   const [showEnvModal, setShowEnvModal] = useState(false);
   const [showLLMModal, setShowLLMModal] = useState(false);
+  const [isServerless, setIsServerless] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load current settings when component opens
@@ -63,6 +64,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         setClaudeApiKey(data.settings.claudeApiKey || '');
         setDefaultSystemPrompt(data.settings.defaultSystemPrompt || 'You are an expert educational researcher analyzing classroom transcripts. Your task is to identify specific educational features in the dialogue.');
         setDefaultMachinePrompt(data.settings.defaultMachinePrompt || 'Please analyze the following classroom transcript and identify which educational features are present in each line. For each line, indicate whether each feature is present (true) or absent (false).');
+        setIsServerless(data.isServerless || false);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -110,6 +112,9 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         }, 2000);
       } else {
         setMessage('Error saving settings: ' + data.error);
+        if (data.isServerless) {
+          setIsServerless(true);
+        }
       }
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -230,10 +235,14 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                     </button>
                     <button
                       onClick={saveSettings}
-                      disabled={saving}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300 transition"
+                      disabled={saving || isServerless}
+                      className={`px-4 py-2 text-white rounded-md transition ${
+                        isServerless 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300'
+                      }`}
                     >
-                      {saving ? 'Saving...' : 'Save Settings'}
+                      {saving ? 'Saving...' : isServerless ? 'Cannot Save (Deployed)' : 'Save Settings'}
                     </button>
                   </div>
                 </div>
@@ -270,6 +279,39 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                 </div>
               ) : (
                 <div className="space-y-6">
+                  {/* Serverless Environment Warning */}
+                  {isServerless && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-yellow-800">
+                            Deployed Environment Detected
+                          </h3>
+                          <div className="mt-2 text-sm text-yellow-700">
+                            <p>Settings cannot be saved in the deployed environment. To configure API keys and settings:</p>
+                            <ol className="mt-2 ml-4 list-decimal">
+                              <li>Go to your hosting provider&apos;s dashboard (e.g., Vercel)</li>
+                              <li>Navigate to Environment Variables</li>
+                              <li>Add the following environment variables:</li>
+                              <ul className="mt-1 ml-4 list-disc text-xs">
+                                <li><code>OPENAI_API_KEY</code> - Your OpenAI API key</li>
+                                <li><code>CLAUDE_API_KEY</code> - Your Claude API key</li>
+                                <li><code>DEFAULT_SYSTEM_PROMPT</code> - Default system prompt</li>
+                                <li><code>DEFAULT_MACHINE_PROMPT</code> - Default machine prompt</li>
+                              </ul>
+                              <li>Redeploy your application</li>
+                            </ol>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       OpenAI API Key
@@ -279,10 +321,13 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                       value={openaiApiKey}
                       onChange={(e) => setOpenaiApiKey(e.target.value)}
                       placeholder="sk-..."
-                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      readOnly={isServerless}
+                      className={`w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isServerless ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Your OpenAI API key for GPT models
+                      {isServerless ? 'Set as OPENAI_API_KEY environment variable' : 'Your OpenAI API key for GPT models'}
                     </p>
                   </div>
 
@@ -295,10 +340,13 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                       value={claudeApiKey}
                       onChange={(e) => setClaudeApiKey(e.target.value)}
                       placeholder="sk-ant-..."
-                      className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      readOnly={isServerless}
+                      className={`w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isServerless ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Your Anthropic Claude API key
+                      {isServerless ? 'Set as CLAUDE_API_KEY environment variable' : 'Your Anthropic Claude API key'}
                     </p>
                   </div>
 
@@ -310,10 +358,13 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                       value={defaultSystemPrompt}
                       onChange={(e) => setDefaultSystemPrompt(e.target.value)}
                       placeholder="Default system prompt for LLM annotation..."
-                      className="w-full h-24 p-3 border border-gray-300 rounded-md resize-vertical focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      readOnly={isServerless}
+                      className={`w-full h-24 p-3 border border-gray-300 rounded-md resize-vertical focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isServerless ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      The default system prompt used for LLM annotation
+                      {isServerless ? 'Set as DEFAULT_SYSTEM_PROMPT environment variable' : 'The default system prompt used for LLM annotation'}
                     </p>
                   </div>
 
@@ -325,10 +376,13 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                       value={defaultMachinePrompt}
                       onChange={(e) => setDefaultMachinePrompt(e.target.value)}
                       placeholder="Default machine prompt for LLM annotation..."
-                      className="w-full h-24 p-3 border border-gray-300 rounded-md resize-vertical focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      readOnly={isServerless}
+                      className={`w-full h-24 p-3 border border-gray-300 rounded-md resize-vertical focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        isServerless ? 'bg-gray-100 cursor-not-allowed' : ''
+                      }`}
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      The default machine prompt used for LLM annotation
+                      {isServerless ? 'Set as DEFAULT_MACHINE_PROMPT environment variable' : 'The default machine prompt used for LLM annotation'}
                     </p>
                   </div>
 
@@ -349,10 +403,14 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                     </button>
                     <button
                       onClick={saveSettings}
-                      disabled={saving}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-blue-300 transition"
+                      disabled={saving || isServerless}
+                      className={`px-4 py-2 text-white rounded-md transition ${
+                        isServerless 
+                          ? 'bg-gray-400 cursor-not-allowed' 
+                          : 'bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300'
+                      }`}
                     >
-                      {saving ? 'Saving...' : 'Save Settings'}
+                      {saving ? 'Saving...' : isServerless ? 'Cannot Save (Deployed)' : 'Save Settings'}
                     </button>
                   </div>
                 </div>

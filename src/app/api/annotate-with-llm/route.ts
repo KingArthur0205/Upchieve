@@ -38,6 +38,11 @@ interface LLMAnnotationResponse {
   error?: string;
 }
 
+// Helper function to detect if we're running in a serverless environment
+function isServerlessEnvironment(): boolean {
+  return !!process.env.VERCEL || !!process.env.LAMBDA_TASK_ROOT || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+}
+
 async function callOpenAI(
   apiKey: string,
   systemPrompt: string,
@@ -297,87 +302,105 @@ export async function POST(request: NextRequest): Promise<NextResponse<LLMAnnota
     const body: LLMAnnotationRequest = await request.json();
     const { llmProvider, systemPrompt, machinePrompt, featureDefinitions, transcriptData, startLineOffset } = body;
 
-    // Load settings to get API keys (handle multi-line wrapped values)
-    const settingsPath = path.join(process.cwd(), '.env.local');
+    // Load settings - prioritize process.env, then fall back to .env.local in non-serverless environments
     const settings: Record<string, string> = {};
     
-    if (fs.existsSync(settingsPath)) {
-      const envContent = fs.readFileSync(settingsPath, 'utf-8');
+    // First, read from process.env (works in all environments)
+    settings.OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
+    settings.CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '';
+    settings.DEFAULT_SYSTEM_PROMPT = process.env.DEFAULT_SYSTEM_PROMPT || '';
+    settings.DEFAULT_MACHINE_PROMPT = process.env.DEFAULT_MACHINE_PROMPT || '';
+    
+    // If we're not in a serverless environment, also try to read from .env.local
+    if (!isServerlessEnvironment()) {
+      const settingsPath = path.join(process.cwd(), '.env.local');
       
-      // Handle multi-line values by processing the entire content
-      let currentKey = '';
-      let currentValue = '';
-      let insideQuotes = false;
-      
-      const lines = envContent.split('\n');
-      
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
+      if (fs.existsSync(settingsPath)) {
+        const envContent = fs.readFileSync(settingsPath, 'utf-8');
         
-        if (!line || line.startsWith('#')) continue;
+        // Handle multi-line values by processing the entire content
+        let currentKey = '';
+        let currentValue = '';
+        let insideQuotes = false;
         
-        if (!insideQuotes && line.includes('=')) {
-          // Save previous key-value if exists
-          if (currentKey && currentValue) {
-            // Remove surrounding quotes and clean up, removing any newlines
-            let cleanValue = currentValue.trim().replace(/\n/g, '');
-            if ((cleanValue.startsWith('"') && cleanValue.endsWith('"')) || 
-                (cleanValue.startsWith("'") && cleanValue.endsWith("'"))) {
-              cleanValue = cleanValue.slice(1, -1);
+        const lines = envContent.split('\n');
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          
+          if (!line || line.startsWith('#')) continue;
+          
+          if (!insideQuotes && line.includes('=')) {
+            // Save previous key-value if exists
+            if (currentKey && currentValue) {
+              // Remove surrounding quotes and clean up, removing any newlines
+              let cleanValue = currentValue.trim().replace(/\n/g, '');
+              if ((cleanValue.startsWith('"') && cleanValue.endsWith('"')) || 
+                  (cleanValue.startsWith("'") && cleanValue.endsWith("'"))) {
+                cleanValue = cleanValue.slice(1, -1);
+              }
+              
+              // Only set if not already set from process.env
+              if (!settings[currentKey]) {
+                settings[currentKey] = cleanValue;
+              }
             }
+            
+            // Start new key-value pair
+            const equalIndex = line.indexOf('=');
+            currentKey = line.substring(0, equalIndex).trim();
+            const valueStart = line.substring(equalIndex + 1).trim();
+            
+            if (valueStart.startsWith('"') && !valueStart.endsWith('"')) {
+              // Multi-line value starting
+              insideQuotes = true;
+              currentValue = valueStart;
+            } else {
+              // Single line value
+              currentValue = valueStart;
+              insideQuotes = false;
+            }
+          } else if (insideQuotes) {
+            // Continue multi-line value (join without newlines for API keys)
+            currentValue += line;
+            if (line.endsWith('"')) {
+              insideQuotes = false;
+            }
+          }
+        }
+        
+        // Handle the last key-value pair
+        if (currentKey && currentValue) {
+          let cleanValue = currentValue.trim().replace(/\n/g, '');
+          if ((cleanValue.startsWith('"') && cleanValue.endsWith('"')) || 
+              (cleanValue.startsWith("'") && cleanValue.endsWith("'"))) {
+            cleanValue = cleanValue.slice(1, -1);
+          }
+          
+          // Only set if not already set from process.env
+          if (!settings[currentKey]) {
             settings[currentKey] = cleanValue;
           }
-          
-          // Start new key-value pair
-          const equalIndex = line.indexOf('=');
-          currentKey = line.substring(0, equalIndex).trim();
-          const valueStart = line.substring(equalIndex + 1).trim();
-          
-          if (valueStart.startsWith('"') && !valueStart.endsWith('"')) {
-            // Multi-line value starting
-            insideQuotes = true;
-            currentValue = valueStart;
-          } else {
-            // Single line value
-            currentValue = valueStart;
-            insideQuotes = false;
-          }
-        } else if (insideQuotes) {
-          // Continue multi-line value (join without newlines for API keys)
-          currentValue += line;
-          if (line.endsWith('"')) {
-            insideQuotes = false;
-          }
         }
-      }
-      
-      // Handle the last key-value pair
-      if (currentKey && currentValue) {
-        let cleanValue = currentValue.trim().replace(/\n/g, '');
-        if ((cleanValue.startsWith('"') && cleanValue.endsWith('"')) || 
-            (cleanValue.startsWith("'") && cleanValue.endsWith("'"))) {
-          cleanValue = cleanValue.slice(1, -1);
-        }
-        settings[currentKey] = cleanValue;
       }
     }
 
     // Get API key based on provider
     let apiKey: string;
     if (llmProvider === 'openai') {
-      apiKey = settings.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+      apiKey = settings.OPENAI_API_KEY;
       if (!apiKey) {
         return NextResponse.json({
           success: false,
-          error: 'OpenAI API key not configured. Please set it in the settings.'
+          error: 'OpenAI API key not configured. Please set it in the settings or environment variables.'
         }, { status: 400 });
       }
     } else if (llmProvider === 'claude') {
-      apiKey = settings.CLAUDE_API_KEY || process.env.CLAUDE_API_KEY || '';
+      apiKey = settings.CLAUDE_API_KEY;
       if (!apiKey) {
         return NextResponse.json({
           success: false,
-          error: 'Claude API key not configured. Please set it in the settings.'
+          error: 'Claude API key not configured. Please set it in the settings or environment variables.'
         }, { status: 400 });
       }
     } else {
