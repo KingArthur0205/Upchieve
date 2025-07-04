@@ -1,8 +1,12 @@
+<p align="center">
+  <img src="https://github.com/KingArthur0205/EduCoder/edit/main/figures/Icon" width="500"/>
+</p>
+
 # EduCoder
 
-**EduCoder** is an open-source user interface(UI) designed to facilitate the study of conversation language data in educational settings.
-It provides a practical and efficient interface for essential tasks such as data annotation, cross-annotator comparison, and analysis, tailored to meet the needs of researchers and teachers.
-This toolkit aims to enhance the accessibility and efficiency of educational language data annotation, as well as advance both natural language processing (NLP) and education research.
+**EduCoder** is an open-source user interface(UI) designed to facilitate the annotation of educational conversation transcript.
+It provides a practical and efficient interface for essential annotation tasks such as customisablee feature codebook, LLM-based reference annotation, and real-time cross-annotator IRR analysis to meet the needs of researchers and teachers.
+This toolkit aims to enhance the accessibility and efficiency of educational conversation transcript annotation, as well as advance both natural language processing (NLP) and education research.
 By simplifying these key operations, the UI supports the efficient exploration of text data annotation in education.
 
 ## 📖 Table of Contents
