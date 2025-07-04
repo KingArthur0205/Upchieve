@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/KingArthur0205/EduCoder/edit/main/figures/Icon" width="500"/>
+  <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/Icon.png" width="500"/>
 </p>
 
 # EduCoder
