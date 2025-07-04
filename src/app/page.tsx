@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import TranscriptUpload from "./components/TranscriptUpload";
 import FeatureDefinitionUpload from "./components/FeatureDefinitionUpload";
 import FeatureDefinitionsViewer from "./components/FeatureDefinitionsViewer";
@@ -528,9 +529,11 @@ export default function Home() {
       {/* Header with Title and Actions */}
       <div className="relative flex justify-end items-center mb-8">
         {/* Icon positioned independently */}
-        <img 
+        <Image 
           src="/Icon.png" 
           alt="EduCoder" 
+          width={320}
+          height={320}
           className="fixed left-4 -top-8 h-80 w-auto z-0"
         />
         

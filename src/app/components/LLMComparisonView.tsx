@@ -54,7 +54,6 @@ export default function LLMComparisonView({
   const [currentSearchIndex, setCurrentSearchIndex] = useState<number>(0);
   const [definitionPopup, setDefinitionPopup] = useState<{code: string, definition: string} | null>(null);
   const [showAllRows, setShowAllRows] = useState<boolean>(false);
-  const [expandedDropdowns, setExpandedDropdowns] = useState<{ [key: string]: boolean }>({});
   const [showAnnotationWindow, setShowAnnotationWindow] = useState<string | null>(null);
   const [showAllFeaturesWindow, setShowAllFeaturesWindow] = useState<number | null>(null);
   const [selectedDefinition, setSelectedDefinition] = useState<{
@@ -133,38 +132,11 @@ export default function LLMComparisonView({
     }
   };
 
-  // Handle cell click to show dropdown
-  const handleCellClick = (lineNumber: number, event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    
-    const dropdownKey = `${selectedFeature}-${lineNumber}`;
-    setExpandedDropdowns(prev => ({
-      ...prev,
-      [dropdownKey]: !prev[dropdownKey]
-    }));
-  };
-
-  // Handle opening annotation window
-  const handleOpenAnnotationWindow = (lineNumber: number, event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setShowAnnotationWindow(`${selectedFeature}-${lineNumber}`);
-    const dropdownKey = `${selectedFeature}-${lineNumber}`;
-    setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
-  };
-
   // Handle opening all features window for a specific line
   const handleOpenAllFeaturesWindow = (lineNumber: number, event: React.MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     setShowAllFeaturesWindow(lineNumber);
-    setExpandedDropdowns({});
-  };
-
-  // Handle closing dropdowns and windows
-  const handleCloseDropdown = (dropdownKey: string) => {
-    setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
   };
 
   const handleCloseAnnotationWindow = () => {
@@ -205,7 +177,7 @@ export default function LLMComparisonView({
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest('[data-dropdown="true"]') && !target.closest('[data-cell-key]')) {
-        setExpandedDropdowns({});
+        // No dropdowns to close in current implementation
       }
     };
 
