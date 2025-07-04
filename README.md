@@ -2,24 +2,31 @@
   <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/Icon.png" alt="EduCoder Icon" width="150"/>
 </p>
 
-# EduCoder
+# EduCoder: An Open-Source Annotation System for Education Transcript Data
 **EduCoder** is an open-source user interface(UI) designed to facilitate the annotation of educational conversation transcript.
 It provides a practical and efficient interface for essential annotation tasks such as customisablee feature codebook, LLM-based reference annotation, and real-time cross-annotator IRR analysis to meet the needs of researchers and teachers.
 This toolkit aims to enhance the accessibility and efficiency of educational conversation transcript annotation, as well as advance both natural language processing (NLP) and education research.
 By simplifying these key operations, the UI supports the efficient exploration of text data annotation in education.
 
-## 📖 Table of Contents
-[**Overview**](#overview)| [**Installation**](#installation) ｜ [**Tutorials**](#tutorials) | [File Formats](#file-formats) ｜ [**Troubleshooting**](#troubleshooting) | [**Future Extensions**](#future-extensions) | [**Citation**](#citation)
+The publication on EduCoder will be linked here once available: [Coming Soon].
 
-## Overview
+## Overview of the `EduCoder` Pipeline
+The `EduCoder` pipeline consists of three steps: `data preparation`, `annotation`, and `analysis`. The pipeline is designed to be minimalistic so you can easily use by converting the data to the `EduCoder` format specified below.
+<p align="center">
+  <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/Pipeline.png"/>
+</p>
+
+
+## 📖 Table of Contents
+[**Installation**](#installation)｜ [**Tutorials**](#tutorials) | [File Formats](#file-formats) ｜ [**Troubleshooting**](#troubleshooting) | [**Future Extensions**](#future-extensions) | [**Citation**](#citation)
 
 ## Installation
 You can install the UI with ```npm```: 
-   ```bash
-   git clone https://github.com/KingArthur0205/summit_mol
-   cd summit_mol
-   npm install # Install Dependencies
-   ```
+```bash
+git clone https://github.com/KingArthur0205/summit_mol
+cd summit_mol
+npm install # Install Dependencies
+```
 
 ## Getting Started
 To run the UI:
@@ -27,6 +34,10 @@ To run the UI:
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser (or the port shown in terminal if 3000 is occupied).
+
+## Tutorials
+Here is a 2-minute demo of what `EduCoder` can do. 
+We also provide one [exmaple transcript](https://github.com/KingArthur0205/EduCoder/tree/main/public/t001) and codebook for you to get started.
 
 ### Upload Transcript
 
