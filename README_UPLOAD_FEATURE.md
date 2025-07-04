@@ -22,12 +22,11 @@ You can upload files in two ways:
 
 ## Example Excel File Format
 
-| # | Speaker | Dialogue | Selectable| Segment |
-|---|---------|----------|--------|---------|---------|
-| 1 | Teacher | Hello everyone, welcome to class. | | a |
-| 2 | Student 1 | Hi teacher! | yes | a |
-| 3 | Student 2 | Good morning! yes| a |
-
+| #  | Speaker   | Dialogue                                 | Selectable | Segment |
+|----|-----------|------------------------------------------|------------|---------|
+| 1  | Teacher   | Hello everyone, welcome to class.        | no         | a       |
+| 2  | Student 1 | Hi teacher!                              | yes        | a       |
+| 3  | Student 2 | Good morning!                            | yes        | a       |
 The uploaded Excel file must contain the following **required columns**:
 - `#` - Line number or sequence number
 - `Speaker` - Name of the person speaking
