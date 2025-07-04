@@ -41,13 +41,20 @@ We also provide one [exmaple transcript](https://github.com/KingArthur0205/EduCo
 
 ## Documentation
 
+### Upload Feature Definition Codebook
+The feature codebook nees to be in either XLSX or CSV formats.  Each sheet (XLSX) or file (CSV) becomes a feature category. The required columns are `Code` and `Definition`(definition of the code). `EduCoder` also supports optional columns for examples:`Example1`, `Example2`, `NonExample1`, `NonExample2`, ...
+<p align="center">
+  <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/feature%20definition.png" width="500"/>
+</p>
+
+
 ### Upload Transcript
 The transcripts need to be in either XLSX or CSV formats. The required columns are `#`(line number), `Speaker`, and `Dialogue`. `EduCoder` also allows optional columns:
 - `Selectable` — Mark with `"yes"` to enable annotation. If omitted, all rows are annotatable.  
 - `Segment` — Group rows (e.g., `"a"`, `"b"`, `"c"`) for better viewing and filtering.
-
-### Upload Feature Definition Codebook
-The feature codebook nees to be in either XLSX or CSV formats.  Each sheet (XLSX) or file (CSV) becomes a feature category. The required columns are `Code` and `Definition`(definition of the code). `EduCoder` also supports optional columns for examples:`Example1`, `Example2`, `NonExample1`, `NonExample2`, ...
+<p align="center">
+  <img src="https://github.com/KingArthur0205/EduCoder/blob/main/figures/annotation%20UI.png" width="500"/>
+</p>
 
 ### Configure LLM annotations
 `EduCoder` allows users to generate annotation results by LLMs. Currently we have built-in ```ChatGPT-4O``` and ```Claude-4-Sonnet```. To allow this integration
