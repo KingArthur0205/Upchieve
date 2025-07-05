@@ -161,6 +161,22 @@ export default function TranscriptPage() {
   // Add state for hidden columns dropdown
   const [showHiddenColumnsDropdown, setShowHiddenColumnsDropdown] = useState(false);
   
+  // Add modal states for annotation window and definition popup
+  const [showAnnotationWindow, setShowAnnotationWindow] = useState<{
+    rowData: TableRow;
+    category: string;
+    codes: string[];
+    rowAnnotations: {[key: string]: boolean};
+  } | null>(null);
+  
+  const [selectedDefinition, setSelectedDefinition] = useState<{
+    code: string;
+    definition: string;
+    example1: string;
+    nonexample1: string;
+    position: { x: number; y: number };
+  } | null>(null);
+  
 
   
   // Add useEffect to handle click outside for dropdowns
@@ -189,6 +205,23 @@ export default function TranscriptPage() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showSpeakerDropdown, showSegmentDropdown, showLLMCellPopup]);
+
+  // Add modal handlers
+  const handleOpenAnnotationWindow = (rowData: TableRow, category: string, codes: string[], rowAnnotations: {[key: string]: boolean}) => {
+    setShowAnnotationWindow({ rowData, category, codes, rowAnnotations });
+  };
+
+  const handleCloseAnnotationWindow = () => {
+    setShowAnnotationWindow(null);
+  };
+
+  const handleOpenDefinition = (code: string, definition: string, example1: string, nonexample1: string, position: { x: number; y: number }) => {
+    setSelectedDefinition({ code, definition, example1, nonexample1, position });
+  };
+
+  const handleCloseDefinition = () => {
+    setSelectedDefinition(null);
+  };
 
   // Search functionality state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -1050,13 +1083,17 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     category,
     annotationData,
     isStudent,
-    onFeatureChange
+    onFeatureChange,
+    onOpenAnnotationWindow,
+    onOpenDefinition
   }: {
     rowData: TableRow;
     category: string;
     annotationData: AnnotationData | null;
     isStudent: boolean;
     onFeatureChange: (lineNumber: number, code: string, value: boolean) => void;
+    onOpenAnnotationWindow: (rowData: TableRow, category: string, codes: string[], rowAnnotations: {[key: string]: boolean}) => void;
+    onOpenDefinition: (code: string, definition: string, example1: string, nonexample1: string, position: { x: number; y: number }) => void;
   }) => {
     // Check if row is selectable for annotations
     const isSelectable = isTableRowSelectable(rowData);
@@ -1065,15 +1102,6 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     const dropdownKey = `${rowData.col2}-${category}`;
     const isExpanded = expandedDropdowns[dropdownKey] || false;
     const dropdownPosition = dropdownPositions[dropdownKey] || 'bottom';
-    
-    const [showAnnotationWindow, setShowAnnotationWindow] = useState(false);
-    const [selectedDefinition, setSelectedDefinition] = useState<{
-      code: string;
-      definition: string;
-      example1: string;
-      nonexample1: string;
-      position: { x: number; y: number };
-    } | null>(null);
 
     // Add click-outside-to-close functionality
     useEffect(() => {
@@ -1141,16 +1169,16 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                        annotationData[category].definitions[code]) ? 
                        annotationData[category].definitions[code] : null;
       if (details) {
-        setSelectedDefinition({
+        onOpenDefinition(
           code,
-          definition: details.Definition || 'No definition available',
-          example1: details.example1 || '',
-          nonexample1: details.nonexample1 || '',
-          position: {
+          details.Definition || 'No definition available',
+          details.example1 || '',
+          details.nonexample1 || '',
+          {
             x: rect.left + rect.width / 2,
             y: rect.bottom + 10
           }
-        });
+        );
       }
       // Ensure dropdown stays open
       return false;
@@ -1206,23 +1234,15 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       }
     };
 
-    const handleOpenAnnotationWindow = (event: React.MouseEvent) => {
+    const handleOpenAnnotationWindowLocal = (event: React.MouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      setShowAnnotationWindow(true);
+      onOpenAnnotationWindow(rowData, category, codes, rowAnnotations);
       setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
     };
 
     const handleCloseDropdown = () => {
       setExpandedDropdowns(prev => ({ ...prev, [dropdownKey]: false }));
-    };
-
-    const handleCloseAnnotationWindow = () => {
-      setShowAnnotationWindow(false);
-    };
-
-    const handleCloseDefinition = () => {
-      setSelectedDefinition(null);
     };
 
     const getDropdownClasses = () => {
@@ -1269,7 +1289,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={handleOpenAnnotationWindow}
+                        onClick={handleOpenAnnotationWindowLocal}
                         className="text-blue-600 hover:text-blue-800 text-xs"
                         title="Open full annotation window"
                       >
@@ -1333,104 +1353,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           )}
         </td>
 
-        {/* Separate Annotation Window */}
-        {showAnnotationWindow && isStudent && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
-            onClick={handleCloseAnnotationWindow}
-          >
-            <div 
-              className="bg-white border-2 border-gray-800 rounded-lg shadow-lg p-4 max-w-md w-full mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-3">
-                <div className="text-lg font-semibold text-gray-800">
-                  {category} Features
-                </div>
-                <button
-                  onClick={handleCloseAnnotationWindow}
-                  className="text-gray-500 hover:text-gray-700 text-xl leading-none"
-                  title="Close"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {codes && Array.isArray(codes) ? codes.map((code: string) => (
-                  <div key={code} className="flex items-center justify-between">
-                    <button
-                      className="text-sky-600 hover:text-sky-800 hover:underline text-left mr-3 flex-1 text-sm"
-                      onClick={(e) => handleFeatureClick(code, e)}
-                      title="Click for definition and examples"
-                    >
-                      {code}
-                    </button>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <FeatureToggle
-                        isChecked={rowAnnotations[code] || false}
-                        isDisabled={!isStudent || !isSelectable}
-                        onToggle={(checked) => {
-                          onFeatureChange(rowIndex, code, checked);
-                        }}
-                      />
-                    </div>
-                  </div>
-                )) : (
-                  <div className="text-center text-gray-500 py-4">
-                    <p>No feature codes available</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Separate Definition Popup */}
-        {selectedDefinition && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
-            onClick={handleCloseDefinition}
-          >
-            <div 
-              className="bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg p-4 max-w-lg w-full mx-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-3">
-                <div className="text-lg font-semibold text-blue-800">
-                  {selectedDefinition.code}
-                </div>
-                <button
-                  onClick={handleCloseDefinition}
-                  className="text-blue-500 hover:text-blue-700 text-xl leading-none"
-                  title="Close"
-                >
-                  ×
-                </button>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="text-sm text-gray-700">
-                  <strong className="text-blue-800">Definition:</strong>
-                  <div className="mt-1">{selectedDefinition.definition}</div>
-                </div>
-                
-                {selectedDefinition.example1 && (
-                  <div className="text-sm text-green-700">
-                    <strong className="text-green-800">Example:</strong>
-                    <div className="mt-1">{selectedDefinition.example1}</div>
-                  </div>
-                )}
-                
-                {selectedDefinition.nonexample1 && (
-                  <div className="text-sm text-red-700">
-                    <strong className="text-red-800">Non-example:</strong>
-                    <div className="mt-1">{selectedDefinition.nonexample1}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </>
     );
   }, (prevProps, nextProps) => {
@@ -1713,12 +1636,14 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         {annotationData && Object.keys(annotationData).map(category => (
           <CollapsibleFeatureCell
             key={category}
-          rowData={rowData}
+            rowData={rowData}
             category={category}
-          annotationData={annotationData}
-          isStudent={isStudent}
-          onFeatureChange={onFeatureChange}
-        />
+            annotationData={annotationData}
+            isStudent={isStudent}
+            onFeatureChange={onFeatureChange}
+            onOpenAnnotationWindow={handleOpenAnnotationWindow}
+            onOpenDefinition={handleOpenDefinition}
+          />
         ))}
 
         {/* LLM Feature Columns */}
@@ -5530,6 +5455,123 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           transcriptData={getTranscriptDataForLLM()}
           featureDefinitions={getFeatureDefinitionsForLLM()}
         />
+      )}
+
+      {/* Annotation Window Modal */}
+      {showAnnotationWindow && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+          onClick={handleCloseAnnotationWindow}
+        >
+          <div 
+            className="bg-white border-2 border-gray-800 rounded-lg shadow-lg p-4 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-lg font-semibold text-gray-800">
+                {showAnnotationWindow.category} Features
+              </div>
+              <button
+                onClick={handleCloseAnnotationWindow}
+                className="text-gray-500 hover:text-gray-700 text-xl leading-none"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {showAnnotationWindow.codes && Array.isArray(showAnnotationWindow.codes) ? showAnnotationWindow.codes.map((code: string) => (
+                <div key={code} className="flex items-center justify-between">
+                  <button
+                    className="text-sky-600 hover:text-sky-800 hover:underline text-left mr-3 flex-1 text-sm"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const details = (annotationData?.[showAnnotationWindow.category] && 
+                                       annotationData[showAnnotationWindow.category].definitions && 
+                                       annotationData[showAnnotationWindow.category].definitions[code]) ? 
+                                       annotationData[showAnnotationWindow.category].definitions[code] : null;
+                      if (details) {
+                        handleOpenDefinition(
+                          code,
+                          details.Definition || 'No definition available',
+                          details.example1 || '',
+                          details.nonexample1 || '',
+                          {
+                            x: rect.left + rect.width / 2,
+                            y: rect.bottom + 10
+                          }
+                        );
+                      }
+                    }}
+                    title="Click for definition and examples"
+                  >
+                    {code}
+                  </button>
+                                     <div onClick={(e) => e.stopPropagation()}>
+                     <FeatureToggle
+                       isChecked={showAnnotationWindow.rowAnnotations[code] || false}
+                       isDisabled={!showAnnotationWindow.rowData.col5.includes("Student") || !isTableRowSelectable(showAnnotationWindow.rowData)}
+                       onToggle={(checked) => {
+                         handleFeatureChange(showAnnotationWindow.rowData.col2 - 1, code, checked);
+                       }}
+                     />
+                   </div>
+                </div>
+              )) : (
+                <div className="text-center text-gray-500 py-4">
+                  <p>No feature codes available</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Definition Popup Modal */}
+      {selectedDefinition && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50"
+          onClick={handleCloseDefinition}
+        >
+          <div 
+            className="bg-blue-50 border-2 border-blue-300 rounded-lg shadow-lg p-4 max-w-lg w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <div className="text-lg font-semibold text-blue-800">
+                {selectedDefinition.code}
+              </div>
+              <button
+                onClick={handleCloseDefinition}
+                className="text-blue-500 hover:text-blue-700 text-xl leading-none"
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="text-sm text-gray-700">
+                <strong className="text-blue-800">Definition:</strong>
+                <div className="mt-1">{selectedDefinition.definition}</div>
+              </div>
+              
+              {selectedDefinition.example1 && (
+                <div className="text-sm text-green-700">
+                  <strong className="text-green-800">Example:</strong>
+                  <div className="mt-1">{selectedDefinition.example1}</div>
+                </div>
+              )}
+              
+              {selectedDefinition.nonexample1 && (
+                <div className="text-sm text-red-700">
+                  <strong className="text-red-800">Non-example:</strong>
+                  <div className="mt-1">{selectedDefinition.nonexample1}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

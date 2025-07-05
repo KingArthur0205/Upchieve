@@ -60,6 +60,8 @@ interface IRRStats {
   totalComparisons: number;
   agreements: number;
   disagreements: number;
+  cohensKappa: number | null;
+  krippendorffsAlpha: number | null;
 }
 
 interface MultiAnnotatorComparisonViewProps {
@@ -78,6 +80,142 @@ interface MultiAnnotatorComparisonViewProps {
   getNoteDisplayText?: (idsString: string, rowIndex: number) => React.ReactNode;
   hasSelectableColumn: boolean;
 }
+
+// Helper function to convert annotation values to boolean
+const convertToBoolean = (value: string | number | boolean | null): boolean | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value > 0;
+  if (typeof value === 'string') {
+    const lowered = value.toLowerCase().trim();
+    if (lowered === 'true' || lowered === '1' || lowered === 'yes') return true;
+    if (lowered === 'false' || lowered === '0' || lowered === 'no' || lowered === '') return false;
+  }
+  return null;
+};
+
+// Cohen's Kappa calculation for two annotators
+const calculateCohensKappa = (annotator1Values: (string | number | boolean | null)[], annotator2Values: (string | number | boolean | null)[]): number | null => {
+  // Convert to boolean values and filter to only include cases where both annotators provided values
+  const validPairs: Array<[boolean, boolean]> = [];
+  for (let i = 0; i < annotator1Values.length; i++) {
+    const val1 = convertToBoolean(annotator1Values[i]);
+    const val2 = convertToBoolean(annotator2Values[i]);
+    if (val1 !== null && val2 !== null) {
+      validPairs.push([val1, val2]);
+    }
+  }
+
+  if (validPairs.length === 0) {
+    return null;
+  }
+
+  // Calculate observed agreement
+  const agreements = validPairs.filter(([a, b]) => a === b).length;
+  const observedAgreement = agreements / validPairs.length;
+
+  // Calculate expected agreement (chance agreement)
+  const annotator1True = validPairs.filter(([a]) => a === true).length;
+  const annotator1False = validPairs.filter(([a]) => a === false).length;
+  const annotator2True = validPairs.filter(([, b]) => b === true).length;
+  const annotator2False = validPairs.filter(([, b]) => b === false).length;
+
+  const n = validPairs.length;
+  const expectedAgreement = ((annotator1True * annotator2True) + (annotator1False * annotator2False)) / (n * n);
+
+  // Calculate Cohen's Kappa
+  if (expectedAgreement === 1) {
+    // When expected agreement is 1 (only one category used), kappa is undefined/meaningless
+    // Return null (N/A) regardless of observed agreement
+    return null;
+  }
+  const kappa = (observedAgreement - expectedAgreement) / (1 - expectedAgreement);
+  
+  return Math.round(kappa * 1000) / 1000; // Round to 3 decimal places
+};
+
+// Krippendorff's Alpha calculation for multiple annotators
+const calculateKrippendorffsAlpha = (annotatorValues: Array<(string | number | boolean | null)[]>): number | null => {
+  if (annotatorValues.length < 2) {
+    return null;
+  }
+
+  // Create pairable values matrix with boolean conversion
+  const pairableValues: Array<Array<boolean | null>> = [];
+  const numLines = annotatorValues[0].length;
+
+  for (let lineIndex = 0; lineIndex < numLines; lineIndex++) {
+    const lineValues = annotatorValues.map(annotator => convertToBoolean(annotator[lineIndex]));
+    // Only include lines where at least 2 annotators provided values
+    const validValues = lineValues.filter(v => v !== null);
+    if (validValues.length >= 2) {
+      pairableValues.push(lineValues);
+    }
+  }
+
+  if (pairableValues.length === 0) {
+    return null;
+  }
+
+  // Calculate observed disagreement
+  let observedDisagreement = 0;
+  let pairCount = 0;
+
+  for (const lineValues of pairableValues) {
+    const validIndices: number[] = [];
+    lineValues.forEach((value, index) => {
+      if (value !== null) validIndices.push(index);
+    });
+
+    // Generate all pairs for this line
+    for (let i = 0; i < validIndices.length; i++) {
+      for (let j = i + 1; j < validIndices.length; j++) {
+        const value1 = lineValues[validIndices[i]] as boolean;
+        const value2 = lineValues[validIndices[j]] as boolean;
+        if (value1 !== value2) {
+          observedDisagreement++;
+        }
+        pairCount++;
+      }
+    }
+  }
+
+  if (pairCount === 0) {
+    return null;
+  }
+
+  // Calculate expected disagreement
+  const allValues: boolean[] = [];
+  for (const lineValues of pairableValues) {
+    for (const value of lineValues) {
+      if (value !== null) {
+        allValues.push(value);
+      }
+    }
+  }
+
+  const trueCount = allValues.filter(v => v === true).length;
+  const falseCount = allValues.filter(v => v === false).length;
+  const totalValues = allValues.length;
+
+  if (totalValues < 2) {
+    return null;
+  }
+
+  // For binary data, expected disagreement is the probability of picking different values
+  const expectedDisagreement = (2 * trueCount * falseCount) / (totalValues * (totalValues - 1));
+
+  // Calculate Krippendorff's Alpha
+  const observedDisagreementRate = observedDisagreement / pairCount;
+  
+  if (expectedDisagreement === 0) {
+    return null; // No expected disagreement
+  }
+  
+  const alpha = 1 - (observedDisagreementRate / expectedDisagreement);
+  
+  return Math.round(alpha * 10000) / 10000; // Round to 4 decimal places for better precision
+};
 
 export default function MultiAnnotatorComparisonView({
   tableData,
@@ -859,22 +997,52 @@ export default function MultiAnnotatorComparisonView({
       let agreements = 0;
       let totalComparisons = 0;
       
+      // Collect all annotator values for this feature across all lines
+      const currentAnnotatorValues: (string | number | boolean | null)[] = [];
+      
+      // Initialize arrays for each annotator
+      const annotatorArrays: Array<(string | number | boolean | null)[]> = Array(otherAnnotators.length + 1).fill(null).map(() => []);
+      
       tableData.forEach(row => {
         if (!isTableRowSelectable(row)) return;
         
         const currentValue = getCurrentAnnotatorValue(row.col2, selectedCategory, feature);
-        if (currentValue === null) return;
+        currentAnnotatorValues.push(currentValue);
+        annotatorArrays[0].push(currentValue);
         
-        otherAnnotators.forEach(annotator => {
-          const otherValue = getAnnotatorValue(annotator, row.col2, selectedCategory, feature);
-          if (otherValue !== null) {
-            totalComparisons++;
-            if (currentValue === otherValue) {
-              agreements++;
+        // Calculate pairwise comparisons for simple agreement
+        if (currentValue !== null) {
+          otherAnnotators.forEach((annotator, index) => {
+            const otherValue = getAnnotatorValue(annotator, row.col2, selectedCategory, feature);
+            annotatorArrays[index + 1].push(otherValue);
+            
+            if (otherValue !== null) {
+              totalComparisons++;
+              // Convert to boolean for comparison
+              const currentBool = convertToBoolean(currentValue);
+              const otherBool = convertToBoolean(otherValue);
+              if (currentBool === otherBool) {
+                agreements++;
+              }
             }
-          }
-        });
+          });
+        } else {
+          // Still need to fill arrays for other annotators even if current is null
+          otherAnnotators.forEach((annotator, index) => {
+            const otherValue = getAnnotatorValue(annotator, row.col2, selectedCategory, feature);
+            annotatorArrays[index + 1].push(otherValue);
+          });
+        }
       });
+      
+      // Calculate Cohen's Kappa (only for two annotators)
+      let cohensKappa: number | null = null;
+      if (otherAnnotators.length === 1) {
+        cohensKappa = calculateCohensKappa(annotatorArrays[0], annotatorArrays[1]);
+      }
+      
+      // Calculate Krippendorff's Alpha (for any number of annotators)
+      const krippendorffsAlpha = calculateKrippendorffsAlpha(annotatorArrays);
       
       const agreement = totalComparisons > 0 ? (agreements / totalComparisons) * 100 : 0;
       
@@ -884,7 +1052,9 @@ export default function MultiAnnotatorComparisonView({
         agreement: Math.round(agreement * 100) / 100,
         totalComparisons,
         agreements,
-        disagreements: totalComparisons - agreements
+        disagreements: totalComparisons - agreements,
+        cohensKappa,
+        krippendorffsAlpha
       });
     });
     
@@ -1355,29 +1525,48 @@ export default function MultiAnnotatorComparisonView({
                 </div>
               </div>
 
-              {/* IRR Statistics */}
+                            {/* IRR Statistics */}
               {showStatistics && selectedCategory && (
                 <div className="p-3 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-800 mb-3">
                     📊 IRR Statistics - {selectedCategory}
                   </h3>
+                  
+                  {/* Information Panel */}
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="text-sm font-semibold text-blue-800 mb-2">Statistical Measures Explained:</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-blue-700">
+                      <div>
+                        <strong>Agreement %:</strong> Simple percentage of cases where annotators agreed
+                      </div>
+                      <div>
+                        <strong>Cohen&apos;s Kappa:</strong> Agreement corrected for chance (2 annotators only). Values: &lt;0.2 (poor), 0.2-0.4 (fair), 0.4-0.6 (moderate), 0.6-0.8 (good), &gt;0.8 (excellent). Shows N/A when only one category is used (no opportunity for disagreement).
+                      </div>
+                      <div>
+                        <strong>Krippendorff&apos;s Alpha:</strong> Reliability measure for any number of annotators. Values: &lt;0.67 (tentative), 0.67-0.8 (acceptable), &gt;0.8 (good). Note: Values near 0 indicate agreement no better than chance, especially in high-prevalence scenarios.
+                      </div>
+                    </div>
+                  </div>
+                  
                   <div className="overflow-x-auto">
                     <table className="min-w-full border-collapse shadow-sm">
                       <thead className="bg-gradient-to-r from-gray-700 to-gray-600 text-white">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border border-gray-500">Feature</th>
-                          <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Agreement %</th>
-                          <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Agreements</th>
-                          <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Disagreements</th>
-                          <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Total Comparisons</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider border border-gray-500">Feature</th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Agreement %</th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Agreements</th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Disagreements</th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Total</th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Cohen&apos;s κ</th>
+                          <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider border border-gray-500">Krippendorff&apos;s α</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white">
                         {calculateIRRStats.map((stat, index) => (
                           <tr key={stat.feature} className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-opacity-80 transition-colors`}>
-                            <td className="px-4 py-3 text-sm font-medium text-gray-900 border border-gray-300">{stat.feature}</td>
-                            <td className="px-4 py-3 text-center border border-gray-300">
-                              <span className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                            <td className="px-3 py-2 text-sm font-medium text-gray-900 border border-gray-300">{stat.feature}</td>
+                            <td className="px-3 py-2 text-center border border-gray-300">
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${
                                 stat.agreement >= 80 ? 'bg-green-100 text-green-800' :
                                 stat.agreement >= 60 ? 'bg-yellow-100 text-yellow-800' :
                                 'bg-red-100 text-red-800'
@@ -1385,9 +1574,37 @@ export default function MultiAnnotatorComparisonView({
                                 {stat.agreement.toFixed(1)}%
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-center text-sm text-gray-900 border border-gray-300">{stat.agreements}</td>
-                            <td className="px-4 py-3 text-center text-sm text-gray-900 border border-gray-300">{stat.disagreements}</td>
-                            <td className="px-4 py-3 text-center text-sm text-gray-900 border border-gray-300">{stat.totalComparisons}</td>
+                            <td className="px-3 py-2 text-center text-sm text-gray-900 border border-gray-300">{stat.agreements}</td>
+                            <td className="px-3 py-2 text-center text-sm text-gray-900 border border-gray-300">{stat.disagreements}</td>
+                            <td className="px-3 py-2 text-center text-sm text-gray-900 border border-gray-300">{stat.totalComparisons}</td>
+                            <td className="px-3 py-2 text-center border border-gray-300">
+                              {stat.cohensKappa !== null ? (
+                                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  stat.cohensKappa >= 0.8 ? 'bg-green-100 text-green-800' :
+                                  stat.cohensKappa >= 0.6 ? 'bg-blue-100 text-blue-800' :
+                                  stat.cohensKappa >= 0.4 ? 'bg-yellow-100 text-yellow-800' :
+                                  stat.cohensKappa >= 0.2 ? 'bg-orange-100 text-orange-800' :
+                                  'bg-red-100 text-red-800'
+                                }`} title={`${stat.cohensKappa >= 0.8 ? 'Excellent' : stat.cohensKappa >= 0.6 ? 'Good' : stat.cohensKappa >= 0.4 ? 'Moderate' : stat.cohensKappa >= 0.2 ? 'Fair' : 'Poor'} agreement`}>
+                                  {stat.cohensKappa.toFixed(3)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs" title="Cohen's Kappa only available for exactly 2 annotators">N/A</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-center border border-gray-300">
+                              {stat.krippendorffsAlpha !== null ? (
+                                <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                  stat.krippendorffsAlpha >= 0.8 ? 'bg-green-100 text-green-800' :
+                                  stat.krippendorffsAlpha >= 0.67 ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-red-100 text-red-800'
+                                                                 }`} title={`${stat.krippendorffsAlpha >= 0.8 ? 'Good' : stat.krippendorffsAlpha >= 0.67 ? 'Acceptable' : 'Tentative'} reliability`}>
+                                  {stat.krippendorffsAlpha.toFixed(4)}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs">N/A</span>
+                              )}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
