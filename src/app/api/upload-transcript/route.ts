@@ -52,7 +52,7 @@ async function getNextTranscriptNumber(existingLocalStorageNumbers: number[] = [
   return maxNumber + 1;
 }
 
-// Function to prepare files for client-side storage
+// Function to prepare files for client-side storage with chunking support
 async function prepareTranscriptFiles(
   transcriptId: string,
   csvContent: string,
@@ -60,25 +60,92 @@ async function prepareTranscriptFiles(
   originalFileName: string,
   speakerColors: { [key: string]: string }
 ) {
-  // Always return data for client-side storage
   console.log(`Preparing transcript ${transcriptId} for local storage`);
-  return {
-    cloudStorage: false,
-    transcriptId,
-    files: {
-      'transcript.csv': csvContent,
-      'speakers.json': JSON.stringify(speakerColors, null, 2),
-      'content.json': JSON.stringify({
-        "gradeLevel": "Grade Level", 
-        "lessonGoal": "Lesson Goal"
-      }, null, 2),
-      'images.json': JSON.stringify({ "images": [] }, null, 2)
-    },
-    originalFile: {
-      name: originalFileName,
-      buffer: originalBuffer.toString('base64')
+  
+  // Check if CSV content is large and needs chunking
+  const csvSizeInBytes = Buffer.byteLength(csvContent, 'utf8');
+  const maxChunkSize = 4 * 1024 * 1024; // 4MB chunks to stay under localStorage limits
+  
+  if (csvSizeInBytes > maxChunkSize) {
+    // Split CSV into chunks
+    const chunks = [];
+    const csvLines = csvContent.split('\n');
+    const headerLine = csvLines[0];
+    let currentChunk = headerLine + '\n';
+    let chunkIndex = 0;
+    
+    for (let i = 1; i < csvLines.length; i++) {
+      const line = csvLines[i] + '\n';
+      
+      // Check if adding this line would exceed chunk size
+      if (Buffer.byteLength(currentChunk + line, 'utf8') > maxChunkSize && currentChunk !== headerLine + '\n') {
+        chunks.push({
+          filename: `transcript-chunk-${chunkIndex}.csv`,
+          content: currentChunk.trim()
+        });
+        currentChunk = headerLine + '\n' + line;
+        chunkIndex++;
+      } else {
+        currentChunk += line;
+      }
     }
-  };
+    
+    // Add the last chunk
+    if (currentChunk.trim() !== headerLine) {
+      chunks.push({
+        filename: `transcript-chunk-${chunkIndex}.csv`,
+        content: currentChunk.trim()
+      });
+    }
+    
+    // Create files object with chunks
+    const files: Record<string, string> = {};
+    chunks.forEach(chunk => {
+      files[chunk.filename] = chunk.content;
+    });
+    
+    // Add metadata files
+    files['speakers.json'] = JSON.stringify(speakerColors, null, 2);
+    files['content.json'] = JSON.stringify({
+      "gradeLevel": "Grade Level", 
+      "lessonGoal": "Lesson Goal"
+    }, null, 2);
+    files['images.json'] = JSON.stringify({ "images": [] }, null, 2);
+    files['chunk-info.json'] = JSON.stringify({
+      totalChunks: chunks.length,
+      totalSize: csvSizeInBytes,
+      chunkSize: maxChunkSize
+    }, null, 2);
+    
+    return {
+      cloudStorage: false,
+      transcriptId,
+      files,
+      originalFile: {
+        name: originalFileName,
+        buffer: originalBuffer.toString('base64')
+      }
+    };
+  } else {
+    // Use original logic for smaller files
+    return {
+      cloudStorage: false,
+      transcriptId,
+      files: {
+        'transcript.csv': csvContent,
+        'speakers.json': JSON.stringify(speakerColors, null, 2),
+        'content.json': JSON.stringify({
+          "gradeLevel": "Grade Level", 
+          "lessonGoal": "Lesson Goal"
+        }, null, 2),
+        'images.json': JSON.stringify({ "images": [] }, null, 2)
+      },
+      originalFile: {
+        name: originalFileName,
+        buffer: originalBuffer.toString('base64')
+      }
+    };
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -106,9 +173,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only Excel files (.xlsx, .xls) and CSV files (.csv) are supported' }, { status: 400 });
     }
 
-    // Check file size (limit to 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 });
+    // Check file size (limit to 200MB)
+    if (file.size > 200 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File size must be less than 200MB' }, { status: 400 });
     }
 
     // Convert file to buffer

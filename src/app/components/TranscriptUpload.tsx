@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { saveTranscriptData, safeStorageSet, safeStorageGet } from '../utils/storageUtils';
 
 interface UploadResponse {
   success: boolean;
@@ -57,7 +58,8 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
       formData.append('file', file);
       
       // Pass existing transcript numbers to help with sequential numbering
-      const existingTranscripts = JSON.parse(localStorage.getItem('transcripts') || '[]');
+      const existingTranscriptsRaw = await safeStorageGet('transcripts');
+      const existingTranscripts = JSON.parse(existingTranscriptsRaw || '[]');
       const existingNumbers = existingTranscripts.map((t: { id: string }) => {
         const match = t.id.match(/^t(\d+)$/);
         return match ? parseInt(match[1], 10) : 0;
@@ -75,7 +77,7 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
       const result: UploadResponse = await response.json();
 
       if (result.success && result.transcriptId) {
-        // Save transcript data to localStorage
+        // Save transcript data to storage with IndexedDB fallback
         if (result.storage && !result.storage.cloudStorage) {
           const transcriptData = {
             id: result.transcriptId,
@@ -88,26 +90,38 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
             uploadedAt: new Date().toISOString()
           };
 
-          // Save individual transcript files to localStorage
-          Object.entries(result.storage.files).forEach(([filename, content]) => {
-            localStorage.setItem(`${result.transcriptId}-${filename}`, content as string);
-          });
+          // Save individual transcript files using safe storage with chunking support
+          for (const [filename, content] of Object.entries(result.storage.files)) {
+            try {
+              if (filename.includes('transcript') && filename.endsWith('.csv')) {
+                // Use the chunking utility for CSV files
+                await saveTranscriptData(result.transcriptId, content as string);
+              } else {
+                // Use safe storage for other files
+                await safeStorageSet(`${result.transcriptId}-${filename}`, content as string);
+              }
+            } catch (error) {
+              console.error(`Failed to save ${filename}:`, error);
+              throw new Error(`Storage failed for ${filename}. Please try again or contact support.`);
+            }
+          }
 
           // Save original file
           if (result.storage.originalFile) {
-            localStorage.setItem(`${result.transcriptId}-original`, JSON.stringify(result.storage.originalFile));
+            await safeStorageSet(`${result.transcriptId}-original`, JSON.stringify(result.storage.originalFile));
           }
 
-          // Update transcripts list in localStorage
-          const existingTranscripts = JSON.parse(localStorage.getItem('transcripts') || '[]');
+          // Update transcripts list in storage
+          const existingTranscriptsRaw = await safeStorageGet('transcripts');
+          const existingTranscripts = JSON.parse(existingTranscriptsRaw || '[]');
           const updatedTranscripts = [...existingTranscripts, {
             id: result.transcriptId,
             displayName: `Transcript ${result.transcriptId}`,
             isNew: true
           }];
-          localStorage.setItem('transcripts', JSON.stringify(updatedTranscripts));
+          await safeStorageSet('transcripts', JSON.stringify(updatedTranscripts));
 
-          console.log('Transcript saved to localStorage:', transcriptData);
+          console.log('Transcript saved to storage:', transcriptData);
         }
 
         setUploadStatus({
@@ -193,7 +207,7 @@ export default function TranscriptUpload({ onUploadSuccess }: TranscriptUploadPr
                 <div className="text-xs text-blue-700">
                   <p className="font-medium mb-1">Additional Columns:</p>
                   <ul className="list-disc list-inside mt-1 space-y-1">
-                    <li><strong>&quot;Selectable&quot;</strong>: Mark rows with &quot;yes&quot;/&quot;true&quot;/&quot;1&quot; to enable annotation features. If no Selectable column exists, all rows are annotatable.</li>
+                    <li><strong>&quot;Selectable&quot;</strong>: Mark rows with &quot;yes&quot;/&quot;true&quot;/&quot;1&quot; to enable annotation features. <strong>If no Selectable column exists, all rows are automatically annotatable.</strong></li>
                     <li><strong>&quot;Segment&quot;</strong>: Group rows into segments (e.g., &quot;a&quot;, &quot;b&quot;, &quot;c&quot;) for organized viewing and filtering.</li>
                   </ul>
                 </div>

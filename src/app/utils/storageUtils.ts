@@ -1,4 +1,5 @@
 // Utility functions for handling chunked transcript data storage
+import { saveToIndexedDB, loadFromIndexedDB, removeFromIndexedDB } from './indexedDBUtils';
 
 interface ChunkInfo {
   totalChunks: number;
@@ -6,11 +7,44 @@ interface ChunkInfo {
   chunkSize: number;
 }
 
+// Enhanced storage functions with IndexedDB fallback
+export async function safeStorageSet(key: string, value: string): Promise<void> {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    console.warn(`localStorage full, falling back to IndexedDB for ${key}`);
+    await saveToIndexedDB(key, value);
+  }
+}
+
+export async function safeStorageGet(key: string): Promise<string | null> {
+  try {
+    const value = localStorage.getItem(key);
+    if (value !== null) {
+      return value;
+    }
+    // If not in localStorage, check IndexedDB
+    return await loadFromIndexedDB(key);
+  } catch (error) {
+    console.error(`Error retrieving ${key}:`, error);
+    return null;
+  }
+}
+
+export async function safeStorageRemove(key: string): Promise<void> {
+  try {
+    localStorage.removeItem(key);
+    await removeFromIndexedDB(key);
+  } catch (error) {
+    console.error(`Error removing ${key}:`, error);
+  }
+}
+
 // Load transcript data, handling both chunked and non-chunked files
-export function loadTranscriptData(transcriptId: string): string | null {
+export async function loadTranscriptData(transcriptId: string): Promise<string | null> {
   try {
     // Check if transcript uses chunking
-    const chunkInfoRaw = localStorage.getItem(`${transcriptId}-chunk-info.json`);
+    const chunkInfoRaw = await safeStorageGet(`${transcriptId}-chunk-info.json`);
     
     if (chunkInfoRaw) {
       // Handle chunked data
@@ -19,7 +53,7 @@ export function loadTranscriptData(transcriptId: string): string | null {
       
       // Load all chunks
       for (let i = 0; i < chunkInfo.totalChunks; i++) {
-        const chunkData = localStorage.getItem(`${transcriptId}-transcript-chunk-${i}.csv`);
+        const chunkData = await safeStorageGet(`${transcriptId}-transcript-chunk-${i}.csv`);
         if (!chunkData) {
           console.error(`Missing chunk ${i} for transcript ${transcriptId}`);
           return null;
@@ -42,7 +76,7 @@ export function loadTranscriptData(transcriptId: string): string | null {
       return combinedData;
     } else {
       // Handle non-chunked data (legacy format)
-      return localStorage.getItem(`${transcriptId}-transcript.csv`);
+      return await safeStorageGet(`${transcriptId}-transcript.csv`);
     }
   } catch (error) {
     console.error('Error loading transcript data:', error);
@@ -51,14 +85,15 @@ export function loadTranscriptData(transcriptId: string): string | null {
 }
 
 // Check if a transcript is chunked
-export function isTranscriptChunked(transcriptId: string): boolean {
-  return localStorage.getItem(`${transcriptId}-chunk-info.json`) !== null;
+export async function isTranscriptChunked(transcriptId: string): Promise<boolean> {
+  const chunkInfo = await safeStorageGet(`${transcriptId}-chunk-info.json`);
+  return chunkInfo !== null;
 }
 
 // Get chunk information for a transcript
-export function getChunkInfo(transcriptId: string): ChunkInfo | null {
+export async function getChunkInfo(transcriptId: string): Promise<ChunkInfo | null> {
   try {
-    const chunkInfoRaw = localStorage.getItem(`${transcriptId}-chunk-info.json`);
+    const chunkInfoRaw = await safeStorageGet(`${transcriptId}-chunk-info.json`);
     return chunkInfoRaw ? JSON.parse(chunkInfoRaw) : null;
   } catch (error) {
     console.error('Error getting chunk info:', error);
@@ -67,7 +102,7 @@ export function getChunkInfo(transcriptId: string): ChunkInfo | null {
 }
 
 // Save transcript data with automatic chunking if needed
-export function saveTranscriptData(transcriptId: string, csvContent: string): void {
+export async function saveTranscriptData(transcriptId: string, csvContent: string): Promise<void> {
   const csvSizeInBytes = new Blob([csvContent]).size;
   const maxChunkSize = 4 * 1024 * 1024; // 4MB chunks
   
@@ -103,9 +138,9 @@ export function saveTranscriptData(transcriptId: string, csvContent: string): vo
     }
     
     // Save chunks
-    chunks.forEach(chunk => {
-      localStorage.setItem(`${transcriptId}-${chunk.filename}`, chunk.content);
-    });
+    for (const chunk of chunks) {
+      await safeStorageSet(`${transcriptId}-${chunk.filename}`, chunk.content);
+    }
     
     // Save chunk info
     const chunkInfo: ChunkInfo = {
@@ -113,34 +148,34 @@ export function saveTranscriptData(transcriptId: string, csvContent: string): vo
       totalSize: csvSizeInBytes,
       chunkSize: maxChunkSize
     };
-    localStorage.setItem(`${transcriptId}-chunk-info.json`, JSON.stringify(chunkInfo));
+    await safeStorageSet(`${transcriptId}-chunk-info.json`, JSON.stringify(chunkInfo));
     
     // Remove old non-chunked version if it exists
-    localStorage.removeItem(`${transcriptId}-transcript.csv`);
+    await safeStorageRemove(`${transcriptId}-transcript.csv`);
   } else {
     // Save as single file
-    localStorage.setItem(`${transcriptId}-transcript.csv`, csvContent);
+    await safeStorageSet(`${transcriptId}-transcript.csv`, csvContent);
   }
 }
 
 // Clean up chunked data when deleting a transcript
-export function cleanupTranscriptData(transcriptId: string): void {
-  const chunkInfo = getChunkInfo(transcriptId);
+export async function cleanupTranscriptData(transcriptId: string): Promise<void> {
+  const chunkInfo = await getChunkInfo(transcriptId);
   
   if (chunkInfo) {
     // Remove all chunks
     for (let i = 0; i < chunkInfo.totalChunks; i++) {
-      localStorage.removeItem(`${transcriptId}-transcript-chunk-${i}.csv`);
+      await safeStorageRemove(`${transcriptId}-transcript-chunk-${i}.csv`);
     }
-    localStorage.removeItem(`${transcriptId}-chunk-info.json`);
+    await safeStorageRemove(`${transcriptId}-chunk-info.json`);
   } else {
     // Remove single file
-    localStorage.removeItem(`${transcriptId}-transcript.csv`);
+    await safeStorageRemove(`${transcriptId}-transcript.csv`);
   }
   
   // Remove other associated files
-  localStorage.removeItem(`${transcriptId}-speakers.json`);
-  localStorage.removeItem(`${transcriptId}-content.json`);
-  localStorage.removeItem(`${transcriptId}-images.json`);
-  localStorage.removeItem(`${transcriptId}-original`);
+  await safeStorageRemove(`${transcriptId}-speakers.json`);
+  await safeStorageRemove(`${transcriptId}-content.json`);
+  await safeStorageRemove(`${transcriptId}-images.json`);
+  await safeStorageRemove(`${transcriptId}-original`);
 }

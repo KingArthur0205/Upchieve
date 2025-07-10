@@ -42,7 +42,19 @@ const regenerateAnnotationColumnsForTranscript = (transcriptId: string, featureD
       return;
     }
     
-    const tableData = JSON.parse(existingTableData);
+    const parsedTableData = JSON.parse(existingTableData);
+    
+    // Handle both old and new localStorage formats
+    let tableData;
+    if (parsedTableData.tableData && Array.isArray(parsedTableData.tableData)) {
+      tableData = parsedTableData.tableData;
+    } else if (Array.isArray(parsedTableData)) {
+      tableData = parsedTableData;
+    } else {
+      console.log(`Invalid table data format for transcript ${transcriptId}, skipping`);
+      return;
+    }
+    
     const numRows = tableData.length;
     
     // Create new annotation data structure based on the current codebook
@@ -97,6 +109,8 @@ const regenerateAnnotationColumnsForTranscript = (transcriptId: string, featureD
         });
         
         // Initialize annotations for each line (all false by default)
+        // This works correctly regardless of whether the transcript has a "Selectable" column
+        // If there's no Selectable column, all rows will be annotatable via isTableRowSelectable()
         const annotations: { [rowIndex: number]: { [code: string]: boolean } } = {};
         for (let i = 0; i < numRows; i++) {
           annotations[i] = {};

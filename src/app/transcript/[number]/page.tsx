@@ -26,7 +26,7 @@ import ExpertsComparisonView from "../../components/ExpertsComparisonView";
 import UnifiedComparisonView from "../../components/UnifiedComparisonView";
 import MultiAnnotatorComparisonView from "../../components/MultiAnnotatorComparisonView";
 import LLMAnnotationModal from "../../components/LLMAnnotationModal";
-import { loadTranscriptData } from "../../utils/storageUtils";
+import { loadTranscriptData, safeStorageGet, safeStorageSet, safeStorageRemove } from "../../utils/storageUtils";
 
 
 interface CsvRow {
@@ -137,6 +137,7 @@ export default function TranscriptPage() {
   const [showUnifiedComparison, setShowUnifiedComparison] = useState(false);
   const [showMultiAnnotatorComparison, setShowMultiAnnotatorComparison] = useState(false);
   const [showLLMAnnotationModal, setShowLLMAnnotationModal] = useState(false);
+  const [featureDefinitionsForLLM, setFeatureDefinitionsForLLM] = useState<{ categories: string[], features: { [category: string]: any[] } }>({ categories: [], features: {} });
 
   // Add these state variables at the top of your component
   const [leftPanelWidth, setLeftPanelWidth] = useState("33.33%");
@@ -730,7 +731,7 @@ export default function TranscriptPage() {
   };
 
   // Save Function (Stores data locally)
-  const handleSave = () => {
+  const handleSave = async () => {
     const dataToSave = { 
       tableData, 
       notes, 
@@ -742,7 +743,7 @@ export default function TranscriptPage() {
       extraColumnVisibility
     };
     console.log(dataToSave);
-    localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
+    await safeStorageSet(`tableData-${number}`, JSON.stringify(dataToSave));
     alert("Data saved successfully!");
   };
 
@@ -767,10 +768,10 @@ export default function TranscriptPage() {
         extraColumns,
         extraColumnVisibility
       };
-      localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
+      await safeStorageSet(`tableData-${number}`, JSON.stringify(dataToSave));
       
       if (annotationData) {
-        localStorage.setItem(`annotations-${number}`, JSON.stringify(annotationData));
+        await safeStorageSet(`annotations-${number}`, JSON.stringify(annotationData));
       }
       
       // Also save grade level and lesson goal to server before unload
@@ -926,9 +927,9 @@ export default function TranscriptPage() {
 let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Function to save all annotations
-  const saveAllAnnotations = (data: AnnotationData | null) => {
+  const saveAllAnnotations = async (data: AnnotationData | null) => {
     if (!data) return;
-    localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
+    await safeStorageSet(`annotations-${number}`, JSON.stringify(data));
   };
 
   // Simplified and optimized toggle component with enhanced contrast
@@ -1447,8 +1448,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Optimize the debounced save to be less aggressive
   const debouncedSave = React.useCallback(
-    debounce((data: AnnotationData) => {
-      localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
+    debounce(async (data: AnnotationData) => {
+      await safeStorageSet(`annotations-${number}`, JSON.stringify(data));
     }, 2000), // Increased debounce time to reduce storage operations
     [number]
   );
@@ -1728,14 +1729,21 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   // Load data once when page loads
   useEffect(() => {
     // Also load LLM annotations
-    reloadAnnotationData();
+    const loadInitialData = async () => {
+      await reloadAnnotationData();
+      await updateFeatureDefinitionsForLLM();
+    };
+    loadInitialData();
     // Note: loadFeatureCategoriesAndAnnotationData will handle loading saved annotation data properly
   }, [number]);
 
   // Save annotations when unmounting the component
   useEffect(() => {
     return () => {
-      saveAllAnnotations(annotationData);
+      const saveOnUnmount = async () => {
+        await saveAllAnnotations(annotationData);
+      };
+      saveOnUnmount();
     };
   }, [annotationData]);
 
@@ -1745,7 +1753,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       try {
         // Load feature definitions from localStorage
         console.log('Loading feature categories from localStorage...');
-        const featureDefinitionsData = localStorage.getItem('feature-definitions');
+        const featureDefinitionsData = await safeStorageGet('feature-definitions');
         
         if (featureDefinitionsData) {
           const featureDefinitions = JSON.parse(featureDefinitionsData);
@@ -1764,7 +1772,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             }
             
             // Check if annotation data already exists for this transcript
-            const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
+            const existingAnnotationData = await safeStorageGet(`annotations-${number}`);
             let newData = {};
             let hasExistingData = false;
             let shouldSave = false;
@@ -1925,7 +1933,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             // Only save if there were changes or no existing data
             if (shouldSave) {
               console.log('Saving updated annotation data to localStorage');
-              localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
+              await safeStorageSet(`annotations-${number}`, JSON.stringify(newData));
             } else {
               console.log('No changes needed, preserving existing annotation data');
             }
@@ -1951,7 +1959,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               }
               
               // Check if annotation data already exists for this transcript
-              const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
+              const existingAnnotationData = await safeStorageGet(`annotations-${number}`);
               let newData = {};
               let hasExistingData = false;
               let shouldSave = false;
@@ -2088,7 +2096,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               // Only save if there were changes or no existing data
               if (shouldSave) {
                 console.log('Saving updated annotation data to localStorage (direct format)');
-                localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
+                await safeStorageSet(`annotations-${number}`, JSON.stringify(newData));
               } else {
                 console.log('No changes needed, preserving existing annotation data (direct format)');
               }
@@ -2200,9 +2208,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     return newData;
   };
 
-  const handleSaveAnnotations = (data: AnnotationData) => {
+  const handleSaveAnnotations = async (data: AnnotationData) => {
     setAnnotationData(data);
-    localStorage.setItem(`annotations-${number}`, JSON.stringify(data));
+    await safeStorageSet(`annotations-${number}`, JSON.stringify(data));
     alert('Annotations saved successfully!');
   };
 
@@ -2217,12 +2225,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   };
 
   // Function to reload annotation data when feature definitions are updated
-  const reloadAnnotationData = () => {
+  const reloadAnnotationData = async () => {
     setForceReloadAnnotations(prev => prev + 1);
     
     // Load separate LLM annotations for all providers
     const llmAnnotationKey = `llm-annotations-${number}`;
-    const storedLlmAnnotations = localStorage.getItem(llmAnnotationKey);
+    const storedLlmAnnotations = await safeStorageGet(llmAnnotationKey);
     if (storedLlmAnnotations) {
       try {
         const parsedLlmAnnotations = JSON.parse(storedLlmAnnotations);
@@ -2231,7 +2239,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           // Old format - convert to new format
           const convertedData = { 'Unknown': parsedLlmAnnotations };
           setSeparateLlmAnnotationData(convertedData);
-          localStorage.setItem(llmAnnotationKey, JSON.stringify(convertedData));
+          await safeStorageSet(llmAnnotationKey, JSON.stringify(convertedData));
         } else {
           // New format - use as is
           setSeparateLlmAnnotationData(parsedLlmAnnotations);
@@ -2256,7 +2264,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           
           if (uploadTime > lastFeatureDefinitionCheck) {
             console.log('Feature definitions have been updated, reloading...');
-            reloadAnnotationData();
+            await reloadAnnotationData();
           }
         }
       } catch (error) {
@@ -2296,8 +2304,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   // };
 
   useEffect(() => {
-    const fetchContent = async () => {
-      try {
+    const initializeTranscript = async () => {
+      const fetchContent = async () => {
+        try {
         // First try to load from API (public folder)
         try {
           const response = await fetch(`/api/transcript/t${number}?file=content.json`);
@@ -2314,7 +2323,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         }
         
         // Fallback to localStorage
-        const contentData = localStorage.getItem(`t${number}-content.json`);
+        const contentData = await safeStorageGet(`t${number}-content.json`);
         if (contentData) {
           const data = JSON.parse(contentData);
           setGradeLevel(data.gradeLevel);
@@ -2353,7 +2362,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         }
         
         // Fallback to localStorage
-        const speakersData = localStorage.getItem(`t${number}-speakers.json`);
+        const speakersData = await safeStorageGet(`t${number}-speakers.json`);
         if (speakersData) {
           const data = JSON.parse(speakersData);
           setSpeakerColors(data);
@@ -2386,7 +2395,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         
         // Fallback to localStorage if API failed
         if (!csvData) {
-          csvData = loadTranscriptData(`t${number}`);
+          csvData = await loadTranscriptData(`t${number}`);
           if (csvData) {
             console.log("Loaded CSV content from localStorage: ", csvData.substring(0, 500));
           }
@@ -2394,7 +2403,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         
         if (csvData) {
           Papa.parse(csvData, {
-            complete: (result) => {
+            complete: async (result) => {
               console.log("CSV Data Loaded: ", result);
               if (result.errors.length) {
                 setError("Error in CSV parsing: " + result.errors.map((err) => err.message).join(", "));
@@ -2492,7 +2501,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               };
               
               try {
-                localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
+                await safeStorageSet(`tableData-${number}`, JSON.stringify(dataToSave));
                 console.log('Successfully saved transcript data to localStorage');
               } catch (error) {
                 console.error('Failed to save transcript data to localStorage (likely due to size limits):', error);
@@ -2522,9 +2531,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     };
     
     // EMERGENCY CLEANUP: Force remove metadata columns from localStorage RIGHT NOW
-    const emergencyCleanup = () => {
+    const emergencyCleanup = async () => {
       try {
-        const currentData = localStorage.getItem(`tableData-${number}`);
+        const currentData = await safeStorageGet(`tableData-${number}`);
         if (currentData) {
           const parsed = JSON.parse(currentData);
           if (parsed.tableData && Array.isArray(parsed.tableData)) {
@@ -2541,7 +2550,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               tableData: ultraCleanedData
             };
             
-            localStorage.setItem(`tableData-${number}`, JSON.stringify(cleanedData));
+            await safeStorageSet(`tableData-${number}`, JSON.stringify(cleanedData));
             console.log('EMERGENCY CLEANUP COMPLETED - Metadata columns removed');
           }
         }
@@ -2551,10 +2560,10 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     };
     
     // Run emergency cleanup first
-    emergencyCleanup();
+    await emergencyCleanup();
     
     // Check localStorage first
-    const savedData = localStorage.getItem(`tableData-${number}`);
+    const savedData = await safeStorageGet(`tableData-${number}`);
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
@@ -2624,7 +2633,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               nextNoteId: highestId + 1
             };
             try {
-              localStorage.setItem(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
+              await safeStorageSet(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
             } catch (error) {
               console.warn('Failed to save migrated data to localStorage (likely due to size limits):', error);
             }
@@ -2660,7 +2669,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               tableData: cleanedTableData
             };
             try {
-              localStorage.setItem(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
+              await safeStorageSet(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
             } catch (error) {
               console.warn('Failed to save cleaned data to localStorage (likely due to size limits):', error);
             }
@@ -2765,7 +2774,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   ...parsedData,
                   hasSelectableColumn: hasSelectableCol
                 };
-                localStorage.setItem(`tableData-${number}`, JSON.stringify(updatedData));
+                await safeStorageSet(`tableData-${number}`, JSON.stringify(updatedData));
               } catch (error) {
                 console.warn('Failed to save hasSelectableColumn flag to localStorage (likely due to size limits):', error);
                 // For large transcripts, the flag detection will run again next time, which is acceptable
@@ -2784,17 +2793,20 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
           setLoading(false);
         } else {
-          loadCSVData(); // Load CSV if saved data format is incorrect
+          await loadCSVData(); // Load CSV if saved data format is incorrect
         }
       } catch (error) {
         console.error("Error parsing saved data:", error);
-        loadCSVData();
+        await loadCSVData();
       }
     } else {
-      loadCSVData(); // Load CSV if no saved data
+      await loadCSVData(); // Load CSV if no saved data
     }
-    fetchSpeakers();
-    fetchContent(); // Fetch grade level text
+    await fetchSpeakers();
+    await fetchContent(); // Fetch grade level text
+  };
+  
+  initializeTranscript();
   }, [number]);
 
   // Set mounted state after initial load
@@ -3581,10 +3593,10 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   };
 
   // Handle Unified Comparison (combines both Expert and LLM Analysis)
-  const handleLLMAnnotationComplete = (annotations: any, provider?: string) => {
+  const handleLLMAnnotationComplete = async (annotations: any, provider?: string) => {
     // Load existing annotation data first to preserve other categories
     let existingAnnotations: AnnotationData = {};
-    const existingData = localStorage.getItem(`annotations-${number}`);
+    const existingData = await safeStorageGet(`annotations-${number}`);
     if (existingData) {
       try {
         const parsed = JSON.parse(existingData);
@@ -3604,18 +3616,23 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     // Convert LLM annotations to the format expected by the annotation system
     const convertedAnnotations: AnnotationData = { ...existingAnnotations };
     
-    Object.keys(annotations).forEach(category => {
+    // Get feature definitions once for all categories
+    const featureDefinitions = await safeStorageGet('feature-definitions');
+    let parsedFeatureDefinitions = null;
+    if (featureDefinitions) {
+      parsedFeatureDefinitions = JSON.parse(featureDefinitions);
+    }
+    
+    for (const category of Object.keys(annotations)) {
       convertedAnnotations[category] = {
         codes: [],
         definitions: {},
         annotations: {}
       };
       
-      // Get feature definitions for this category
-      const featureDefinitions = localStorage.getItem('feature-definitions');
-      if (featureDefinitions) {
-        const parsed = JSON.parse(featureDefinitions);
-        const categoryFeatures = parsed.features[category] || [];
+      // Use the pre-loaded feature definitions for this category
+      if (parsedFeatureDefinitions) {
+        const categoryFeatures = parsedFeatureDefinitions.features[category] || [];
         
         // Set codes and definitions
         convertedAnnotations[category].codes = categoryFeatures.map((f: any) => f.Code);
@@ -3635,14 +3652,14 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         const lineIndex = parseInt(lineNumber) - 1; // Convert to 0-based index
         convertedAnnotations[category].annotations[lineIndex] = annotations[category][lineNumber];
       });
-    });
+    }
     
     // Save the LLM annotations separately from human annotations, organized by provider
     const providerKey = provider === 'openai' ? 'ChatGPT-4o' : provider === 'claude' ? 'Claude-4-Sonnet' : (provider || 'Unknown');
     const llmAnnotationKey = `llm-annotations-${number}`;
     
     // Load existing LLM annotations from all providers
-    const existingLlmAnnotations = localStorage.getItem(llmAnnotationKey);
+    const existingLlmAnnotations = await safeStorageGet(llmAnnotationKey);
     let allLlmAnnotations: {[provider: string]: AnnotationData} = {};
     
     if (existingLlmAnnotations) {
@@ -3655,15 +3672,15 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     
     // Update the main annotation data with merged results
     setAnnotationData(convertedAnnotations);
-    localStorage.setItem(`annotations-${number}`, JSON.stringify(convertedAnnotations));
+    await safeStorageSet(`annotations-${number}`, JSON.stringify(convertedAnnotations));
     
     // Add or update annotations for this provider
     allLlmAnnotations[providerKey] = convertedAnnotations;
-    localStorage.setItem(llmAnnotationKey, JSON.stringify(allLlmAnnotations));
+    await safeStorageSet(llmAnnotationKey, JSON.stringify(allLlmAnnotations));
     
     // Add timestamp for tracking
     const llmMetaKey = `llm-meta-${number}`;
-    const existingMeta = localStorage.getItem(llmMetaKey);
+    const existingMeta = await safeStorageGet(llmMetaKey);
     let allMeta: {[provider: string]: any} = {};
     
     if (existingMeta) {
@@ -3679,10 +3696,10 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       provider: providerKey,
       featuresAnnotated: Object.keys(annotations)
     };
-    localStorage.setItem(llmMetaKey, JSON.stringify(allMeta));
+    await safeStorageSet(llmMetaKey, JSON.stringify(allMeta));
     
     // Reload annotation data to show the new annotations
-    reloadAnnotationData();
+    await reloadAnnotationData();
     
     // Show success message
     const annotatedCategories = Object.keys(annotations).join(', ');
@@ -4113,17 +4130,18 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     }));
   };
 
-  // Helper to get feature definitions for LLM
-  const getFeatureDefinitionsForLLM = () => {
-    const featureDefinitionsData = localStorage.getItem('feature-definitions');
+  // Helper to update feature definitions for LLM
+  const updateFeatureDefinitionsForLLM = async () => {
+    const featureDefinitionsData = await safeStorageGet('feature-definitions');
     if (featureDefinitionsData) {
       const parsed = JSON.parse(featureDefinitionsData);
-      return {
+      setFeatureDefinitionsForLLM({
         categories: parsed.categories,
         features: parsed.features
-      };
+      });
+    } else {
+      setFeatureDefinitionsForLLM({ categories: [], features: {} });
     }
-    return { categories: [], features: {} };
   };
 
   // Handle LLM cell click to show annotations for specific provider/category
@@ -5670,7 +5688,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           onAnnotationComplete={handleLLMAnnotationComplete}
           transcriptId={number}
           transcriptData={getTranscriptDataForLLM()}
-          featureDefinitions={getFeatureDefinitionsForLLM()}
+          featureDefinitions={featureDefinitionsForLLM}
         />
       )}
 
