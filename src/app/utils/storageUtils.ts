@@ -193,12 +193,12 @@ export async function cleanupTranscriptData(transcriptId: string): Promise<void>
 }
 
 // Optimize annotation data for storage by removing false values and compressing structure
-export function optimizeAnnotationData(annotationData: any): any {
+export function optimizeAnnotationData(annotationData: Record<string, unknown>): Record<string, unknown> {
   if (!annotationData || typeof annotationData !== 'object') {
     return annotationData;
   }
 
-  const optimized: any = {};
+  const optimized: Record<string, unknown> = {};
 
   Object.keys(annotationData).forEach(category => {
     const categoryData = annotationData[category];
@@ -207,22 +207,28 @@ export function optimizeAnnotationData(annotationData: any): any {
       return;
     }
 
+    const typedCategoryData = categoryData as {
+      codes?: unknown[];
+      definitions?: Record<string, unknown>;
+      annotations?: Record<string, unknown>;
+    };
+
     optimized[category] = {
-      codes: categoryData.codes || [],
-      definitions: categoryData.definitions || {},
+      codes: typedCategoryData.codes || [],
+      definitions: typedCategoryData.definitions || {},
       annotations: {}
     };
 
     // Only store true annotations to save space
-    if (categoryData.annotations) {
-      Object.keys(categoryData.annotations).forEach(lineIndex => {
-        const lineAnnotations = categoryData.annotations[lineIndex];
+    if (typedCategoryData.annotations) {
+      Object.keys(typedCategoryData.annotations).forEach(lineIndex => {
+        const lineAnnotations = (typedCategoryData.annotations as Record<string, unknown>)[lineIndex];
         if (lineAnnotations && typeof lineAnnotations === 'object') {
-          const optimizedLineAnnotations: any = {};
+          const optimizedLineAnnotations: Record<string, boolean> = {};
           let hasTrue = false;
 
           Object.keys(lineAnnotations).forEach(code => {
-            if (lineAnnotations[code] === true) {
+            if ((lineAnnotations as Record<string, unknown>)[code] === true) {
               optimizedLineAnnotations[code] = true;
               hasTrue = true;
             }
@@ -230,7 +236,7 @@ export function optimizeAnnotationData(annotationData: any): any {
 
           // Only store lines that have at least one true annotation
           if (hasTrue) {
-            optimized[category].annotations[lineIndex] = optimizedLineAnnotations;
+            (optimized[category] as { annotations: Record<string, unknown> }).annotations[lineIndex] = optimizedLineAnnotations;
           }
         }
       });
@@ -241,12 +247,12 @@ export function optimizeAnnotationData(annotationData: any): any {
 }
 
 // Restore annotation data from optimized format
-export function restoreAnnotationData(optimizedData: any, totalLines: number): any {
+export function restoreAnnotationData(optimizedData: Record<string, unknown>, totalLines: number): Record<string, unknown> {
   if (!optimizedData || typeof optimizedData !== 'object') {
     return optimizedData;
   }
 
-  const restored: any = {};
+  const restored: Record<string, unknown> = {};
 
   Object.keys(optimizedData).forEach(category => {
     const categoryData = optimizedData[category];
@@ -255,21 +261,27 @@ export function restoreAnnotationData(optimizedData: any, totalLines: number): a
       return;
     }
 
+    const typedCategoryData = categoryData as {
+      codes?: unknown[];
+      definitions?: Record<string, unknown>;
+      annotations?: Record<string, unknown>;
+    };
+
     restored[category] = {
-      codes: categoryData.codes || [],
-      definitions: categoryData.definitions || {},
+      codes: typedCategoryData.codes || [],
+      definitions: typedCategoryData.definitions || {},
       annotations: {}
     };
 
-    const codes = categoryData.codes || [];
+    const codes = typedCategoryData.codes || [];
 
     // Restore full annotation structure with false defaults
     for (let i = 0; i < totalLines; i++) {
-      restored[category].annotations[i] = {};
-      codes.forEach((code: string) => {
+      (restored[category] as { annotations: Record<string, Record<string, boolean>> }).annotations[i] = {};
+      (codes as string[]).forEach((code: string) => {
         // Check if this line/code was stored as true, otherwise default to false
-        const storedValue = categoryData.annotations?.[i]?.[code];
-        restored[category].annotations[i][code] = storedValue === true;
+        const storedValue = (typedCategoryData.annotations as Record<string, Record<string, boolean>>)?.[i]?.[code];
+        (restored[category] as { annotations: Record<string, Record<string, boolean>> }).annotations[i][code] = storedValue === true;
       });
     }
   });

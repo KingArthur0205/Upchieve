@@ -25,6 +25,12 @@ interface TableRow {
   [key: string]: string | number | null;
 }
 
+interface CloudFile {
+  userId: string;
+  fileName: string;
+  content?: unknown[];
+}
+
 interface AnnotatorData {
   annotator_id: string;
   display_name: string;
@@ -627,7 +633,7 @@ export default function MultiAnnotatorComparisonView({
       }
       
       if (result.files && result.files.length > 0) {
-        const annotators = result.files.map((file: any) => ({
+        const annotators = result.files.map((file: CloudFile) => ({
           userId: file.userId,
           fileName: file.fileName,
           uploadedAt: new Date().toISOString(), // You might want to get this from file metadata
@@ -673,7 +679,7 @@ export default function MultiAnnotatorComparisonView({
       
       if (result.files && result.files.length > 0) {
         // Filter files based on selected annotators
-        const selectedFiles = result.files.filter((file: any) => 
+        const selectedFiles = result.files.filter((file: CloudFile) => 
           selectedAnnotators.has(file.userId)
         );
         
@@ -2276,7 +2282,7 @@ export default function MultiAnnotatorComparisonView({
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Select Annotators to Compare</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Choose which annotators' work you want to pull from cloud storage for comparison:
+              Choose which annotators&apos; work you want to pull from cloud storage for comparison:
             </p>
             
             {availableAnnotators.length > 0 ? (

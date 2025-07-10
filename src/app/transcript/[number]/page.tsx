@@ -1958,8 +1958,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   const categoryData = restoredData[key];
                   return categoryData && 
                          typeof categoryData === 'object' && 
-                         Array.isArray(categoryData.codes) && 
-                         typeof categoryData.annotations === 'object';
+                         Array.isArray((categoryData as { codes?: unknown[] }).codes) && 
+                         typeof (categoryData as { annotations?: unknown }).annotations === 'object';
                 });
                 
                 if (isValidData) {
