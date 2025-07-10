@@ -26,6 +26,7 @@ import ExpertsComparisonView from "../../components/ExpertsComparisonView";
 import UnifiedComparisonView from "../../components/UnifiedComparisonView";
 import MultiAnnotatorComparisonView from "../../components/MultiAnnotatorComparisonView";
 import LLMAnnotationModal from "../../components/LLMAnnotationModal";
+import { loadTranscriptData } from "../../utils/storageUtils";
 
 
 interface CsvRow {
@@ -87,6 +88,7 @@ export default function TranscriptPage() {
   const number = params.number as string;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const [gradeLevel, setGradeLevel] = useState("");
   const [lessonGoal, setLessonGoal] = useState("");
   const [showLessonGoal, setShowLessonGoal] = useState(true);
@@ -310,13 +312,22 @@ export default function TranscriptPage() {
       return true;
     }
     
-    // If "Selectable" column exists, check the value
-    if (!rowData.col7 || rowData.col7.trim() === '') {
-      return false; // Empty values in selectable column mean not selectable
+    // Check col7 first (primary location for selectable data)
+    if (rowData.col7 && rowData.col7.trim() !== '') {
+      const selectableValue = rowData.col7.toLowerCase().trim();
+      return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
     }
     
-    const selectableValue = rowData.col7.toLowerCase().trim();
-    return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
+    // Fallback: check extra columns for selectable data (edge case handling)
+    for (const [key, value] of Object.entries(rowData)) {
+      if (key.toLowerCase().includes('selectable') && typeof value === 'string' && value.trim() !== '') {
+        const selectableValue = value.toLowerCase().trim();
+        return selectableValue === "true" || selectableValue === "yes" || selectableValue === "1";
+      }
+    }
+    
+    // If no selectable value found or empty, default to not selectable
+    return false;
   };
 
   // Function to parse learning goal note IDs from a comma-separated string
@@ -720,7 +731,16 @@ export default function TranscriptPage() {
 
   // Save Function (Stores data locally)
   const handleSave = () => {
-    const dataToSave = { tableData, notes, nextNoteId, availableIds };
+    const dataToSave = { 
+      tableData, 
+      notes, 
+      nextNoteId, 
+      availableIds,
+      hasSegmentColumn,
+      hasSelectableColumn, // CRITICAL FIX: Preserve this flag when saving
+      extraColumns,
+      extraColumnVisibility
+    };
     console.log(dataToSave);
     localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
     alert("Data saved successfully!");
@@ -737,7 +757,16 @@ export default function TranscriptPage() {
   useEffect(() => {
     const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
       // Force save data immediately before page closes
-      const dataToSave = { tableData, notes, nextNoteId, availableIds };
+      const dataToSave = { 
+        tableData, 
+        notes, 
+        nextNoteId, 
+        availableIds,
+        hasSegmentColumn,
+        hasSelectableColumn, // CRITICAL FIX: Preserve this flag when saving
+        extraColumns,
+        extraColumnVisibility
+      };
       localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
       
       if (annotationData) {
@@ -1098,6 +1127,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     // Check if row is selectable for annotations
     const isSelectable = isTableRowSelectable(rowData);
     
+    // Check if row is selectable for annotations
+    const hasAnnotationCategory = !!(annotationData && annotationData[category]);
+    
     // CRITICAL FIX: Use parent-level state instead of local state
     const dropdownKey = `${rowData.col2}-${category}`;
     const isExpanded = expandedDropdowns[dropdownKey] || false;
@@ -1146,6 +1178,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     // Calculate how many features are "Yes" (true)
     const yesCount = codes.filter(code => rowAnnotations[code]).length;
     const totalCount = codes.length;
+    
+
 
     // Determine background color based on selection state
     const getCellColor = () => {
@@ -1473,7 +1507,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     const hasNote = rowData.noteIds.trim() !== "";
     const isSelectedForLineEdit = editingLinesId !== null && tempSelectedRows.includes(+rowData.col2);
     const isRowSelectableForNote = isTableRowSelectable(rowData);
-    const isStudent = rowData.col5.includes("Student");
+    const isStudent = rowData.col5.toLowerCase().includes("student");
     const isSelectedForNoteCreation = isCreatingNote && selectedRows.includes(rowData.col2);
 
     // Search highlighting
@@ -1723,6 +1757,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             console.log('Loaded feature categories from localStorage:', ALLOWED_SHEETS);
             console.log('Setting ALLOWED_SHEETS to:', featureDefinitions.categories);
             
+            // CRITICAL FIX: Ensure tableData is available before proceeding
+            if (!tableData || !Array.isArray(tableData) || tableData.length === 0) {
+              console.warn('Table data not available yet, skipping annotation data loading');
+              return;
+            }
+            
             // Check if annotation data already exists for this transcript
             const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
             let newData = {};
@@ -1764,11 +1804,20 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                            !expectedCodes.every((code: string) => existingCodes.includes(code));
                   });
                   
-                  if (needsRegeneration) {
+                  // CRITICAL FIX: Also check if annotations array length matches current table data
+                  const needsRowCountUpdate = featureDefinitions.categories.some((category: string) => {
+                    const categoryData = (newData as any)[category];
+                    if (!categoryData || !categoryData.annotations) return true;
+                    
+                    const annotationRowCount = Object.keys(categoryData.annotations).length;
+                    return annotationRowCount !== tableData.length;
+                  });
+                  
+                  if (needsRegeneration || needsRowCountUpdate) {
                     if (wasUserModified) {
-                      console.log('Codebook has changed, but preserving user annotations while updating structure...');
+                      console.log('Codebook has changed or row count mismatch, but preserving user annotations while updating structure...');
                     } else {
-                      console.log('Codebook has changed, will update annotation structure...');
+                      console.log('Codebook has changed or row count mismatch, will update annotation structure...');
                     }
                     shouldSave = true;
                   }
@@ -1813,13 +1862,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               });
               }
               
-              // Initialize annotations only if they don't exist for this category or need regeneration
-              if (!hasExistingData || !(newData as any)[category] || !(newData as any)[category]?.codes || (newData as any)[category].codes.length === 0) {
-                console.log('Creating new annotation data for:', category);
+              // CRITICAL FIX: Always ensure annotations exist for all rows, regardless of hasSelectableColumn
+              if (!hasExistingData || !(newData as any)[category] || !(newData as any)[category]?.codes || (newData as any)[category].codes.length === 0 || shouldSave) {
+                console.log('Creating/updating annotation data for:', category, 'with', tableData.length, 'rows');
                 const annotations: { [key: number]: { [code: string]: boolean } } = {};
                 
-                // Ensure tableData is available and is an array
-                if (tableData && Array.isArray(tableData)) {
+                // Initialize annotations for ALL rows - this fixes the missing Selectable column issue
                 for (let i = 0; i < tableData.length; i++) {
                   annotations[i] = {};
                   codes.forEach((code: string) => {
@@ -1827,6 +1875,19 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                     annotations[i][code] = false;
                       }
                   });
+                }
+                
+                // If we had existing data and want to preserve annotations, merge them
+                if (hasExistingData && (newData as any)[category]?.annotations) {
+                  const existingAnnotations = (newData as any)[category].annotations;
+                  for (let i = 0; i < tableData.length; i++) {
+                    if (existingAnnotations[i]) {
+                      codes.forEach((code: string) => {
+                        if (code && existingAnnotations[i][code] !== undefined) {
+                          annotations[i][code] = existingAnnotations[i][code];
+                        }
+                      });
+                    }
                   }
                 }
                 
@@ -1841,7 +1902,6 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 
                 // Ensure all lines have annotations for all codes
                 const updatedAnnotations: { [key: number]: { [code: string]: boolean } } = {};
-                if (tableData && Array.isArray(tableData)) {
                 for (let i = 0; i < tableData.length; i++) {
                   updatedAnnotations[i] = existingAnnotations[i] || {};
                   codes.forEach((code: string) => {
@@ -1849,7 +1909,6 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                       updatedAnnotations[i][code] = false;
                     }
                   });
-                  }
                 }
                 
                 (newData as any)[category] = {
@@ -1885,6 +1944,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               ALLOWED_SHEETS = categories;
               console.log('Loaded categories from localStorage (direct format):', ALLOWED_SHEETS);
               
+              // CRITICAL FIX: Ensure tableData is available before proceeding
+              if (!tableData || !Array.isArray(tableData) || tableData.length === 0) {
+                console.warn('Table data not available yet, skipping annotation data loading');
+                return;
+              }
+              
               // Check if annotation data already exists for this transcript
               const existingAnnotationData = localStorage.getItem(`annotations-${number}`);
               let newData = {};
@@ -1907,15 +1972,20 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   if (isValidData) {
                     newData = parsedData;
                     hasExistingData = true;
-                    console.log('Found and validated existing annotation data for transcript:', number);
+                    console.log('Found and validated existing annotation data for transcript (direct format):', number);
                     
-                    // Check if this data was modified by user - if so, preserve it more carefully
-                    const wasUserModified = parsedData.lastModifiedBy === 'user';
-                    console.log('Data was user modified:', wasUserModified);
+                    // CRITICAL FIX: Check if annotations array length matches current table data
+                    const needsRowCountUpdate = categories.some((category: string) => {
+                      const categoryData = (newData as any)[category];
+                      if (!categoryData || !categoryData.annotations) return true;
+                      
+                      const annotationRowCount = Object.keys(categoryData.annotations).length;
+                      return annotationRowCount !== tableData.length;
+                    });
                     
-                    // For direct format, we also want to preserve user data
-                    if (wasUserModified) {
-                      console.log('Preserving user-modified annotation data');
+                    if (needsRowCountUpdate) {
+                      console.log('Row count mismatch detected, will update annotation structure...');
+                      shouldSave = true;
                     }
                   } else {
                     console.warn('Invalid annotation data structure, will regenerate');
@@ -1932,46 +2002,55 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 shouldSave = true;
               }
               
-              // Generate or update annotation data from feature definitions
-              categories.forEach((category: string) => {
+              // Generate annotation data from direct format
+              categories.forEach(category => {
                 const categoryFeatures = featureDefinitions[category];
-                if (!categoryFeatures || !Array.isArray(categoryFeatures)) {
-                  console.warn(`No features found for category: ${category}`);
+                if (!Array.isArray(categoryFeatures)) {
+                  console.warn(`Category ${category} does not contain an array of features`);
                   return;
                 }
                 
-                const codes = (categoryFeatures && Array.isArray(categoryFeatures)) ? 
-                  categoryFeatures.map((feature: any) => feature?.Code).filter(Boolean) : [];
+                const codes = categoryFeatures.map((feature: any) => feature?.Code).filter(Boolean);
                 const definitions: { [key: string]: any } = {};
                 
-                if (categoryFeatures && Array.isArray(categoryFeatures)) {
-                  categoryFeatures.forEach((feature: any) => {
-                    if (feature?.Code) {
-                      definitions[feature.Code] = {
-                        Definition: feature.Definition || '',
-                        example1: feature.Example1 || feature.example1 || '',
-                        example2: feature.Example2 || feature.example2 || '',
-                        nonexample1: feature.NonExample1 || feature.nonexample1 || '',
-                        nonexample2: feature.NonExample2 || feature.nonexample2 || ''
-                      };
-                    }
-                  });
-                }
+                categoryFeatures.forEach((feature: any) => {
+                  if (feature?.Code) {
+                    definitions[feature.Code] = {
+                      Definition: feature.Definition || '',
+                      example1: feature.Example1 || feature.example1 || '',
+                      example2: feature.Example2 || feature.example2 || '',
+                      nonexample1: feature.NonExample1 || feature.nonexample1 || '',
+                      nonexample2: feature.NonExample2 || feature.nonexample2 || ''
+                    };
+                  }
+                });
                 
-                // Initialize annotations only if they don't exist for this category or need regeneration
-                if (!hasExistingData || !(newData as any)[category] || !(newData as any)[category]?.codes || (newData as any)[category].codes.length === 0) {
-                  console.log('Creating new annotation data for:', category);
+                // CRITICAL FIX: Always ensure annotations exist for all rows
+                if (!hasExistingData || !(newData as any)[category] || shouldSave) {
+                  console.log('Creating/updating annotation data for:', category, 'with', tableData.length, 'rows (direct format)');
                   const annotations: { [key: number]: { [code: string]: boolean } } = {};
                   
-                  // Ensure tableData is available and is an array
-                  if (tableData && Array.isArray(tableData)) {
+                  // Initialize annotations for ALL rows
+                  for (let i = 0; i < tableData.length; i++) {
+                    annotations[i] = {};
+                    codes.forEach((code: string) => {
+                      if (code) {
+                        annotations[i][code] = false;
+                      }
+                    });
+                  }
+                  
+                  // If we had existing data and want to preserve annotations, merge them
+                  if (hasExistingData && (newData as any)[category]?.annotations) {
+                    const existingAnnotations = (newData as any)[category].annotations;
                     for (let i = 0; i < tableData.length; i++) {
-                      annotations[i] = {};
-                      codes.forEach((code: string) => {
-                        if (code) {
-                          annotations[i][code] = false;
-                        }
-                      });
+                      if (existingAnnotations[i]) {
+                        codes.forEach((code: string) => {
+                          if (code && existingAnnotations[i][code] !== undefined) {
+                            annotations[i][code] = existingAnnotations[i][code];
+                          }
+                        });
+                      }
                     }
                   }
                   
@@ -1986,15 +2065,13 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   
                   // Ensure all lines have annotations for all codes
                   const updatedAnnotations: { [key: number]: { [code: string]: boolean } } = {};
-                  if (tableData && Array.isArray(tableData)) {
-                    for (let i = 0; i < tableData.length; i++) {
-                      updatedAnnotations[i] = existingAnnotations[i] || {};
-                      codes.forEach((code: string) => {
-                        if (code && !(code in updatedAnnotations[i])) {
-                          updatedAnnotations[i][code] = false;
-                        }
-                      });
-                    }
+                  for (let i = 0; i < tableData.length; i++) {
+                    updatedAnnotations[i] = existingAnnotations[i] || {};
+                    codes.forEach((code: string) => {
+                      if (code && !(code in updatedAnnotations[i])) {
+                        updatedAnnotations[i][code] = false;
+                      }
+                    });
                   }
                   
                   (newData as any)[category] = {
@@ -2006,23 +2083,23 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               });
               
               console.log('Setting annotation data (direct format):', newData);
-            setAnnotationData(newData as AnnotationData);
-            
-            // Only save if there were changes or no existing data
-            if (shouldSave) {
-              console.log('Saving updated annotation data to localStorage');
-              localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
+              setAnnotationData(newData as AnnotationData);
+              
+              // Only save if there were changes or no existing data
+              if (shouldSave) {
+                console.log('Saving updated annotation data to localStorage (direct format)');
+                localStorage.setItem(`annotations-${number}`, JSON.stringify(newData));
+              } else {
+                console.log('No changes needed, preserving existing annotation data (direct format)');
+              }
             } else {
-              console.log('No changes needed, preserving existing annotation data');
-            }
-          } else {
-            console.log('No feature categories found in localStorage');
-            setAnnotationData({});
+              console.log('No feature categories found in feature definitions');
+              setAnnotationData(null);
             }
           }
         } else {
           console.log('No feature definitions found in localStorage');
-          setAnnotationData({});
+          setAnnotationData(null);
         }
         
         setLastFeatureDefinitionCheck(Date.now());
@@ -2309,7 +2386,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         
         // Fallback to localStorage if API failed
         if (!csvData) {
-          csvData = localStorage.getItem(`t${number}-transcript.csv`);
+          csvData = loadTranscriptData(`t${number}`);
           if (csvData) {
             console.log("Loaded CSV content from localStorage: ", csvData.substring(0, 500));
           }
@@ -2395,8 +2472,37 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 
                 return baseData;
               });
+
+              console.log("Setting table data:", updatedData.length, "rows");
+              console.log("Sample table data structure:", updatedData.slice(0, 2));
               setTableData(updatedData);
+              setExtraColumns(extraCols);
+              setExtraColumnVisibility(initialExtraVisibility);
+              console.log("Table data state updated successfully");
+
+              // Save table data and metadata including hasSelectableColumn flag
+              const dataToSave = {
+                tableData: updatedData,
+                notes: [],
+                nextNoteId: 1,
+                hasSegmentColumn: hasSegment,
+                hasSelectableColumn: hasSelectableCol, // CRITICAL FIX: Store this flag
+                extraColumns: extraCols,
+                extraColumnVisibility: initialExtraVisibility
+              };
+              
+              try {
+                localStorage.setItem(`tableData-${number}`, JSON.stringify(dataToSave));
+                console.log('Successfully saved transcript data to localStorage');
+              } catch (error) {
+                console.error('Failed to save transcript data to localStorage (likely due to size limits):', error);
+                setStorageWarning("Unable to save transcript data locally due to size limits. Data will not persist between sessions.");
+                // Continue loading even if save fails - the transcript is still usable for the current session
+              }
+
+              console.log("About to set loading to false");
               setLoading(false);
+              console.log("Loading set to false - transcript should render now");
             },
             header: true,
             skipEmptyLines: true,
@@ -2517,7 +2623,11 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               notes: migratedNotes,
               nextNoteId: highestId + 1
             };
-            localStorage.setItem(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
+            try {
+              localStorage.setItem(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
+            } catch (error) {
+              console.warn('Failed to save migrated data to localStorage (likely due to size limits):', error);
+            }
             
             setTableData(migratedTableData);
             setNotes(migratedNotes);
@@ -2549,12 +2659,20 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               ...parsedData,
               tableData: cleanedTableData
             };
-            localStorage.setItem(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
+            try {
+              localStorage.setItem(`tableData-${number}`, JSON.stringify(aggressivelyCleanedData));
+            } catch (error) {
+              console.warn('Failed to save cleaned data to localStorage (likely due to size limits):', error);
+            }
             
             setTableData(cleanedTableData);
             
-            // Set up extra columns from cleaned data, excluding unwanted metadata columns
-            if (cleanedTableData.length > 0) {
+            // Set up extra columns from saved data or derive from cleaned data
+            if (parsedData.extraColumns && parsedData.extraColumnVisibility) {
+              setExtraColumns(parsedData.extraColumns);
+              setExtraColumnVisibility(parsedData.extraColumnVisibility);
+            } else if (cleanedTableData.length > 0) {
+              // Fallback for older data without metadata
               const firstRow = cleanedTableData[0];
               const allColumns = Object.keys(firstRow);
               const coreColumns = ['col1', 'col2', 'col3', 'col4', 'col5', 'col6', 'col7', 'noteIds'];
@@ -2584,7 +2702,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
           
           // Check if the loaded data has segment column and ensure it's visible
           if (parsedData.tableData && parsedData.tableData.length > 0) {
-            const hasSegment = parsedData.tableData[0].col1 !== null && parsedData.tableData[0].col1 !== undefined;
+            // Load hasSegmentColumn from saved data or fallback to detection
+            const hasSegment = parsedData.hasSegmentColumn ?? 
+              (parsedData.tableData[0].col1 !== null && parsedData.tableData[0].col1 !== undefined);
             setHasSegmentColumn(hasSegment);
             if (hasSegment) {
               setColumnVisibility(prev => ({
@@ -2593,10 +2713,72 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
               }));
             }
             
-            // Check if there's a selectable column by looking at the data
-            // If any row has a non-empty col7 value, assume selectable column exists
-            const hasSelectableCol = parsedData.tableData.some((row: any) => row.col7 && row.col7.trim() !== '');
+            // CRITICAL FIX: Use stored hasSelectableColumn flag, but intelligently fallback for backwards compatibility
+            let hasSelectableCol: boolean;
+            if (parsedData.hasSelectableColumn !== undefined) {
+              // Use the stored flag if it exists (new data)
+              hasSelectableCol = parsedData.hasSelectableColumn;
+            } else {
+              // For backwards compatibility: check ALL columns for meaningful selectable data
+              // Selectable columns can be anywhere: col7, extraColumns, etc.
+              const allSelectableValues: string[] = [];
+              
+              // Check col7 (primary location for selectable data)
+              const col7Values = parsedData.tableData.map((row: any) => row.col7?.toLowerCase?.()?.trim()).filter(Boolean);
+              allSelectableValues.push(...col7Values);
+              
+              // Check extra columns for any that might contain selectable data
+              if (parsedData.extraColumns && parsedData.tableData.length > 0) {
+                parsedData.extraColumns.forEach((colName: string) => {
+                  if (colName.toLowerCase().includes('selectable')) {
+                    const colValues = parsedData.tableData.map((row: any) => row[colName]?.toLowerCase?.()?.trim()).filter(Boolean);
+                    allSelectableValues.push(...colValues);
+                  }
+                });
+              }
+              
+              // Also check all row properties for any selectable-named columns
+              if (parsedData.tableData.length > 0) {
+                const firstRow = parsedData.tableData[0];
+                Object.keys(firstRow).forEach(key => {
+                  if (key.toLowerCase().includes('selectable') && key !== 'col7') {
+                    const colValues = parsedData.tableData.map((row: any) => row[key]?.toLowerCase?.()?.trim()).filter(Boolean);
+                    if (colValues.length > 0) {
+                      allSelectableValues.push(...colValues);
+                    }
+                  }
+                });
+              }
+              
+              // Check if any column has meaningful boolean-like values
+              const hasSelectableValues = allSelectableValues.length > 0 && allSelectableValues.some((val: string) => 
+                val === 'true' || val === 'false' || val === 'yes' || val === 'no' || val === '1' || val === '0'
+              );
+              hasSelectableCol = hasSelectableValues;
+            }
             setHasSelectableColumn(hasSelectableCol);
+            
+            // Save the corrected flag back to localStorage if it was detected (for future loads)
+            if (parsedData.hasSelectableColumn === undefined) {
+              try {
+                const updatedData = {
+                  ...parsedData,
+                  hasSelectableColumn: hasSelectableCol
+                };
+                localStorage.setItem(`tableData-${number}`, JSON.stringify(updatedData));
+              } catch (error) {
+                console.warn('Failed to save hasSelectableColumn flag to localStorage (likely due to size limits):', error);
+                // For large transcripts, the flag detection will run again next time, which is acceptable
+              }
+            }
+            
+            console.log('Transcript metadata loaded:', {
+              hasSegmentColumn: hasSegment,
+              hasSelectableColumn: hasSelectableCol,
+              extraColumns: parsedData.extraColumns?.length || 0,
+              savedWithMetadata: !!parsedData.hasSelectableColumn,
+              detectedFromData: parsedData.hasSelectableColumn === undefined
+            });
           }
           
 
@@ -2617,7 +2799,9 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   // Set mounted state after initial load
   useEffect(() => {
+    console.log("Mounted effect triggered, loading state:", loading);
     if (!loading) {
+      console.log("Setting mounted to true");
       setMounted(true);
     }
   }, [loading]); 
@@ -4035,6 +4219,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   };
 
   if (!mounted) {
+    console.log("Component not mounted yet, showing loading screen. Loading:", loading, "Mounted:", mounted);
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-white">
         <div className="text-center">
@@ -4044,6 +4229,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             </div>
     );
   }
+
+  console.log("Component is mounted, rendering main UI. TableData length:", tableData.length);
 
   // Show LLM comparison view if requested
   if (showLLMComparison) {
@@ -4136,6 +4323,36 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
         Home
       </button>
       
+      {/* Storage Warning Banner */}
+      {storageWarning && (
+        <div className="w-full max-w-6xl p-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-medium text-yellow-800">Storage Warning</h3>
+                <p className="text-sm text-yellow-700 mt-1">{storageWarning}</p>
+              </div>
+              <button
+                onClick={() => setStorageWarning(null)}
+                className="flex-shrink-0 text-yellow-400 hover:text-yellow-600"
+                title="Dismiss warning"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+
       {/* Header area with title */}
       <div className="w-full max-w-6xl p-4 mb-4">
         
