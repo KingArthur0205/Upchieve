@@ -23,8 +23,25 @@ try {
 // Specify the name of your bucket
 const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'mol_summit';
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const { userId } = await request.json();
+    
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate userId format
+    if (!/^[a-zA-Z0-9_-]+$/.test(userId) || userId.length < 3 || userId.length > 20) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid User ID format' },
+        { status: 400 }
+      );
+    }
+    
     if (!storage) {
       return NextResponse.json(
         { success: false, error: 'Google Cloud Storage not configured. Please set up credentials in settings.' },
@@ -112,14 +129,15 @@ export async function POST() {
 
     console.log('Archive created successfully:', tempZipPath);
 
-    // Upload zip file to Google Cloud Storage
-    const fileName = `all_transcripts/all_transcripts_${timestamp}.zip`;
+    // Upload zip file to Google Cloud Storage with user organization
+    const fileName = `users/${userId}/bulk_uploads/all_transcripts_${timestamp}.zip`;
     
     const bucket = storage.bucket(bucketName);
     await bucket.upload(tempZipPath, {
       destination: fileName,
       metadata: {
         metadata: {
+          userId,
           transcriptCount: transcriptDirs.length,
           transcriptIds: transcriptDirs.join(','),
           uploadedAt: new Date().toISOString(),

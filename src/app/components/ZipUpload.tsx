@@ -15,12 +15,39 @@ export default function ZipUpload({ transcripts, onUploadSuccess }: ZipUploadPro
     type: 'success' | 'error' | null;
     message: string;
   }>({ type: null, message: '' });
+  const [userId, setUserId] = useState<string>('');
+  const [userIdError, setUserIdError] = useState<string>('');
+
+  const validateUserId = (id: string): boolean => {
+    if (!id.trim()) {
+      setUserIdError('User ID is required');
+      return false;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(id.trim())) {
+      setUserIdError('User ID can only contain letters, numbers, hyphens, and underscores');
+      return false;
+    }
+    if (id.trim().length < 3 || id.trim().length > 20) {
+      setUserIdError('User ID must be between 3 and 20 characters');
+      return false;
+    }
+    setUserIdError('');
+    return true;
+  };
 
   const handleUpload = async () => {
     if (!selectedTranscript) {
       setUploadStatus({
         type: 'error',
         message: 'Please select an option to upload'
+      });
+      return;
+    }
+
+    if (!validateUserId(userId)) {
+      setUploadStatus({
+        type: 'error',
+        message: 'Please enter a valid User ID'
       });
       return;
     }
@@ -40,7 +67,8 @@ export default function ZipUpload({ transcripts, onUploadSuccess }: ZipUploadPro
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          transcriptId: selectedTranscript
+          transcriptId: selectedTranscript,
+          userId: userId.trim()
         }),
       });
 
@@ -93,7 +121,9 @@ export default function ZipUpload({ transcripts, onUploadSuccess }: ZipUploadPro
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          userId: userId.trim()
+        }),
       });
 
       const result = await response.json();
@@ -137,6 +167,33 @@ export default function ZipUpload({ transcripts, onUploadSuccess }: ZipUploadPro
       </h3>
       
       <div className="space-y-4">
+        {/* User ID Input */}
+        <div>
+          <label htmlFor="user-id-input" className="block text-sm font-medium text-gray-700 mb-2">
+            User ID <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="user-id-input"
+            type="text"
+            value={userId}
+            onChange={(e) => {
+              setUserId(e.target.value);
+              if (userIdError) setUserIdError('');
+            }}
+            disabled={uploading || uploadingAll}
+            placeholder="Enter your unique user ID (e.g., john_doe_2024)"
+            className={`block w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed ${
+              userIdError ? 'border-red-300' : 'border-gray-300'
+            }`}
+          />
+          {userIdError && (
+            <p className="mt-1 text-xs text-red-600">{userIdError}</p>
+          )}
+          <p className="mt-1 text-xs text-gray-500">
+            3-20 characters, letters, numbers, hyphens, and underscores only. This organizes your uploads in cloud storage.
+          </p>
+        </div>
+
         {/* Transcript Selection */}
         <div>
           <label htmlFor="transcript-select" className="block text-sm font-medium text-gray-700 mb-2">

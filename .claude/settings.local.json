@@ -8,7 +8,11 @@
       "Bash(npm run lint)",
       "Bash(node:*)",
       "Bash(npx tsc:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(npm install:*)",
+      "Bash(awk:*)"
     ],
     "deny": []
   }

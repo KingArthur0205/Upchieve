@@ -25,11 +25,26 @@ const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME || 'mol_summit';
 
 export async function POST(request: NextRequest) {
   try {
-    const { transcriptId } = await request.json();
+    const { transcriptId, userId } = await request.json();
     
     if (!transcriptId) {
       return NextResponse.json(
         { success: false, error: 'Transcript ID is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate userId format
+    if (!/^[a-zA-Z0-9_-]+$/.test(userId) || userId.length < 3 || userId.length > 20) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid User ID format' },
         { status: 400 }
       );
     }
@@ -108,14 +123,15 @@ export async function POST(request: NextRequest) {
       throw archiveError;
     }
 
-    // Upload zip file to Google Cloud Storage
-    const fileName = `transcripts/${transcriptId}/${transcriptId}_${new Date().toISOString().split('T')[0]}.zip`;
+    // Upload zip file to Google Cloud Storage with user organization
+    const fileName = `users/${userId}/transcripts/${transcriptId}/${transcriptId}_${new Date().toISOString().split('T')[0]}.zip`;
     
     await bucket.upload(tempZipPath, {
       destination: fileName,
       metadata: {
         metadata: {
           transcriptId,
+          userId,
           uploadedAt: new Date().toISOString(),
           contentType: 'application/zip'
         }

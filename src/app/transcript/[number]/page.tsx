@@ -26,7 +26,7 @@ import ExpertsComparisonView from "../../components/ExpertsComparisonView";
 import UnifiedComparisonView from "../../components/UnifiedComparisonView";
 import MultiAnnotatorComparisonView from "../../components/MultiAnnotatorComparisonView";
 import LLMAnnotationModal from "../../components/LLMAnnotationModal";
-import { loadTranscriptData, safeStorageGet, safeStorageSet, safeStorageRemove } from "../../utils/storageUtils";
+import { loadTranscriptData, safeStorageGet, safeStorageSet, safeStorageRemove, optimizeAnnotationData, restoreAnnotationData } from "../../utils/storageUtils";
 
 
 interface CsvRow {
@@ -100,6 +100,7 @@ export default function TranscriptPage() {
   const [showSegmentDropdown, setShowSegmentDropdown] = useState(false);
   const [showPromptPanel, setShowPromptPanel] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false); // Track if real data has been loaded
   const [columnVisibility, setColumnVisibility] = useState({
     segment: true,
     lineNumber: true,
@@ -292,19 +293,23 @@ export default function TranscriptPage() {
   const [editingLinesId, setEditingLinesId] = useState<number | null>(null);
   const [tempSelectedRows, setTempSelectedRows] = useState<number[]>([]);
 
-  // Updated table state
-  const [tableData, setTableData] = useState<TableRow[]>(
-    Array.from({ length: 3 }, (_, index) => ({
-      col1: `Row ${index + 1} Col 1`,
-      col2: 10,
-      col3: `Row ${index + 1} Col 3`,
-      col4: `Row ${index + 1} Col 4`,
-      col5: `Row ${index + 1} Col 5`,
-      col6: `Row ${index + 1} Col 6`,
-      col7: `Row ${index + 1} Col 7`,
-      noteIds: "", // Comma-separated learning goal note IDs (read-only)
-    }))
-  );
+  // Updated table state - Initialize empty to prevent placeholder data corruption
+  const [tableData, setTableData] = useState<TableRow[]>([]);
+
+  // Helper function to detect placeholder data patterns
+  const isPlaceholderData = (data: TableRow[]): boolean => {
+    if (!data || data.length === 0) return false;
+    
+    // Check if data contains placeholder patterns like "Row X Col Y"
+    const hasPlaceholderPattern = data.some(row => {
+      return (
+        (typeof row.col5 === 'string' && row.col5.includes('Row ') && row.col5.includes(' Col ')) ||
+        (typeof row.col6 === 'string' && row.col6.includes('Row ') && row.col6.includes(' Col '))
+      );
+    });
+    
+    return hasPlaceholderPattern;
+  };
 
   // Function to check if a table row is selectable by row data
   const isTableRowSelectable = (rowData: TableRow): boolean => {
@@ -751,27 +756,64 @@ export default function TranscriptPage() {
   
   // State for upload status
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  // State for user ID prompt
+  const [showUserIdPrompt, setShowUserIdPrompt] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [userIdError, setUserIdError] = useState('');
 
 
 
   // Save data before page unload
   useEffect(() => {
     const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
-      // Force save data immediately before page closes
-      const dataToSave = { 
-        tableData, 
-        notes, 
-        nextNoteId, 
-        availableIds,
-        hasSegmentColumn,
-        hasSelectableColumn, // CRITICAL FIX: Preserve this flag when saving
-        extraColumns,
-        extraColumnVisibility
-      };
-      await safeStorageSet(`tableData-${number}`, JSON.stringify(dataToSave));
+      console.log('Page unloading...');
       
-      if (annotationData) {
-        await safeStorageSet(`annotations-${number}`, JSON.stringify(annotationData));
+      // Only save if real data has been loaded to prevent overwriting good data
+      if (dataLoaded && tableData.length > 0) {
+        console.log('Real data loaded, saving all data before unload...');
+        
+        try {
+          // Force save all data immediately before page closes
+          const dataToSave = { 
+            tableData, 
+            notes, 
+            nextNoteId, 
+            availableIds,
+            hasSegmentColumn,
+            hasSelectableColumn, // CRITICAL FIX: Preserve this flag when saving
+            extraColumns,
+            extraColumnVisibility
+          };
+          
+          // Save table data
+          await safeStorageSet(`tableData-${number}`, JSON.stringify(dataToSave));
+          console.log('Table data saved before unload');
+          
+          // Save annotation data
+          if (annotationData) {
+            const optimizedAnnotations = optimizeAnnotationData(annotationData);
+            await safeStorageSet(`annotations-${number}`, JSON.stringify(optimizedAnnotations));
+            console.log('Annotation data saved before unload');
+          }
+          
+          // Save notes data
+          if (notes && notes.length > 0) {
+            await safeStorageSet(`notes-${number}`, JSON.stringify(notes));
+            console.log('Notes saved before unload');
+          }
+          
+          // Save nextNoteId and availableIds
+          if (nextNoteId !== undefined) {
+            await safeStorageSet(`nextNoteId-${number}`, JSON.stringify(nextNoteId));
+          }
+          if (availableIds && availableIds.length > 0) {
+            await safeStorageSet(`availableIds-${number}`, JSON.stringify(availableIds));
+          }
+        } catch (error) {
+          console.error('Error saving data before unload:', error);
+        }
+      } else {
+        console.log('No real data loaded, skipping save before unload to prevent overwriting good data');
       }
       
       // Also save grade level and lesson goal to server before unload
@@ -814,7 +856,63 @@ export default function TranscriptPage() {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [tableData, notes, nextNoteId, availableIds, annotationData, number]);
+  }, [tableData, notes, nextNoteId, availableIds, annotationData, gradeLevel, lessonGoal, hasSegmentColumn, hasSelectableColumn, extraColumns, extraColumnVisibility, number]);
+
+  // Also save data when component unmounts (when navigating to other pages)
+  useEffect(() => {
+    return () => {
+      // This cleanup function runs when component unmounts
+      // Only save if real data has been loaded to prevent overwriting good data
+      if (typeof window !== 'undefined' && dataLoaded && tableData.length > 0) {
+        console.log('Component unmounting, saving all data...');
+        
+        // Use async function within cleanup but don't await it to avoid blocking
+        const saveDataOnUnmount = async () => {
+          try {
+            const dataToSave = { 
+              tableData, 
+              notes, 
+              nextNoteId, 
+              availableIds,
+              hasSegmentColumn,
+              hasSelectableColumn,
+              extraColumns,
+              extraColumnVisibility
+            };
+            
+            // Use safe storage that handles quota exceeded errors
+            await safeStorageSet(`tableData-${number}`, JSON.stringify(dataToSave));
+            
+            if (annotationData) {
+              const optimizedAnnotations = optimizeAnnotationData(annotationData);
+              await safeStorageSet(`annotations-${number}`, JSON.stringify(optimizedAnnotations));
+            }
+            
+            if (notes && notes.length > 0) {
+              await safeStorageSet(`notes-${number}`, JSON.stringify(notes));
+            }
+            
+            if (nextNoteId !== undefined) {
+              await safeStorageSet(`nextNoteId-${number}`, JSON.stringify(nextNoteId));
+            }
+            
+            if (availableIds && availableIds.length > 0) {
+              await safeStorageSet(`availableIds-${number}`, JSON.stringify(availableIds));
+            }
+            
+            console.log('All data saved during component unmount');
+          } catch (error) {
+            console.error('Error saving data during unmount:', error);
+          }
+        };
+        
+        // Start saving but don't wait for it
+        saveDataOnUnmount();
+      } else {
+        console.log('Component unmounting, but no real data loaded - skipping save to prevent overwriting good data');
+      }
+    };
+  }, [tableData, notes, nextNoteId, availableIds, annotationData, hasSegmentColumn, hasSelectableColumn, extraColumns, extraColumnVisibility, number, dataLoaded]);
 
   // Auto-save grade level and lesson goal when they change
   useEffect(() => {
@@ -859,6 +957,77 @@ export default function TranscriptPage() {
     
     return () => clearTimeout(timeoutId);
   }, [gradeLevel, lessonGoal, number, mounted]);
+
+  // Auto-save annotation data whenever it changes
+  useEffect(() => {
+    if (!mounted || !annotationData || !dataLoaded || loading) return; // Don't save during initial load, if no real data loaded, or while loading
+    
+    console.log('Annotation data changed, auto-saving...');
+    const saveAnnotations = async () => {
+      try {
+        const optimizedAnnotations = optimizeAnnotationData(annotationData);
+        await safeStorageSet(`annotations-${number}`, JSON.stringify(optimizedAnnotations));
+        console.log('Annotations auto-saved successfully');
+      } catch (error) {
+        console.error('Error auto-saving annotations:', error);
+      }
+    };
+
+    // Debounce the save operation to avoid too many saves
+    const timeoutId = setTimeout(saveAnnotations, 1000); // Save 1 second after last change
+    
+    return () => clearTimeout(timeoutId);
+  }, [annotationData, number, mounted, dataLoaded, loading]);
+
+  // Auto-save notes whenever they change
+  useEffect(() => {
+    if (!mounted || !notes || !dataLoaded || loading) return; // Don't save during initial load, if no real data loaded, or while loading
+    
+    console.log('Notes changed, auto-saving...');
+    const saveNotes = async () => {
+      try {
+        await safeStorageSet(`notes-${number}`, JSON.stringify(notes));
+        console.log('Notes auto-saved successfully');
+      } catch (error) {
+        console.error('Error auto-saving notes:', error);
+      }
+    };
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(saveNotes, 1000);
+    
+    return () => clearTimeout(timeoutId);
+  }, [notes, number, mounted, dataLoaded, loading]);
+
+  // Auto-save table data whenever it changes
+  useEffect(() => {
+    if (!mounted || !tableData || tableData.length === 0 || !dataLoaded || loading) return; // Don't save during initial load, if no real data loaded, or while loading
+    
+    console.log('Table data changed, auto-saving...');
+    const saveTableData = async () => {
+      try {
+        const dataToSave = { 
+          tableData, 
+          notes, 
+          nextNoteId, 
+          availableIds,
+          hasSegmentColumn,
+          hasSelectableColumn,
+          extraColumns,
+          extraColumnVisibility
+        };
+        await safeStorageSet(`tableData-${number}`, JSON.stringify(dataToSave));
+        console.log('Table data auto-saved successfully');
+      } catch (error) {
+        console.error('Error auto-saving table data:', error);
+      }
+    };
+
+    // Debounce the save operation
+    const timeoutId = setTimeout(saveTableData, 2000); // Longer debounce for table data
+    
+    return () => clearTimeout(timeoutId);
+  }, [tableData, notes, nextNoteId, availableIds, hasSegmentColumn, hasSelectableColumn, extraColumns, extraColumnVisibility, number, mounted, dataLoaded, loading]);
 
   // Submit Function (Sends data to backend)
   const handleSubmit = async () => {
@@ -929,7 +1098,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
   // Function to save all annotations
   const saveAllAnnotations = async (data: AnnotationData | null) => {
     if (!data) return;
-    await safeStorageSet(`annotations-${number}`, JSON.stringify(data));
+    const optimizedAnnotations = optimizeAnnotationData(data);
+    await safeStorageSet(`annotations-${number}`, JSON.stringify(optimizedAnnotations));
   };
 
   // Simplified and optimized toggle component with enhanced contrast
@@ -1780,10 +1950,12 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             if (existingAnnotationData) {
               try {
                 const parsedData = JSON.parse(existingAnnotationData);
+                // Restore optimized annotation data if needed
+                const restoredData = restoreAnnotationData(parsedData, tableData.length);
                 // Validate the data structure to prevent array access errors
-                const isValidData = Object.keys(parsedData).some(key => {
+                const isValidData = Object.keys(restoredData).some(key => {
                   if (key === 'lastSaved' || key === 'lastActivity') return false; // Skip metadata
-                  const categoryData = parsedData[key];
+                  const categoryData = restoredData[key];
                   return categoryData && 
                          typeof categoryData === 'object' && 
                          Array.isArray(categoryData.codes) && 
@@ -1791,7 +1963,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 });
                 
                 if (isValidData) {
-                  newData = parsedData;
+                  newData = restoredData;
                   hasExistingData = true;
                   console.log('Found and validated existing annotation data for transcript:', number);
                   
@@ -2210,7 +2382,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
   const handleSaveAnnotations = async (data: AnnotationData) => {
     setAnnotationData(data);
-    await safeStorageSet(`annotations-${number}`, JSON.stringify(data));
+    const optimizedAnnotations = optimizeAnnotationData(data);
+    await safeStorageSet(`annotations-${number}`, JSON.stringify(optimizedAnnotations));
     alert('Annotations saved successfully!');
   };
 
@@ -2466,10 +2639,10 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                 const baseData: TableRow = {
                   col1: hasSegment ? (row[segmentCol!] || null) : null,
                   col2: parseInt(row[lineNumberCol] || "", 10) || index + 1,
-                  col3: row[startCol] || `Row ${index + 1} Col 3`,
-                  col4: row[endCol] || `Row ${index + 1} Col 4`,
-                  col5: row[speakerCol] || `Row ${index + 1} Col 5`,
-                  col6: row[dialogueCol] || `Row ${index + 1} Col 6`,
+                  col3: row[startCol] || "",
+                  col4: row[endCol] || "",
+                  col5: row[speakerCol] || "",
+                  col6: row[dialogueCol] || "",
                   col7: selectableCol ? (row[selectableCol] || "") : "", // Use selectable column if it exists
                   noteIds: "",
                 };
@@ -2484,12 +2657,26 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
               console.log("Setting table data:", updatedData.length, "rows");
               console.log("Sample table data structure:", updatedData.slice(0, 2));
-              setTableData(updatedData);
-              setExtraColumns(extraCols);
-              setExtraColumnVisibility(initialExtraVisibility);
-              console.log("Table data state updated successfully");
+              
+              // Check if the loaded CSV contains actual content
+              const hasRealContent = updatedData.some(row => 
+                (row.col5 && row.col5.trim() !== "") || (row.col6 && row.col6.trim() !== "")
+              );
+              
+              if (hasRealContent) {
+                setTableData(updatedData);
+                setExtraColumns(extraCols);
+                setExtraColumnVisibility(initialExtraVisibility);
+                setDataLoaded(true); // Mark that real data has been loaded
+                console.log("Table data state updated successfully with real content");
+              } else {
+                console.warn("CSV data appears to be empty, not updating table data");
+                setError("Transcript data appears to be empty. Please check the CSV file.");
+                setLoading(false);
+                return;
+              }
 
-              // Save table data and metadata including hasSelectableColumn flag
+              // Save table data and metadata including hasSelectableColumn flag (only if we have real content)
               const dataToSave = {
                 tableData: updatedData,
                 notes: [],
@@ -2568,8 +2755,8 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       try {
         const parsedData = JSON.parse(savedData);
         setAvailableIds(parsedData.availableIds || []);
-        // Handle migration from old format to new format
-        if (parsedData.tableData) {
+        // Handle migration from old format to new format  
+        if (parsedData.tableData && parsedData.tableData.length > 0) {
           // Migrate old noteTitle format to new noteIds format
           if (parsedData.tableData[0]?.noteTitle !== undefined && parsedData.tableData[0]?.noteIds === undefined) {
             // Create a mapping of old titles to new IDs
@@ -2641,6 +2828,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             setTableData(migratedTableData);
             setNotes(migratedNotes);
             setNextNoteId(highestId + 1);
+            setDataLoaded(true); // Mark that real data has been loaded from localStorage
             
             // Set up extra columns from migrated data, excluding unwanted metadata columns
             if (migratedTableData.length > 0) {
@@ -2675,6 +2863,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
             }
             
             setTableData(cleanedTableData);
+            setDataLoaded(true); // Mark that real data has been loaded from localStorage
             
             // Set up extra columns from saved data or derive from cleaned data
             if (parsedData.extraColumns && parsedData.extraColumnVisibility) {
@@ -2793,7 +2982,16 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
 
           setLoading(false);
         } else {
-          await loadCSVData(); // Load CSV if saved data format is incorrect
+          console.log('Saved data exists but tableData is empty or invalid');
+          
+          // Check if the saved data contains placeholder patterns
+          if (parsedData.tableData && isPlaceholderData(parsedData.tableData)) {
+            console.log('Detected placeholder data in saved data, loading fresh CSV data');
+            await loadCSVData();
+          } else {
+            console.log('Saved data appears to be empty but not placeholder data, loading CSV data');
+            await loadCSVData();
+          }
         }
       } catch (error) {
         console.error("Error parsing saved data:", error);
@@ -2982,14 +3180,46 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     }
   };
 
-  // Function to upload XLSX file to Google Cloud Storage
+  // Function to validate user ID
+  const validateUserId = (id: string): boolean => {
+    if (!id.trim()) {
+      setUserIdError('User ID is required');
+      return false;
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(id.trim())) {
+      setUserIdError('User ID can only contain letters, numbers, hyphens, and underscores');
+      return false;
+    }
+    if (id.trim().length < 3 || id.trim().length > 20) {
+      setUserIdError('User ID must be between 3 and 20 characters');
+      return false;
+    }
+    setUserIdError('');
+    return true;
+  };
+
+  // Function to show user ID prompt
   const handleUploadToCloud = async () => {
     if (!annotationData) {
       alert('No annotation data to upload');
       return;
     }
+    setShowUserIdPrompt(true);
+  };
 
+  // Function to upload XLSX file to Google Cloud Storage
+  const handleUploadToCloudWithUserId = async () => {
+    if (!annotationData) {
+      alert('No annotation data to upload');
+      return;
+    }
+    
+    if (!validateUserId(userId)) {
+      return;
+    }
+    
     setUploadStatus('uploading');
+    setShowUserIdPrompt(false);
 
     try {
       // Create the Excel workbook (same logic as export)
@@ -3065,6 +3295,7 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
       const fileName = `transcript_${number}_annotations_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
       formData.append('file', blob, fileName);
       formData.append('transcriptNumber', number.toString());
+      formData.append('userId', userId.trim());
 
       console.log('Uploading XLSX file to Google Cloud Storage:', {
         fileName: fileName,
@@ -4331,7 +4562,42 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
     <div className="flex flex-col items-center min-h-screen w-full bg-white font-merriweather text-sm">
       {/* Navigation button - fixed in top left corner */}
       <button
-        onClick={() => router.push("/")}
+        onClick={async () => {
+          // Only save data if real data has been loaded
+          if (dataLoaded && tableData.length > 0) {
+            console.log('Saving data before navigating home...');
+            try {
+              const dataToSave = { 
+                tableData, 
+                notes, 
+                nextNoteId, 
+                availableIds,
+                hasSegmentColumn,
+                hasSelectableColumn,
+                extraColumns,
+                extraColumnVisibility
+              };
+              
+              await safeStorageSet(`tableData-${number}`, JSON.stringify(dataToSave));
+              
+              if (annotationData) {
+                await safeStorageSet(`annotations-${number}`, JSON.stringify(annotationData));
+              }
+              
+              if (notes && notes.length > 0) {
+                await safeStorageSet(`notes-${number}`, JSON.stringify(notes));
+              }
+              
+              console.log('Data saved successfully before navigation');
+            } catch (error) {
+              console.error('Error saving data before navigation:', error);
+            }
+          } else {
+            console.log('No real data loaded, skipping save before navigation to prevent overwriting good data');
+          }
+          
+          router.push("/");
+        }}
         className="fixed top-4 left-4 z-50 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors shadow-lg flex items-center gap-2"
         title="Back to Transcript Selection"
       >
@@ -5804,6 +6070,62 @@ let ALLOWED_SHEETS: string[] = []; // Will be populated dynamically
                   <div className="mt-1">{selectedDefinition.nonexample1}</div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User ID Prompt Modal */}
+      {showUserIdPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Upload to Cloud Storage</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter your unique user ID to organize your annotations in cloud storage. This allows for comparison across different annotators.
+            </p>
+            
+            <div className="mb-4">
+              <label htmlFor="userId" className="block text-sm font-medium text-gray-700 mb-2">
+                User ID <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="userId"
+                type="text"
+                value={userId}
+                onChange={(e) => {
+                  setUserId(e.target.value);
+                  if (userIdError) setUserIdError('');
+                }}
+                placeholder="e.g., john_doe_2024"
+                className={`w-full px-3 py-2 border rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                  userIdError ? 'border-red-300' : 'border-gray-300'
+                }`}
+              />
+              {userIdError && (
+                <p className="mt-1 text-xs text-red-600">{userIdError}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                3-20 characters, letters, numbers, hyphens, and underscores only
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowUserIdPrompt(false);
+                  setUserId('');
+                  setUserIdError('');
+                }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadToCloudWithUserId}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition"
+              >
+                Upload
+              </button>
             </div>
           </div>
         </div>

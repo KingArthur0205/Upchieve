@@ -8,6 +8,8 @@ import FeatureDefinitionUpload from "./components/FeatureDefinitionUpload";
 import FeatureDefinitionsViewer from "./components/FeatureDefinitionsViewer";
 import ZipUpload from "./components/ZipUpload";
 import Settings from "./components/Settings";
+import { safeStorageGet } from "./utils/storageUtils";
+import * as XLSX from 'xlsx';
 
 interface TranscriptInfo {
   id: string;
@@ -28,6 +30,7 @@ export default function Home() {
   const [showZipUpload, setShowZipUpload] = useState(false);
   const [visitedTranscripts, setVisitedTranscripts] = useState<Set<string>>(new Set());
   const [featureViewerRefreshTrigger, setFeatureViewerRefreshTrigger] = useState(0);
+  const [downloadingAll, setDownloadingAll] = useState(false);
 
   // Function to extract a meaningful lesson title from content data
   const extractLessonTitle = useCallback((content: Record<string, unknown>, transcriptId: string): string => {
@@ -507,6 +510,121 @@ export default function Home() {
     }
   };
 
+  const handleDownloadAllAnnotations = async () => {
+    setDownloadingAll(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      
+      // Get feature definitions
+      const featureDefinitionsData = await safeStorageGet('feature-definitions');
+      let featureDefinitions: { features?: Record<string, Array<{ id: string; name: string; type: string }>> } = {};
+      if (featureDefinitionsData) {
+        featureDefinitions = JSON.parse(featureDefinitionsData);
+      }
+
+      let processedCount = 0;
+      
+      for (const transcript of transcripts) {
+        try {
+          const transcriptNumber = transcript.id.replace('t', '');
+          
+          // Load annotation data
+          const annotationDataRaw = await safeStorageGet(`annotations-${transcriptNumber}`);
+          if (!annotationDataRaw) {
+            console.log(`No annotation data found for ${transcript.id}`);
+            continue;
+          }
+
+          const annotationData = JSON.parse(annotationDataRaw);
+          
+          // Create Excel workbook
+          const workbook = XLSX.utils.book_new();
+          
+          // Process each category
+          Object.keys(annotationData).forEach(category => {
+            const categoryData = annotationData[category];
+            const categoryFeatures = featureDefinitions.features?.[category] || [];
+            
+            // Prepare data for Excel
+            const excelData: (string | number)[][] = [];
+            
+            // Add header row
+            const headerRow = ['Row', 'Speaker', 'Dialogue'];
+            categoryFeatures.forEach((feature) => {
+              headerRow.push(feature.name);
+            });
+            excelData.push(headerRow);
+            
+            // Add data rows
+            Object.keys(categoryData).forEach(rowId => {
+              const rowData = categoryData[rowId];
+              const row = [
+                rowData.row || rowId,
+                rowData.speaker || '',
+                rowData.dialogue || ''
+              ];
+              
+              // Add feature annotations
+              categoryFeatures.forEach((feature) => {
+                const annotation = rowData.annotations?.[feature.id];
+                if (feature.type === 'multiple_choice' && annotation) {
+                  row.push(annotation.join(', '));
+                } else if (feature.type === 'text' && annotation) {
+                  row.push(annotation);
+                } else {
+                  row.push('');
+                }
+              });
+              
+              excelData.push(row);
+            });
+            
+            // Create worksheet
+            const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+            XLSX.utils.book_append_sheet(workbook, worksheet, category);
+          });
+          
+          // Generate Excel file buffer
+          const excelBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+          
+          // Add to zip
+          zip.file(`${transcript.id}_annotations.xlsx`, excelBuffer);
+          processedCount++;
+          
+        } catch (error) {
+          console.error(`Error processing ${transcript.id}:`, error);
+        }
+      }
+      
+      if (processedCount === 0) {
+        alert('No annotated transcripts found to download.');
+        return;
+      }
+      
+      // Generate zip file
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      
+      // Download zip file
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `all_annotated_transcripts_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert(`Successfully downloaded ${processedCount} annotated transcripts.`);
+      
+    } catch (error) {
+      console.error('Error downloading annotations:', error);
+      alert('Error downloading annotations. Please try again.');
+    } finally {
+      setDownloadingAll(false);
+    }
+  };
+
   if (!mounted) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-white">
@@ -539,6 +657,29 @@ export default function Home() {
         
         {/* Top Right Actions */}
         <div className="flex items-center gap-3">
+          {/* Download All Annotations Button */}
+          <button
+            onClick={handleDownloadAllAnnotations}
+            disabled={downloadingAll}
+            className="flex items-center gap-2 px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+          >
+            {downloadingAll ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Downloading...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>Download All Annotations</span>
+              </>
+            )}
+          </button>
+
           {/* Zip Upload Button */}
           <button
             onClick={() => setShowZipUpload(!showZipUpload)}
@@ -605,6 +746,7 @@ export default function Home() {
             </svg>
             <span>View Feature Definitions</span>
           </button>
+
           
 
         </div>

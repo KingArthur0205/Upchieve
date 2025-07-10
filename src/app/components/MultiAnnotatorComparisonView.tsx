@@ -233,6 +233,10 @@ export default function MultiAnnotatorComparisonView({
     type: 'success' | 'error' | null;
     message: string;
   }>({ type: null, message: '' });
+  const [pullingFromCloud, setPullingFromCloud] = useState(false);
+  const [availableAnnotators, setAvailableAnnotators] = useState<{userId: string, fileName: string, uploadedAt: string, fileSize: number}[]>([]);
+  const [showAnnotatorSelection, setShowAnnotatorSelection] = useState(false);
+  const [selectedAnnotators, setSelectedAnnotators] = useState<Set<string>>(new Set());
   const [showOnlyDifferences, setShowOnlyDifferences] = useState(false);
   const [showUploadSection, setShowUploadSection] = useState(true);
   const [showStatistics, setShowStatistics] = useState(false);
@@ -608,6 +612,211 @@ export default function MultiAnnotatorComparisonView({
       event.target.value = '';
     }
   }, [otherAnnotators, validateFeaturesAgainstCodebook]);
+
+  const handleShowAvailableAnnotators = useCallback(async () => {
+    setPullingFromCloud(true);
+    try {
+      const transcriptNumber = getTranscriptNumber();
+      
+      // Call API to get available annotators from cloud storage
+      const response = await fetch(`/api/pull-from-cloud?transcriptId=t${transcriptNumber}`);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch available annotators');
+      }
+      
+      if (result.files && result.files.length > 0) {
+        const annotators = result.files.map((file: any) => ({
+          userId: file.userId,
+          fileName: file.fileName,
+          uploadedAt: new Date().toISOString(), // You might want to get this from file metadata
+          fileSize: Array.isArray(file.content) ? file.content.length : 0
+        }));
+        
+        setAvailableAnnotators(annotators);
+        setShowAnnotatorSelection(true);
+      } else {
+        setUploadStatus({ 
+          type: 'error', 
+          message: 'No annotations found in cloud storage for this transcript.' 
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching available annotators:', error);
+      setUploadStatus({ 
+        type: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to fetch available annotators' 
+      });
+    } finally {
+      setPullingFromCloud(false);
+    }
+  }, []);
+
+  const handlePullSelectedAnnotators = useCallback(async () => {
+    if (selectedAnnotators.size === 0) {
+      setUploadStatus({ type: 'error', message: 'Please select at least one annotator to pull.' });
+      return;
+    }
+
+    setPullingFromCloud(true);
+    try {
+      const transcriptNumber = getTranscriptNumber();
+      
+      // Call API to get available files from cloud storage (we'll filter locally)
+      const response = await fetch(`/api/pull-from-cloud?transcriptId=t${transcriptNumber}`);
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to pull files from cloud');
+      }
+      
+      if (result.files && result.files.length > 0) {
+        // Filter files based on selected annotators
+        const selectedFiles = result.files.filter((file: any) => 
+          selectedAnnotators.has(file.userId)
+        );
+        
+        if (selectedFiles.length === 0) {
+          setUploadStatus({ type: 'error', message: 'No files found for selected annotators.' });
+          return;
+        }
+        
+        // Process the selected files
+        const newAnnotators: AnnotatorData[] = [];
+        
+        for (const fileData of selectedFiles) {
+          try {
+            // Parse the Excel file content
+            const workbook = XLSX.read(fileData.content, { type: 'array' });
+            const sheetNames = workbook.SheetNames;
+            
+            const categories: Record<string, AnnotationCategory> = {};
+            
+            for (const sheetName of sheetNames) {
+              const worksheet = workbook.Sheets[sheetName];
+              const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as (string | number | boolean)[][];
+              
+              if (data.length < 2) continue;
+              
+              const headers = data[0] as string[];
+              const rows = data.slice(1);
+              
+              // Extract features from headers (skip first 3 columns: Line #, Speaker, Utterance)
+              const featureColumns = headers.slice(3);
+              
+              const annotations: Record<number, Record<string, boolean | number | string>> = {};
+              
+              for (const row of rows) {
+                const lineNumber = parseInt(row[0]?.toString() || '0', 10);
+                if (!lineNumber) continue;
+                
+                const rowAnnotations: Record<string, boolean | number | string> = {};
+                
+                for (let i = 0; i < featureColumns.length; i++) {
+                  const feature = featureColumns[i];
+                  const value = row[3 + i];
+                  
+                  if (value !== undefined && value !== null && value !== '') {
+                    if (value === 1 || value === '1' || value === true || value === 'true') {
+                      rowAnnotations[feature] = true;
+                    } else if (value === 0 || value === '0' || value === false || value === 'false') {
+                      rowAnnotations[feature] = false;
+                    } else {
+                      rowAnnotations[feature] = value;
+                    }
+                  }
+                }
+                
+                if (Object.keys(rowAnnotations).length > 0) {
+                  annotations[lineNumber] = rowAnnotations;
+                }
+              }
+              
+              categories[sheetName] = {
+                codes: featureColumns,
+                annotations
+              };
+            }
+            
+            // Convert categories to the expected format
+            const formattedCategories: { [category: string]: { features: string[]; definitions?: { [feature: string]: string } } } = {};
+            
+            Object.keys(categories).forEach(categoryName => {
+              const category = categories[categoryName];
+              formattedCategories[categoryName] = {
+                features: category.codes,
+                definitions: category.definitions ? 
+                  Object.fromEntries(Object.entries(category.definitions).map(([key, value]) => [key, value.Definition])) :
+                  undefined
+              };
+            });
+
+            // Create annotator data object
+            const annotatorData: AnnotatorData = {
+              annotator_id: fileData.userId || `cloud_user_${Date.now()}`,
+              display_name: fileData.fileName || `Cloud Annotator`,
+              description: `Pulled from cloud storage`,
+              filename: fileData.fileName || 'Unknown',
+              upload_date: new Date().toISOString(),
+              notes: '',
+              annotations: {},
+              categories: formattedCategories
+            };
+            
+            newAnnotators.push(annotatorData);
+          } catch (error) {
+            console.error(`Error processing file ${fileData.fileName}:`, error);
+          }
+        }
+        
+        if (newAnnotators.length > 0) {
+          setOtherAnnotators(prev => {
+            const combined = [...prev, ...newAnnotators];
+            
+            // Save to localStorage
+            const transcriptNumber = getTranscriptNumber();
+            const storageKey = `annotator-data-${transcriptNumber}`;
+            localStorage.setItem(storageKey, JSON.stringify(combined));
+            
+            return combined;
+          });
+          
+          setUploadStatus({
+            type: 'success',
+            message: `Successfully pulled ${newAnnotators.length} annotator file(s) from cloud storage.`
+          });
+          
+          // Hide upload section if we have data
+          if (newAnnotators.length > 0) {
+            setShowUploadSection(false);
+          }
+          
+          // Close the selection modal
+          setShowAnnotatorSelection(false);
+          setSelectedAnnotators(new Set());
+        } else {
+          setUploadStatus({
+            type: 'error',
+            message: 'No valid annotation files found in cloud storage.'
+          });
+        }
+      } else {
+        setUploadStatus({
+          type: 'error',
+          message: 'No annotation files found in cloud storage for this transcript.'
+        });
+      }
+    } catch (error) {
+      console.error('Error pulling selected annotators:', error);
+      setUploadStatus({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to pull selected annotators from cloud storage.'
+      });
+    } finally {
+      setPullingFromCloud(false);
+    }
+  }, [selectedAnnotators]);
 
   const removeAnnotator = (annotatorId: string) => {
     setOtherAnnotators(prev => {
@@ -1110,6 +1319,29 @@ export default function MultiAnnotatorComparisonView({
                   disabled={uploading}
                   className="block w-full text-sm text-black file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
+              </div>
+              
+              {/* Pull from Cloud section */}
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  onClick={handleShowAvailableAnnotators}
+                  disabled={pullingFromCloud}
+                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-xs font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {pullingFromCloud ? (
+                    <>
+                      <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      ☁️ Select from Cloud
+                    </>
+                  )}
+                </button>
+                <span className="text-xs text-gray-500">or upload local files above</span>
               </div>
               
               {uploadStatus.type && (
@@ -2033,6 +2265,81 @@ export default function MultiAnnotatorComparisonView({
                   );
                 })()}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Annotator Selection Modal */}
+      {showAnnotatorSelection && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Select Annotators to Compare</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Choose which annotators' work you want to pull from cloud storage for comparison:
+            </p>
+            
+            {availableAnnotators.length > 0 ? (
+              <div className="space-y-3 mb-6">
+                {availableAnnotators.map((annotator, index) => (
+                  <label key={index} className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedAnnotators.has(annotator.userId)}
+                      onChange={(e) => {
+                        const newSelected = new Set(selectedAnnotators);
+                        if (e.target.checked) {
+                          newSelected.add(annotator.userId);
+                        } else {
+                          newSelected.delete(annotator.userId);
+                        }
+                        setSelectedAnnotators(newSelected);
+                      }}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">{annotator.userId}</div>
+                      <div className="text-sm text-gray-600">{annotator.fileName}</div>
+                      <div className="text-xs text-gray-500">
+                        Size: {Math.round(annotator.fileSize / 1024)} KB
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-gray-500">
+                No annotators found for this transcript.
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowAnnotatorSelection(false);
+                  setSelectedAnnotators(new Set());
+                  setAvailableAnnotators([]);
+                }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePullSelectedAnnotators}
+                disabled={selectedAnnotators.size === 0 || pullingFromCloud}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {pullingFromCloud ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Pulling...
+                  </>
+                ) : (
+                  `Pull ${selectedAnnotators.size} Annotator${selectedAnnotators.size !== 1 ? 's' : ''}`
+                )}
+              </button>
             </div>
           </div>
         </div>

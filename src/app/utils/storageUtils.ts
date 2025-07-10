@@ -7,13 +7,25 @@ interface ChunkInfo {
   chunkSize: number;
 }
 
-// Enhanced storage functions with IndexedDB fallback
+// Enhanced storage functions with IndexedDB fallback and size checking
 export async function safeStorageSet(key: string, value: string): Promise<void> {
+  const sizeInMB = new Blob([value]).size / (1024 * 1024);
+  
+  // If the data is very large (>10MB), warn and try to optimize
+  if (sizeInMB > 10) {
+    console.warn(`Large data size (${sizeInMB.toFixed(2)}MB) for key ${key}, attempting storage...`);
+  }
+  
   try {
     localStorage.setItem(key, value);
-  } catch {
-    console.warn(`localStorage full, falling back to IndexedDB for ${key}`);
-    await saveToIndexedDB(key, value);
+  } catch (error) {
+    console.warn(`localStorage full or quota exceeded for ${key} (${sizeInMB.toFixed(2)}MB), falling back to IndexedDB`);
+    try {
+      await saveToIndexedDB(key, value);
+    } catch (idbError) {
+      console.error(`Both localStorage and IndexedDB failed for ${key}:`, idbError);
+      throw new Error(`Storage failed for ${key}: ${error}`);
+    }
   }
 }
 
@@ -178,4 +190,89 @@ export async function cleanupTranscriptData(transcriptId: string): Promise<void>
   await safeStorageRemove(`${transcriptId}-content.json`);
   await safeStorageRemove(`${transcriptId}-images.json`);
   await safeStorageRemove(`${transcriptId}-original`);
+}
+
+// Optimize annotation data for storage by removing false values and compressing structure
+export function optimizeAnnotationData(annotationData: any): any {
+  if (!annotationData || typeof annotationData !== 'object') {
+    return annotationData;
+  }
+
+  const optimized: any = {};
+
+  Object.keys(annotationData).forEach(category => {
+    const categoryData = annotationData[category];
+    if (!categoryData || typeof categoryData !== 'object') {
+      optimized[category] = categoryData;
+      return;
+    }
+
+    optimized[category] = {
+      codes: categoryData.codes || [],
+      definitions: categoryData.definitions || {},
+      annotations: {}
+    };
+
+    // Only store true annotations to save space
+    if (categoryData.annotations) {
+      Object.keys(categoryData.annotations).forEach(lineIndex => {
+        const lineAnnotations = categoryData.annotations[lineIndex];
+        if (lineAnnotations && typeof lineAnnotations === 'object') {
+          const optimizedLineAnnotations: any = {};
+          let hasTrue = false;
+
+          Object.keys(lineAnnotations).forEach(code => {
+            if (lineAnnotations[code] === true) {
+              optimizedLineAnnotations[code] = true;
+              hasTrue = true;
+            }
+          });
+
+          // Only store lines that have at least one true annotation
+          if (hasTrue) {
+            optimized[category].annotations[lineIndex] = optimizedLineAnnotations;
+          }
+        }
+      });
+    }
+  });
+
+  return optimized;
+}
+
+// Restore annotation data from optimized format
+export function restoreAnnotationData(optimizedData: any, totalLines: number): any {
+  if (!optimizedData || typeof optimizedData !== 'object') {
+    return optimizedData;
+  }
+
+  const restored: any = {};
+
+  Object.keys(optimizedData).forEach(category => {
+    const categoryData = optimizedData[category];
+    if (!categoryData || typeof categoryData !== 'object') {
+      restored[category] = categoryData;
+      return;
+    }
+
+    restored[category] = {
+      codes: categoryData.codes || [],
+      definitions: categoryData.definitions || {},
+      annotations: {}
+    };
+
+    const codes = categoryData.codes || [];
+
+    // Restore full annotation structure with false defaults
+    for (let i = 0; i < totalLines; i++) {
+      restored[category].annotations[i] = {};
+      codes.forEach((code: string) => {
+        // Check if this line/code was stored as true, otherwise default to false
+        const storedValue = categoryData.annotations?.[i]?.[code];
+        restored[category].annotations[i][code] = storedValue === true;
+      });
+    }
+  });
+
+  return restored;
 }
