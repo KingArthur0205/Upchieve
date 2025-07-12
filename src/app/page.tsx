@@ -33,18 +33,23 @@ export default function Home() {
   const [downloadingAll, setDownloadingAll] = useState(false);
 
   // Function to extract a meaningful lesson title from content data
-  const extractLessonTitle = useCallback((content: Record<string, unknown>, transcriptId: string): string => {
-    // Priority 1: Custom lesson title
+  const extractLessonTitle = useCallback((content: Record<string, unknown>, transcriptId: string, settingsTitle?: string): string => {
+    // Priority 1: Custom title from settings file
+    if (settingsTitle && settingsTitle.trim() !== '' && settingsTitle !== 'Grade Level') {
+      return settingsTitle.trim();
+    }
+    
+    // Priority 2: Custom lesson title
     if (typeof content.customLessonTitle === 'string' && content.customLessonTitle.trim() !== '') {
       return content.customLessonTitle.trim();
     }
     
-    // Priority 2: Lesson title field (if not default)
+    // Priority 3: Lesson title field (if not default)
     if (typeof content.lesson_title === 'string' && content.lesson_title !== 'Lesson Title' && content.lesson_title.trim() !== '') {
       return content.lesson_title.trim();
     }
     
-    // Priority 3: Extract lesson name from gradeLevel if it contains lesson info
+    // Priority 4: Extract lesson name from gradeLevel if it contains lesson info
     if (typeof content.gradeLevel === 'string') {
       // Look for patterns like "Lesson X: Title" or "Unit X: Title, Lesson Y: Title"
       const lessonMatch = content.gradeLevel.match(/Lesson \d+: ([^,]+)/);
@@ -53,12 +58,12 @@ export default function Home() {
       }
     }
     
-    // Priority 4: Use grade_level if it exists and is meaningful
+    // Priority 5: Use grade_level if it exists and is meaningful
     if (typeof content.grade_level === 'string' && content.grade_level !== 'Grade Level' && content.grade_level.trim() !== '') {
       return content.grade_level.trim();
     }
     
-    // Priority 5: Use activityPurpose if available
+    // Priority 6: Use activityPurpose if available
     if (typeof content.activityPurpose === 'string' && content.activityPurpose.trim() !== '') {
       // Take first line or first 50 characters
       const purpose = content.activityPurpose.trim().split('\n')[0];
@@ -72,12 +77,26 @@ export default function Home() {
   // Function to load content for a single transcript
   const loadTranscriptContent = useCallback(async (transcriptId: string): Promise<string> => {
     try {
+      // Load settings title first
+      let settingsTitle = '';
+      try {
+        const settingsResponse = await fetch(`/api/save-transcript-settings?transcriptId=${transcriptId}`);
+        if (settingsResponse.ok) {
+          const settingsData = await settingsResponse.json();
+          if (settingsData.success && settingsData.settings) {
+            settingsTitle = settingsData.settings.gradeLevel || '';
+          }
+        }
+      } catch {
+        // Settings not available, continue without it
+      }
+      
       // First try API (public folder)
       try {
         const response = await fetch(`/api/transcript/${transcriptId}?file=content.json`);
         if (response.ok) {
           const content = await response.json();
-          return extractLessonTitle(content, transcriptId);
+          return extractLessonTitle(content, transcriptId, settingsTitle);
         }
       } catch {
         // Fallback to localStorage
@@ -87,7 +106,7 @@ export default function Home() {
       const contentData = localStorage.getItem(`${transcriptId}-content.json`);
       if (contentData) {
         const content = JSON.parse(contentData);
-        return extractLessonTitle(content, transcriptId);
+        return extractLessonTitle(content, transcriptId, settingsTitle);
       }
       
       // If no content found, return generic name
