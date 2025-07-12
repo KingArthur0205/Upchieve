@@ -8,7 +8,7 @@ import FeatureDefinitionUpload from "./components/FeatureDefinitionUpload";
 import FeatureDefinitionsViewer from "./components/FeatureDefinitionsViewer";
 import ZipUpload from "./components/ZipUpload";
 import Settings from "./components/Settings";
-import { safeStorageGet } from "./utils/storageUtils";
+import { safeStorageGet, loadTranscriptFromPublic, getAvailablePublicTranscripts, saveTranscriptData, safeStorageSet } from "./utils/storageUtils";
 import * as XLSX from 'xlsx';
 
 interface TranscriptInfo {
@@ -98,8 +98,75 @@ export default function Home() {
     }
   }, [extractLessonTitle]);
 
+  // Function to restore transcripts from public folder to localStorage
+  const restoreTranscriptsFromPublic = useCallback(async () => {
+    try {
+      const publicTranscriptIds = await getAvailablePublicTranscripts();
+      console.log('Found transcripts in public folder for recovery:', publicTranscriptIds);
+
+      for (const transcriptId of publicTranscriptIds) {
+        // Check if transcript already exists in localStorage
+        const existingTranscriptData = await safeStorageGet(`${transcriptId}-transcript.csv`);
+        if (existingTranscriptData) {
+          console.log(`Transcript ${transcriptId} already exists in localStorage, skipping recovery`);
+          continue;
+        }
+
+        console.log(`Restoring transcript ${transcriptId} from public folder...`);
+        
+        // Load transcript data from public folder
+        const publicData = await loadTranscriptFromPublic(transcriptId);
+        if (!publicData) {
+          console.warn(`Failed to load ${transcriptId} from public folder`);
+          continue;
+        }
+
+        // Save to localStorage/IndexedDB
+        if (publicData.csvContent) {
+          await saveTranscriptData(transcriptId, publicData.csvContent);
+        }
+        if (publicData.speakersData) {
+          await safeStorageSet(`${transcriptId}-speakers.json`, JSON.stringify(publicData.speakersData));
+        }
+        if (publicData.contentData) {
+          await safeStorageSet(`${transcriptId}-content.json`, JSON.stringify(publicData.contentData));
+        }
+        if (publicData.imagesData) {
+          await safeStorageSet(`${transcriptId}-images.json`, JSON.stringify(publicData.imagesData));
+        }
+
+        console.log(`Successfully restored transcript ${transcriptId} to localStorage`);
+      }
+
+      // Update localStorage transcript list
+      if (publicTranscriptIds.length > 0) {
+        const existingTranscripts = JSON.parse(localStorage.getItem('transcripts') || '[]');
+        const existingIds = new Set(existingTranscripts.map((t: TranscriptInfo) => t.id));
+        
+        const newTranscripts = publicTranscriptIds
+          .filter(id => !existingIds.has(id))
+          .map(id => ({
+            id,
+            displayName: `Transcript ${id}`,
+            isNew: !['t001', 't044', 't053', 't016', 't019'].includes(id)
+          }));
+
+        if (newTranscripts.length > 0) {
+          const allTranscripts = [...existingTranscripts, ...newTranscripts];
+          localStorage.setItem('transcripts', JSON.stringify(allTranscripts));
+          console.log('Updated localStorage transcript list with recovered transcripts:', newTranscripts);
+        }
+      }
+    } catch (error) {
+      console.error('Error during transcript recovery from public folder:', error);
+    }
+  }, []);
+
   const loadTranscripts = useCallback(async () => {
     try {
+      // First, attempt to restore any transcripts from public folder that aren't in localStorage
+      await restoreTranscriptsFromPublic();
+      
       const allTranscripts: TranscriptInfo[] = [];
       
       // Load transcripts from localStorage
@@ -161,7 +228,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [loadTranscriptContent]);
+  }, [loadTranscriptContent, restoreTranscriptsFromPublic]);
 
   // Load visited transcripts from localStorage
   const loadVisitedTranscripts = () => {
@@ -453,8 +520,8 @@ export default function Home() {
         isLocalStorageTranscript = parsedTranscripts.some((t: TranscriptInfo) => t.id === transcriptId);
       }
       
+      // Delete from localStorage if it exists there
       if (isLocalStorageTranscript) {
-        // Delete from localStorage
         if (storedTranscripts) {
           const parsedTranscripts = JSON.parse(storedTranscripts);
           const updatedTranscripts = parsedTranscripts.filter((t: TranscriptInfo) => t.id !== transcriptId);
@@ -479,8 +546,10 @@ export default function Home() {
           
           console.log(`Deleted localStorage transcript ${transcriptId} and related data`);
         }
-      } else {
-        // Try to delete from server (public folder)
+      }
+      
+      // Always try to delete from public folder as well (since we now save to both locations)
+      try {
         const response = await fetch('/api/delete-transcript', {
           method: 'DELETE',
           headers: {
@@ -491,12 +560,15 @@ export default function Home() {
         
         const data = await response.json();
         
-        if (!data.success) {
-          alert(`Error deleting transcript: ${data.error}`);
-          return;
+        if (data.success) {
+          console.log(`Deleted public folder transcript ${transcriptId}`);
+        } else if (response.status !== 404) {
+          // Only show error if it's not a "not found" error (404 is ok, means it wasn't in public folder)
+          console.warn(`Warning: Could not delete from public folder: ${data.error}`);
         }
-        
-        console.log(`Deleted public folder transcript ${transcriptId}`);
+      } catch (publicDeleteError) {
+        console.warn('Warning: Failed to delete transcript from public folder:', publicDeleteError);
+        // Don't fail the entire deletion if public folder cleanup fails
       }
       
       // Refresh transcript list after successful deletion
