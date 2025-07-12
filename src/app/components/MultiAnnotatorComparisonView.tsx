@@ -1206,20 +1206,19 @@ export default function MultiAnnotatorComparisonView({
     // Filter for only annotated rows if requested
     if (showOnlyAnnotated && selectedCategory) {
       filteredData = filteredData.filter(row => {
-        // Don't filter out non-selectable rows - show all rows but display "-" for non-annotatable ones
-        // if (!isTableRowSelectable(row)) return false;
-        
-        // For non-selectable rows, always include them (they'll show "-" in the display)
-        if (!isTableRowSelectable(row)) return true;
+        // Exclude non-selectable rows since they show "-" for all values (not truly annotated)
+        if (!isTableRowSelectable(row)) return false;
         
         const features = getFeaturesForCategory(selectedCategory);
         const shouldInclude = features.some(feature => {
+          // Check if current annotator has actual annotation values (not null/undefined/"-")
           const currentValue = getCurrentAnnotatorValue(row.col2, selectedCategory, feature);
-          const hasCurrentAnnotation = currentValue !== null && currentValue !== undefined;
+          const hasCurrentAnnotation = currentValue !== null && currentValue !== undefined && currentValue !== '-';
           
+          // Check if any other annotator has actual annotation values (not null/undefined/"-")
           const hasOtherAnnotations = otherAnnotators.some(annotator => {
             const value = getAnnotatorValue(annotator, row.col2, selectedCategory, feature);
-            return value !== null && value !== undefined;
+            return value !== null && value !== undefined && value !== '-';
           });
           
           return hasCurrentAnnotation || hasOtherAnnotations;
@@ -1232,8 +1231,8 @@ export default function MultiAnnotatorComparisonView({
     // Only apply differences filter if category is selected
     if (showOnlyDifferences && selectedCategory) {
       filteredData = filteredData.filter(row => {
-        // For non-selectable rows, always include them (they'll show "-" in the display)
-        if (!isTableRowSelectable(row)) return true;
+        // Exclude non-selectable rows since they all show "-" (no real differences)
+        if (!isTableRowSelectable(row)) return false;
         
         const features = getFeaturesForCategory(selectedCategory);
         return features.some(feature => {
@@ -1242,8 +1241,11 @@ export default function MultiAnnotatorComparisonView({
             getAnnotatorValue(annotator, row.col2, selectedCategory, feature)
           );
           
-          const allValues = [currentValue, ...otherValues];
-          return !allValues.every(v => v === allValues[0]);
+          // Only consider actual annotation values (exclude null, undefined, and "-")
+          const allValues = [currentValue, ...otherValues].filter(v => v !== null && v !== undefined && v !== '-');
+          
+          // Only show differences if there are at least 2 actual values and they differ
+          return allValues.length >= 2 && !allValues.every(v => v === allValues[0]);
         });
       });
     }
