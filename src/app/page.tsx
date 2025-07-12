@@ -282,11 +282,128 @@ export default function Home() {
     router.push(`/transcript/${transcriptId.replace('t', '')}`);
   };
 
+  // Function to initialize default Codebook.xlsx on app startup
+  const initializeDefaultCodebook = useCallback(async () => {
+    try {
+      // Check if feature definitions already exist in localStorage
+      const existingFeatureDefinitions = localStorage.getItem('feature-definitions');
+      if (existingFeatureDefinitions) {
+        console.log('Feature definitions already exist in localStorage, skipping default initialization');
+        return;
+      }
+      
+      console.log('No feature definitions found, initializing default Codebook.xlsx...');
+      
+      // Load default Codebook.xlsx from public folder
+      const response = await fetch('/Codebook.xlsx');
+      if (!response.ok) {
+        console.warn('Default Codebook.xlsx not found in public folder');
+        return;
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer);
+      
+      const categories: string[] = [];
+      const features: { [category: string]: Array<{
+        Code?: string;
+        Definition?: string;
+        Example1?: string;
+        example1?: string;
+        Example2?: string;
+        example2?: string;
+        NonExample1?: string;
+        nonexample1?: string;
+        NonExample2?: string;
+        nonexample2?: string;
+      }> } = {};
+      
+      // Process each sheet as a category
+      workbook.SheetNames.forEach((sheetName) => {
+        console.log(`Processing default sheet: ${sheetName}`);
+        
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
+        
+        if (jsonData.length === 0) {
+          console.warn(`Empty sheet: ${sheetName} - skipping`);
+          return;
+        }
+        
+        // Get headers from first row
+        const headers = jsonData[0] as string[];
+        const codeIndex = headers.findIndex(h => h && h.toString().toLowerCase().includes('code'));
+        const definitionIndex = headers.findIndex(h => h && h.toString().toLowerCase().includes('definition'));
+        
+        if (codeIndex === -1) {
+          console.warn(`No 'Code' column found in sheet: ${sheetName} - skipping`);
+          return;
+        }
+        
+        // Extract features from remaining rows
+        const sheetFeatures: Array<Record<string, string>> = [];
+        
+        for (let i = 1; i < jsonData.length; i++) {
+          const row = jsonData[i] as unknown[];
+          if (row && row[codeIndex] && String(row[codeIndex]).trim() !== '') {
+            const feature: Record<string, string> = {
+              Code: String(row[codeIndex]).trim(),
+              Definition: definitionIndex !== -1 && row[definitionIndex] 
+                ? String(row[definitionIndex]).trim() 
+                : ''
+            };
+            
+            // Add any additional columns
+            headers.forEach((header, index) => {
+              if (index !== codeIndex && index !== definitionIndex && row[index]) {
+                feature[String(header)] = String(row[index]).trim();
+              }
+            });
+            
+            sheetFeatures.push(feature);
+          }
+        }
+        
+        console.log(`Extracted ${sheetFeatures.length} features from default sheet "${sheetName}"`);
+        if (sheetFeatures.length > 0) {
+          categories.push(sheetName);
+          features[sheetName] = sheetFeatures;
+        }
+      });
+      
+      if (categories.length > 0) {
+        // Save feature definitions to localStorage
+        const featureDefinitions = {
+          uploadedAt: new Date().toISOString(),
+          originalFileName: 'Codebook.xlsx',
+          isXLSX: true,
+          categories: categories,
+          features: features
+        };
+        
+        localStorage.setItem('feature-definitions', JSON.stringify(featureDefinitions));
+        console.log('Default feature definitions saved to localStorage:', featureDefinitions);
+        console.log('Categories detected:', categories);
+        
+        // Generate annotation columns for all existing transcripts
+        setTimeout(() => {
+          generateAnnotationColumnsForAllTranscripts();
+        }, 1000); // Small delay to ensure everything is properly saved
+      }
+      
+    } catch (error) {
+      console.error('Error initializing default codebook:', error);
+    }
+  }, []);
+
   useEffect(() => {
     setMounted(true);
     loadTranscripts();
     loadVisitedTranscripts();
-  }, [loadTranscripts]);
+    
+    // Initialize default Codebook.xlsx if no feature definitions exist
+    initializeDefaultCodebook();
+  }, [loadTranscripts, initializeDefaultCodebook]);
 
   const handleTranscriptUploaded = () => {
     // Refresh transcript list when a new transcript is uploaded
@@ -353,7 +470,7 @@ export default function Home() {
   };
   
   // Function to automatically generate annotation columns for all transcripts when codebook is updated
-  const generateAnnotationColumnsForAllTranscripts = () => {
+  const generateAnnotationColumnsForAllTranscripts = useCallback(() => {
     try {
       const featureDefinitionsData = localStorage.getItem('feature-definitions');
       if (!featureDefinitionsData) {
@@ -400,7 +517,7 @@ export default function Home() {
     } catch (error) {
       console.error('Error in auto-generation:', error);
     }
-  };
+  }, []);
   
   // Interface for feature definitions (matching the one in FeatureDefinitionUpload)
   interface FeatureDefinitions {
@@ -519,6 +636,7 @@ export default function Home() {
       console.error(`Failed to regenerate annotation columns for transcript ${transcriptId}:`, error);
     }
   };
+
 
   const handleDeleteTranscript = async (transcriptId: string, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent navigation when clicking delete
