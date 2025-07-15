@@ -49,21 +49,22 @@ export default function Home() {
       return content.lesson_title.trim();
     }
     
-    // Priority 4: Extract lesson name from gradeLevel if it contains lesson info
-    if (typeof content.gradeLevel === 'string') {
-      // Look for patterns like "Lesson X: Title" or "Unit X: Title, Lesson Y: Title"
-      const lessonMatch = content.gradeLevel.match(/Lesson \d+: ([^,]+)/);
-      if (lessonMatch && lessonMatch[1]) {
-        return lessonMatch[1].trim();
-      }
+    // Priority 4: Use title if it exists and is meaningful (not default values)
+    if (typeof content.title === 'string' && content.title !== 'Title' && content.title !== 'Title...' && content.title.trim() !== '') {
+      return content.title.trim();
     }
     
-    // Priority 5: Use grade_level if it exists and is meaningful
-    if (typeof content.grade_level === 'string' && content.grade_level !== 'Title...' && content.grade_level.trim() !== '') {
+    // Priority 5: Fallback to gradeLevel for backward compatibility
+    if (typeof content.gradeLevel === 'string' && content.gradeLevel !== 'Grade Level' && content.gradeLevel !== 'Title...' && content.gradeLevel.trim() !== '') {
+      return content.gradeLevel.trim();
+    }
+    
+    // Priority 6: Use grade_level if it exists and is meaningful
+    if (typeof content.grade_level === 'string' && content.grade_level !== 'Grade Level' && content.grade_level !== 'Title...' && content.grade_level.trim() !== '') {
       return content.grade_level.trim();
     }
     
-    // Priority 6: Use activityPurpose if available
+    // Priority 7: Use activityPurpose if available
     if (typeof content.activityPurpose === 'string' && content.activityPurpose.trim() !== '') {
       // Take first line or first 50 characters
       const purpose = content.activityPurpose.trim().split('\n')[0];
@@ -84,7 +85,7 @@ export default function Home() {
         if (settingsResponse.ok) {
           const settingsData = await settingsResponse.json();
           if (settingsData.success && settingsData.settings) {
-            settingsTitle = settingsData.settings.gradeLevel || '';
+            settingsTitle = settingsData.settings.title || settingsData.settings.gradeLevel || '';
           }
         }
       } catch {
@@ -404,6 +405,23 @@ export default function Home() {
     // Initialize default Codebook.xlsx if no feature definitions exist
     initializeDefaultCodebook();
   }, [loadTranscripts, initializeDefaultCodebook]);
+
+  // Refresh transcript titles when page becomes visible again (user returns from transcript)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && transcripts.length > 0) {
+        // Reload transcript titles to reflect any changes made in individual transcripts
+        console.log('Page became visible, refreshing transcript titles...');
+        loadTranscripts();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [transcripts.length, loadTranscripts]);
 
   const handleTranscriptUploaded = () => {
     // Refresh transcript list when a new transcript is uploaded

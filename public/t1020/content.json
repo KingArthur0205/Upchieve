@@ -1,4 +1,4 @@
 {
-  "gradeLevel": "Grade Level",
-  "lessonGoal": "Lesson Goal"
+  "title": "Title",
+  "instruction": "Instruction"
 }
