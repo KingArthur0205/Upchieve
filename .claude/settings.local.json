@@ -15,7 +15,10 @@
       "Bash(awk:*)",
       "Bash(npm run check:*)",
       "Bash(sed:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(sudo rm:*)",
+      "Bash(true)"
     ],
     "deny": []
   }
