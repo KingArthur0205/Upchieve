@@ -743,12 +743,6 @@ export default function Home() {
       const JSZip = (await import('jszip')).default;
       const zip = new JSZip();
       
-      // Get feature definitions
-      const featureDefinitionsData = await safeStorageGet('feature-definitions');
-      let featureDefinitions: { features?: Record<string, Array<{ id: string; name: string; type: string }>> } = {};
-      if (featureDefinitionsData) {
-        featureDefinitions = JSON.parse(featureDefinitionsData);
-      }
 
       let processedCount = 0;
       
@@ -765,46 +759,61 @@ export default function Home() {
 
           const annotationData = JSON.parse(annotationDataRaw);
           
-          // Create Excel workbook
+          // Load transcript data
+          let tableData: Array<{col2: number, col5: string, col6: string}> = [];
+          try {
+            const transcriptContent = await safeStorageGet(`${transcript.id}-transcript.csv`);
+            if (transcriptContent) {
+              const lines = transcriptContent.split('\n').slice(1); // Skip header
+              tableData = lines.map((line, index) => {
+                const parts = line.split(',');
+                return {
+                  col2: index + 1, // Line # (1-based)
+                  col5: parts[0] || '', // Speaker
+                  col6: parts[1] || '', // Utterance
+                };
+              }).filter(row => row.col6.trim() !== ''); // Remove empty rows
+            }
+          } catch {
+            console.warn('Could not load transcript data for', transcript.id);
+            continue;
+          }
+          
+          if (tableData.length === 0) {
+            console.log(`No transcript data found for ${transcript.id}`);
+            continue;
+          }
+          
+          // Create Excel workbook matching individual transcript format
           const workbook = XLSX.utils.book_new();
           
-          // Process each category
+          // Process each category to match individual export format
           Object.keys(annotationData).forEach(category => {
             const categoryData = annotationData[category];
-            const categoryFeatures = featureDefinitions.features?.[category] || [];
+            const codes = categoryData.codes || [];
             
-            // Prepare data for Excel
+            // Prepare data for Excel - match individual export format
             const excelData: (string | number)[][] = [];
             
-            // Add header row
-            const headerRow = ['Row', 'Speaker', 'Dialogue'];
-            categoryFeatures.forEach((feature) => {
-              headerRow.push(feature.name);
-            });
+            // Add header row matching individual export: 'Line #', 'Speaker', 'Utterance', [codes]
+            const headerRow = ['Line #', 'Speaker', 'Utterance', ...codes];
             excelData.push(headerRow);
             
-            // Add data rows
-            Object.keys(categoryData).forEach(rowId => {
-              const rowData = categoryData[rowId];
-              const row = [
-                rowData.row || rowId,
-                rowData.speaker || '',
-                rowData.dialogue || ''
+            // Add data rows matching individual export format
+            tableData.forEach((row, index) => {
+              const rowData = [
+                row.col2, // Line #
+                row.col5, // Speaker
+                row.col6  // Utterance
               ];
               
-              // Add feature annotations
-              categoryFeatures.forEach((feature) => {
-                const annotation = rowData.annotations?.[feature.id];
-                if (feature.type === 'multiple_choice' && annotation) {
-                  row.push(annotation.join(', '));
-                } else if (feature.type === 'text' && annotation) {
-                  row.push(annotation);
-                } else {
-                  row.push('');
-                }
+              // Add code annotations (1 for true, 0 for false)
+              codes.forEach((code: string) => {
+                const annotation = categoryData.annotations?.[index]?.[code] || false;
+                rowData.push(annotation ? '1' : '0');
               });
               
-              excelData.push(row);
+              excelData.push(rowData);
             });
             
             // Create worksheet
@@ -873,15 +882,6 @@ export default function Home() {
     <div className="min-h-screen bg-white p-8">
       {/* Header with Title and Actions */}
       <div className="relative flex justify-end items-center mb-8">
-        {/* Icon positioned independently */}
-        <Image 
-          src="/Icon.png" 
-          alt="EduCoder" 
-          width={320}
-          height={320}
-          className="fixed left-4 -top-8 h-80 w-auto z-0"
-        />
-        
         {/* Top Right Actions */}
         <div className="flex items-center gap-3">
           {/* Download All Annotations Button */}
@@ -1118,6 +1118,15 @@ export default function Home() {
         isOpen={showFeatureViewer} 
         onClose={() => setShowFeatureViewer(false)} 
         refreshTrigger={featureViewerRefreshTrigger}
+      />
+
+      {/* EduCoder Icon positioned independently - hidden on narrow screens and at bottom layer */}
+      <Image 
+        src="/Icon.png" 
+        alt="EduCoder" 
+        width={320}
+        height={320}
+        className="fixed left-4 -top-8 h-80 w-auto z-[-10] hidden md:block pointer-events-none"
       />
 
     </div>

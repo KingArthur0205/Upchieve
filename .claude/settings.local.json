@@ -13,7 +13,9 @@
       "Bash(grep:*)",
       "Bash(npm install:*)",
       "Bash(awk:*)",
-      "Bash(npm run check:*)"
+      "Bash(npm run check:*)",
+      "Bash(sed:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
