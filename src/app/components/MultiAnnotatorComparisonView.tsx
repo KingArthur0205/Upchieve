@@ -792,6 +792,16 @@ export default function MultiAnnotatorComparisonView({
       // Fetch each selected transcript individually
       const newAnnotators: AnnotatorData[] = [];
       
+      // Keep track of user IDs and their display names to handle duplicates
+      const userDisplayNames: Record<string, string> = {};
+      const userCounts: Record<string, number> = {};
+      
+      // Count existing user IDs in current annotators
+      otherAnnotators.forEach(annotator => {
+        const existingUserId = annotator.display_name.replace(/\(\d+\)$/, ''); // Remove (1), (2) etc.
+        userCounts[existingUserId] = (userCounts[existingUserId] || 0) + 1;
+      });
+      
       for (const [userId, fileNames] of Object.entries(selectedFilesMap)) {
         for (const fileName of fileNames) {
           try {
@@ -914,9 +924,19 @@ export default function MultiAnnotatorComparisonView({
               });
             });
 
+            // Generate unique display name for this user
+            if (!userDisplayNames[userId]) {
+              userCounts[userId] = (userCounts[userId] || 0) + 1;
+              if (userCounts[userId] === 1) {
+                userDisplayNames[userId] = userId;
+              } else {
+                userDisplayNames[userId] = `${userId}(${userCounts[userId] - 1})`;
+              }
+            }
+
             const annotatorData: AnnotatorData = {
               annotator_id: `${userId}_${fileName}`,
-              display_name: `${userId} - ${fileName.replace('.xlsx', '')}`,
+              display_name: userDisplayNames[userId],
               description: `Pulled from cloud storage`,
               filename: fileName,
               upload_date: new Date().toISOString(),

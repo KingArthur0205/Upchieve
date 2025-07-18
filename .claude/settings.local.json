@@ -18,7 +18,8 @@
       "Bash(rm:*)",
       "Bash(npm cache clean:*)",
       "Bash(sudo rm:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }
