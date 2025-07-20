@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
       const fileName = file.name;
       
       // Look for files that match pattern: users/{userId}/transcript_{transcriptId}_annotations*.xlsx
+      // This will match both exact userIds and userIds with suffixes (like userId_trial)
       const pattern = new RegExp(`users/([^/]+)/transcript_${transcriptId}_annotations.*\\.xlsx$`);
       const match = fileName.match(pattern);
       
@@ -145,9 +146,38 @@ export async function POST(request: NextRequest) {
     const bucket = gcs.bucket(bucketName);
     
     // Look for annotation files for this user and transcript
-    const [files] = await bucket.getFiles({
+    console.log(`Searching for transcript ${transcriptId} by user ${userId}`);
+    
+    // Try exact match first
+    let [files] = await bucket.getFiles({
       prefix: `users/${userId}/transcript_${transcriptId}_annotations`
     });
+
+    console.log(`Found ${files.length} files with exact match for users/${userId}/transcript_${transcriptId}_annotations`);
+
+    // If no exact match, search for folders that start with the userId (for backward compatibility)
+    if (files.length === 0) {
+      console.log(`No exact match, searching for folders starting with ${userId}`);
+      
+      // Get all files in users/ and find folders that start with userId
+      const [allFiles] = await bucket.getFiles({
+        prefix: 'users/'
+      });
+      
+      // Find files in folders that start with the userId (like userId_trial, userId_trial2, etc.)
+      const pattern = new RegExp(`users/(${userId}[^/]*)/transcript_${transcriptId}_annotations.*\\.xlsx$`);
+      
+      files = allFiles.filter(file => {
+        const match = file.name.match(pattern);
+        if (match) {
+          console.log(`Found matching file: ${file.name} in folder: ${match[1]}`);
+          return true;
+        }
+        return false;
+      });
+      
+      console.log(`Found ${files.length} files with pattern matching`);
+    }
 
     if (files.length === 0) {
       return NextResponse.json(

@@ -781,8 +781,29 @@ export default function MultiAnnotatorComparisonView({
       // Create a map of userId to selected files
       const selectedFilesMap: Record<string, string[]> = {};
       selectedTranscripts.forEach(transcriptKey => {
-        const [userId, ...fileParts] = transcriptKey.split('_');
-        const fileName = fileParts.join('_');
+        // Extract userId from the key format: "userId_fileName"
+        // Need to handle cases like "ddemszky_trial_transcript_t001_annotations_2025-07-18T23-23-10.xlsx"
+        // where userId is "ddemszky_trial" and fileName is "transcript_t001_annotations_2025-07-18T23-23-10.xlsx"
+        
+        const parts = transcriptKey.split('_');
+        let userId = '';
+        let fileName = '';
+        
+        // Look for the "transcript" keyword to find where fileName starts
+        const transcriptIndex = parts.findIndex(part => part === 'transcript');
+        if (transcriptIndex > 0) {
+          // Everything before "transcript" is the userId
+          userId = parts.slice(0, transcriptIndex).join('_');
+          // Everything from "transcript" onwards is the fileName
+          fileName = parts.slice(transcriptIndex).join('_');
+        } else {
+          // Fallback to original logic if no "transcript" keyword found
+          userId = parts[0];
+          fileName = parts.slice(1).join('_');
+        }
+        
+        console.log(`Extracted userId: ${userId}, fileName: ${fileName} from key: ${transcriptKey}`);
+        
         if (!selectedFilesMap[userId]) {
           selectedFilesMap[userId] = [];
         }
