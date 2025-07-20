@@ -1,4 +1,4 @@
-import tokenizer from "sbd";
+import * as sbd from "sbd";
 
 export const splitIntoSentences = (text: string): string[] => {
   const abbreviations = [
@@ -32,7 +32,7 @@ export const splitIntoSentences = (text: string): string[] => {
     "vs",
   ];
 
-  return tokenizer.sentences(text, {
+  return sbd.sentences(text, {
     abbreviations,
   });
 };
