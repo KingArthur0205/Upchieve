@@ -27,7 +27,7 @@ export default function TabComponent({ number }: TabComponentProps) {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="px-4 py-2 font-semibold text-lg rounded-md bg-gray-200 hover:bg-blue-500 hover:text-black"
+            className="px-4 py-2 font-semibold text-lg rounded-md bg-gray-200 text-gray-800 hover:bg-blue-500 hover:text-white"
           >
             {tab.label}
           </button>

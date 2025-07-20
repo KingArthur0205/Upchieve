@@ -43,3 +43,17 @@ input::placeholder, textarea::placeholder {
 option {
   color: #000000 !important;
 }
+
+/* Ensure buttons have consistent colors regardless of color scheme */
+button {
+  color: inherit;
+}
+
+/* Override any button color inheritance for better consistency */
+.bg-white button:not([class*="text-"]) {
+  color: #1f2937;
+}
+
+.bg-gray-100 button:not([class*="text-"]) {
+  color: #1f2937;
+}
